@@ -13,7 +13,7 @@ import { createLocalWhisperProvider, createLocalCleanupProvider } from './provid
 import { captureFocusedApp, getFocusedApp } from './focused-app'
 import { pasteText, probeFocusedAXRole, getPressTimeAXRolePromise } from './paste'
 import { logInfo, logError } from './log'
-import { NoSpeechError } from './errors'
+import { NoSpeechError, ModelUnsupportedError } from './errors'
 import { focusedAppRunningAiCli } from './terminal-ai-cli'
 import { classifyCodeSurface } from './ai-intent'
 import { cleanupSkipReason, cleanupRetryDecision, countWords } from './cleanup-policy'
@@ -119,6 +119,9 @@ async function withRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
     return await fn()
   } catch (err) {
     if (err instanceof NoSpeechError) throw err
+    // Retrying a model the binding cannot load just repeats the same
+    // failure and triples the delay before the user sees the reason.
+    if (err instanceof ModelUnsupportedError) throw err
     logError(`${label} failed (attempt 1) — retrying`, err)
     await new Promise(r => setTimeout(r, 250))
     try {

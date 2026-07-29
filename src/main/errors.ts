@@ -33,6 +33,16 @@ const NETWORK_HINTS = ['fetch failed', 'ENOTFOUND', 'ECONNREFUSED', 'getaddrinfo
 const AUTH_HINTS = ['401', 'Invalid API Key', 'invalid_api_key', 'Incorrect API key']
 const RATE_LIMIT_HINTS = ['429', 'rate_limit_exceeded', 'Rate limit reached']
 
+// A capability problem, not a transient one: the installed native
+// binding cannot run the selected model at all. Retrying re-runs the
+// same impossible call, so callers must treat this as terminal.
+export class ModelUnsupportedError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ModelUnsupportedError'
+  }
+}
+
 export function toUserError(err: unknown): UserError {
   if (err instanceof NoSpeechError) {
     // Terminal by construction: the same audio will always transcribe to

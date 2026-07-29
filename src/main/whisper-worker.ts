@@ -147,7 +147,21 @@ async function load(modelPath: string): Promise<[AnyContext, boolean]> {
   const entry: CacheEntry = { ctx: null, loading: null, lastUsed: Date.now() }
   // Parakeet is a separate context type in the binding, not a whisper
   // checkpoint — it needs initParakeet and rejects whisper's options.
-  const init = engineForModel(modelPath) === 'parakeet'
+  const wantsParakeet = engineForModel(modelPath) === 'parakeet'
+  // The Parakeet entry points only exist in @fugood/whisper.node >= 1.1.1.
+  // On an older INSTALLED binary (package.json can say 1.1.1 while
+  // node_modules still holds 1.0.18 until `npm install` runs) the import
+  // is simply undefined, and calling it produced a bare
+  // "initParakeet is not a function" that killed every dictation and got
+  // retried twice. Fail once, with something the user can act on.
+  if (wantsParakeet && typeof initParakeet !== 'function') {
+    throw new Error(
+      'The Instant (Parakeet) model needs @fugood/whisper.node 1.1.1 or newer, '
+      + 'but the installed binary does not have it. Run `npm install` and restart, '
+      + 'or pick another model tier in Settings.'
+    )
+  }
+  const init = wantsParakeet
     ? initParakeet({ filePath: modelPath, useGpu: true })
     : initWhisper({ filePath: modelPath, useGpu: true, useFlashAttn: true })
   entry.loading = init.then((c) => {
