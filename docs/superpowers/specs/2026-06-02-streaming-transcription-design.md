@@ -354,24 +354,47 @@ confirmed) surfaced issues that we fix **before** building chunking. Split into
 before the eval baseline is captured so the WER comparison is stable, but don't gate
 streaming structurally).
 
-### 0a. Ship-now correctness bugs — HYGIENE (run on every dictation, incl. local/no-LLM + code)
+### 0a. Ship-now correctness bugs — HYGIENE ✅ DONE (run on every dictation, incl. local/no-LLM + code)
 
 > These run downstream of the seam and don't gate streaming structurally — but they
 > **must merge before the §8 eval baseline is captured** so the WER comparison isn't
 > measuring these bugs.
 
-- **`applyQuestionMarks` splits on ANY period** (`pipeline.ts:539`) →
-  `"open app.tsx"`→`"open app?tsx"`, `"version 3.2"`→`"version 3?2"`. Guard against
-  intra-token periods; scope to no-LLM/code-safe paths. **[HIGH]**
-- **`applySelfCorrection` deletes real clauses** (`pipeline.ts:420`) →
-  `"I love Paris, actually Rome is better"`→`"I love Rome is better"`. Tighten the
-  NAME-vs-NAME rewrite. **[HIGH]**
-- **`"GPT for"`→`"GPT-4"`** (`pipeline.ts:273`) eats the preposition. Drop the rule. **[MED]**
-- **Discord bundle ID wrong** — `com.discord` vs real `com.hnc.Discord`. The bug is at
-  `pipeline.ts:309` (the `constants.ts:31` citation in earlier drafts is stale). **[MED]**
-- **Code-switching has zero prompt-level protection** (`prompts.ts`) — add an explicit
-  "preserve the user's language, including mid-sentence switches" instruction. The
-  artifact-stripping/loopback regexes are English-only and could leak foreign meta-text. **[MED]**
+**Status:** all five fixes shipped (the code fixes landed in `6458c13`; the regression
+suite that verifies them landed later — see below). The passes were module-private in
+`pipeline.ts` and therefore untestable, so they were extracted into two pure modules
+and locked with tests. **The eval baseline may now be captured.**
+
+- ✅ **`applyQuestionMarks` splits on ANY period** →
+  `"open app.tsx"`→`"open app?tsx"`, `"version 3.2"`→`"version 3?2"`. Fixed: a
+  terminator only counts when followed by whitespace or end-of-text.
+  `text-passes.ts`. **[HIGH]**
+- ✅ **`applySelfCorrection` deletes real clauses** →
+  `"I love Paris, actually Rome is better"`→`"I love Rome is better"`. Fixed:
+  `ACTUALLY_VALUE` excludes the NAME shape, so contrastive "actually" no longer
+  triggers a rewrite. `text-passes.ts`. **[HIGH]**
+- ✅ **`"GPT for"`→`"GPT-4"`** ate the preposition. Rule dropped. `text-passes.ts`. **[MED]**
+- ✅ **Discord bundle ID wrong** — now `com.hnc.Discord`. `routing.ts`. **[MED]**
+- ✅ **Code-switching has zero prompt-level protection** — `LANGUAGE_PRESERVATION`
+  block added to `prompts.ts` and spliced into every category *and* the custom-prompt
+  override, ahead of the (English) category template. **[MED]**
+
+**Found while verifying — also fixed:**
+
+- ✅ **`applyQuestionMarks` dropped the "?" after a leading vocative** — `"hey, are you
+  free tonight"` came back unchanged even though the function's own doc comment listed
+  it as handled: the interjection pushed the question opener outside the 3-word window
+  the opener check inspects. **[MED, new]**
+- ✅ **`applyQuestionMarks` corrupted statements after a title abbreviation** — `"Dr. Who
+  is coming"`→`"Dr. Who is coming?"`. Same root cause as the HIGH above (a period that
+  isn't a sentence boundary), just the whitespace-following variant. Guarded against
+  title/connector abbreviations only, so `"I said no. What do you want"` still gets its
+  "?". **[MED, new]**
+
+**Supporting refactor (also completes part of 0c):** the pure text passes moved to
+`src/main/text-passes.ts` and the pure app-routing helpers to `src/main/routing.ts`,
+both verbatim. Covered by `text-passes.test.ts`, `routing.test.ts` and
+`src/shared/prompts.test.ts` — 49 new tests; suite is 103 green.
 
 ### 0b. Dead-weight removal — HYGIENE (shrink the surface streaming touches)
 
@@ -400,6 +423,10 @@ streaming structurally).
   switch). Default **cache = 1 resident mid-stream**, evict-LRU (see §4.4 RAM note). **[HIGH]**
 - **Extract `runDictationPipeline`** (`pipeline.ts:786`, 260-line god fn) into
   routing / post-processing / paste units so the `:813` seam is clean. **[HIGH]**
+  — *partially done:* the pure **routing** (`routing.ts`) and **post-processing**
+  (`text-passes.ts`) units are extracted and tested (see 0a); `pipeline.ts` shrank
+  1172 → 631 lines. The remaining work is splitting `runDictationPipeline` itself
+  and the paste unit.
 - **Extract a session controller from `index.ts`** (716-line god file). **[MED]**
 - **Replace the stringly `broadcastState` protocol** with structured events. **[HIGH]**
 - **Structured chunk IPC** with session id + seq + isFinal. **[HIGH]**
