@@ -1,6 +1,6 @@
 import { execFile } from 'child_process'
-import { basename } from 'path'
 import { logError } from './log'
+import { parsePsArgs, findAiCliInTree } from './proc-tree'
 
 export const TERMINAL_BUNDLE_IDS: ReadonlySet<string> = new Set<string>([
   'com.apple.Terminal',          // Apple Terminal
@@ -14,22 +14,28 @@ export const TERMINAL_BUNDLE_IDS: ReadonlySet<string> = new Set<string>([
   'com.mitchellh.ghostty',       // Ghostty
 ])
 
-// macOS `ps` truncates `comm` to ~16 chars and may show the full path.
-// We match against the basename only. Keep this list focused on CLIs
-// that are interactive AI prompt surfaces — false-positive routing to
-// ai_prompt is acceptable but should be rare.
-const AI_CLI_BINARIES: ReadonlySet<string> = new Set<string>([
-  'claude',          // Claude Code CLI
-  'claude-code',     // alias
-  'cursor-agent',    // Cursor terminal agent
-  'aider',           // aider.chat
-  'gh',              // gh copilot
-  'copilot',         // gh-copilot standalone
-  'cody',            // Sourcegraph Cody
-  'gemini',          // Google gemini CLI
-  'codex',           // openai codex CLI
-  'goose',           // goose AI
+// Code editors that host an INTEGRATED terminal. An AI CLI launched there
+// (e.g. Claude Code in VS Code's terminal) runs as a descendant of the
+// editor's own process — NOT of a standalone-terminal bundle — so the
+// scan must root at the editor's pid (captured at focus time) instead of
+// pgrep'ing a terminal app. This is the fix for the biggest detection
+// gap: integrated terminals carry the editor bundleId, so the old
+// standalone-only gate never fired for them.
+export const EDITOR_TERMINAL_HOST_BUNDLES: ReadonlySet<string> = new Set<string>([
+  'com.todesktop.230313mzl4w4u92', // Cursor
+  'com.exafunction.windsurf',      // Windsurf
+  'com.microsoft.VSCode',          // VS Code
+  'dev.zed.zed',                   // Zed
+  'com.google.antigravity',        // Google Antigravity
+  'com.github.atom',               // Atom
+  'org.gnu.Emacs',                 // Emacs
+  'com.replit.ReplitDesktop',      // Replit
+  'com.apple.dt.Xcode',            // Xcode
 ])
+
+// The catalog of AI-CLI binaries (and the argv/wrapper/tmux matching) now
+// lives in proc-tree.ts (pure, unit-tested) — this module only does the
+// impure `ps`/pgrep plumbing and hands rows to findAiCliInTree.
 
 // AppleScript "tell application ... to unix id" needs the app's display
 // name, not the bundle ID. Map known terminals to their AppleScript name.
@@ -76,74 +82,55 @@ async function getTerminalPids(bundleId: string): Promise<number[]> {
   }
 }
 
-export async function focusedTerminalRunningAiCli(bundleId: string): Promise<{
-  isAiCli: boolean
-  cli?: string
-}> {
-  if (!TERMINAL_BUNDLE_IDS.has(bundleId)) return { isAiCli: false }
+// Is a known AI CLI running in (or reachable from) the focused app's
+// process subtree? For a standalone terminal we scan the descendants of
+// the terminal app's pids (resolved via pgrep). For a code editor we scan
+// the descendants of the editor's own pid (captured at focus time), which
+// covers AI CLIs running in its integrated terminal. Returns false fast
+// for any other app. Hard-capped by PROBE_TIMEOUT_MS — this is a free,
+// local SIGNAL on the hot path, never an LLM call.
+export async function focusedAppRunningAiCli(opts: {
+  bundleId: string
+  rootPid?: number
+}): Promise<{ isAiCli: boolean; cli?: string }> {
+  const { bundleId, rootPid } = opts
+  const isTerminal = TERMINAL_BUNDLE_IDS.has(bundleId)
+  const isEditorHost = EDITOR_TERMINAL_HOST_BUNDLES.has(bundleId)
+  if (!isTerminal && !isEditorHost) return { isAiCli: false }
 
   try {
-    const result = await Promise.race([
-      detectAiCli(bundleId),
+    return await Promise.race([
+      detectAiCli(bundleId, isTerminal, rootPid),
       new Promise<{ isAiCli: false }>((resolve) => {
         setTimeout(() => resolve({ isAiCli: false }), PROBE_TIMEOUT_MS + 30)
       }),
     ])
-    return result
   } catch (err) {
     logError('terminal-ai-cli probe failed', err)
     return { isAiCli: false }
   }
 }
 
-async function detectAiCli(bundleId: string): Promise<{ isAiCli: boolean, cli?: string }> {
-  const terminalPids = await getTerminalPids(bundleId)
-  if (terminalPids.length === 0) return { isAiCli: false }
+async function detectAiCli(
+  bundleId: string,
+  isTerminal: boolean,
+  rootPid?: number,
+): Promise<{ isAiCli: boolean; cli?: string }> {
+  // Resolve the pids to root the scan at.
+  const rootPids = isTerminal
+    ? await getTerminalPids(bundleId)
+    : rootPid && rootPid > 0 ? [rootPid] : []
+  if (rootPids.length === 0) return { isAiCli: false }
 
   let psOut: string
   try {
-    psOut = await execWithTimeout('/bin/ps', ['-axo', 'pid=,ppid=,comm='], PROBE_TIMEOUT_MS)
+    // Full argv (not truncated `comm`) so wrapper invocations
+    // (`node …/.bin/claude`, `npx @anthropic-ai/claude-code`, `uvx aider`)
+    // are visible to the matcher.
+    psOut = await execWithTimeout('/bin/ps', ['-axo', 'pid=,ppid=,args='], PROBE_TIMEOUT_MS)
   } catch {
     return { isAiCli: false }
   }
 
-  // Parse `ps` output into a child-of map: ppid -> pid[], plus a pid -> comm map.
-  const childrenOf = new Map<number, number[]>()
-  const commOf = new Map<number, string>()
-  for (const line of psOut.split('\n')) {
-    const trimmed = line.trimStart()
-    if (!trimmed) continue
-    const firstSpace = trimmed.indexOf(' ')
-    if (firstSpace < 0) continue
-    const pid = parseInt(trimmed.slice(0, firstSpace), 10)
-    const rest = trimmed.slice(firstSpace + 1).trimStart()
-    const secondSpace = rest.indexOf(' ')
-    if (secondSpace < 0) continue
-    const ppid = parseInt(rest.slice(0, secondSpace), 10)
-    const comm = rest.slice(secondSpace + 1).trim()
-    if (!Number.isFinite(pid) || !Number.isFinite(ppid)) continue
-    commOf.set(pid, comm)
-    const list = childrenOf.get(ppid)
-    if (list) list.push(pid)
-    else childrenOf.set(ppid, [pid])
-  }
-
-  // BFS descendants of every terminal pid. Match basename(comm) against
-  // the AI-CLI set. `ps comm` may include a full path on macOS for some
-  // shells; basename handles both forms.
-  const visited = new Set<number>()
-  const queue: number[] = [...terminalPids]
-  while (queue.length > 0) {
-    const pid = queue.shift()!
-    if (visited.has(pid)) continue
-    visited.add(pid)
-    const comm = commOf.get(pid)
-    if (comm) {
-      const name = basename(comm)
-      if (AI_CLI_BINARIES.has(name)) return { isAiCli: true, cli: name }
-    }
-    const kids = childrenOf.get(pid)
-    if (kids) queue.push(...kids)
-  }
-  return { isAiCli: false }
+  return findAiCliInTree(parsePsArgs(psOut), rootPids)
 }

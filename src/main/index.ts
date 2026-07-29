@@ -29,6 +29,23 @@ import { registerHotkey, unregisterAll } from './hotkeys'
 import { getSettings, setSettings } from './store'
 import { runCommandPipeline, runDictationPipeline } from './pipeline'
 import { captureFocusedApp, getFocusedApp } from './focused-app'
+import type { FocusedApp } from './focused-app'
+import {
+  initRecordingStore,
+  saveRecording,
+  readRecordingAudio,
+  deleteRecording,
+  listRecordings,
+  markAttempt,
+  sweepRecordings,
+  type RecordingContext,
+  type RecordingMeta,
+} from './recording-store'
+import {
+  retryDelayMs,
+  shouldAutoPaste,
+  MAX_STARTUP_RECOVERIES,
+} from './recording-recovery'
 import { captureSelectedText, clearSelectedText, getSelectedText } from './selection'
 import { pasteText, prewarmPasteHelper, shutdownPasteHelper, captureAXRoleAtPress, getPressTimeAXRolePromise } from './paste'
 import { prewarmWhisper } from './whisper-host'
@@ -459,6 +476,30 @@ function setupAudioIpc(): void {
     const commandMode = selection.trim().length >= 5
     clearSelectedText()
 
+    // Persist BEFORE running the pipeline. Until this landed, a dead
+    // whisper worker — the single most common failure in the wild — took
+    // the recording with it and there was nothing left to retry from.
+    // Fired alongside the pipeline rather than awaited: a 30s opus clip is
+    // ~90KB and finishes writing long before transcription does.
+    //
+    // The context saved here is the PRESS-time focus. The pipeline also
+    // refreshes focus at release (to catch "started in iMessage, finished
+    // in Gmail"), but that value doesn't exist yet, and press-time is the
+    // right answer for a replay anyway — it's the app the user was looking
+    // at when they started talking.
+    const recordingId = crypto.randomUUID()
+    const pressFocus = getFocusedApp()
+    const context: RecordingContext = {
+      bundleId: pressFocus.bundleId,
+      name: pressFocus.name,
+      category: pressFocus.category,
+      pid: pressFocus.pid,
+      commandMode,
+      selection,
+    }
+    const saved = saveRecording(recordingId, audioBuffer, context, Date.now())
+      .catch((err) => { logError('Failed to persist recording', err) })
+
     try {
       if (commandMode) {
         broadcastState('processing')
@@ -482,6 +523,12 @@ function setupAudioIpc(): void {
         // '(rewrite)' entries from its input list.
         markDictationActive()
         updateTrayMenu()
+        // Text delivered (a clipboard fallback still counts — it's on the
+        // clipboard, in history, and in the popup), so the audio has done
+        // its job. Await the write first so we can't race a half-written
+        // file into an undeletable orphan.
+        await saved
+        await deleteRecording(recordingId)
 
         if (stillLatest()) {
           const isClipboard = method === 'clipboard'
@@ -520,6 +567,8 @@ function setupAudioIpc(): void {
         markDictationActive()
       }
       updateTrayMenu()
+      await saved
+      await deleteRecording(recordingId)
 
       if (stillLatest()) {
         const isClipboard = result.pasteMethod === 'clipboard'
@@ -544,6 +593,12 @@ function setupAudioIpc(): void {
       if (userErr.code !== 'NO_SPEECH') {
         logError('Pipeline error', err)
       }
+      // The audio survives this. Hand it to the retry machinery before
+      // touching the indicator so the recording is durable even if the
+      // window work throws.
+      await saved
+      await handleRecordingFailure(recordingId, err)
+
       if (stillLatest()) {
         broadcastState(`error:${userErr.userMessage}`)
         const dismissAfter = userErr.code === 'NO_SPEECH' ? 2200 : 4000
@@ -553,6 +608,145 @@ function setupAudioIpc(): void {
       }
     }
   })
+}
+
+// A pipeline run failed. Decide what happens to the audio on disk.
+async function handleRecordingFailure(id: string, err: unknown): Promise<void> {
+  const userErr = toUserError(err)
+
+  if (userErr.disposition === 'drop') {
+    await deleteRecording(id)
+    return
+  }
+
+  const meta = await markAttempt(id, userErr.code)
+  // Gone already — a concurrent success or a retention sweep won the race.
+  if (!meta) return
+
+  if (userErr.disposition === 'park') {
+    // Nothing to gain from spinning: the same audio will fail identically
+    // until the user adds or fixes a key. Kept on disk; the next launch
+    // gives it another go, by which time they may have fixed it.
+    logInfo('Recording parked for later recovery', { id, code: userErr.code, attempts: meta.attempts })
+    return
+  }
+
+  const delay = retryDelayMs(meta.attempts)
+  if (delay === null) {
+    logInfo('Recording retries exhausted — audio kept for next launch', {
+      id, attempts: meta.attempts, code: userErr.code,
+    })
+    return
+  }
+  logInfo('Recording retry scheduled', { id, attempts: meta.attempts, delayMs: delay, code: userErr.code })
+  setTimeout(() => { void retryRecording(id) }, delay)
+}
+
+// Re-run the pipeline against audio already on disk, replaying the focus
+// context it was recorded with.
+async function retryRecording(id: string): Promise<void> {
+  const meta = (await listRecordings()).find((m) => m.id === id)
+  if (!meta) return
+
+  const audio = await readRecordingAudio(id)
+  if (!audio) {
+    // Sidecar without audio can never be replayed — drop the pair.
+    await deleteRecording(id)
+    return
+  }
+
+  const focusOverride: FocusedApp = {
+    bundleId: meta.context.bundleId,
+    name: meta.context.name,
+    category: meta.context.category,
+    pid: meta.context.pid,
+  }
+
+  logInfo('Retrying recording', { id, attempts: meta.attempts, app: meta.context.name })
+  try {
+    let text: string
+    if (meta.context.commandMode) {
+      text = await runCommandPipeline(audio, meta.context.selection, getSettings(), focusOverride)
+      addToHistory({
+        id: crypto.randomUUID(),
+        transcript: '(rewrite)',
+        cleaned: text,
+        appName: meta.context.name,
+        appCategory: meta.context.category,
+        timestamp: Date.now(),
+      })
+    } else {
+      // No state/partial callbacks: a retry must never repaint the
+      // indicator, which may be mid-recording for a newer dictation.
+      // `replay` also suppresses the pipeline's internal paste so
+      // deliverRecovered's safety gate is the only thing that can insert.
+      const result = await runDictationPipeline(
+        audio, getSettings(), () => {}, undefined, { focus: focusOverride },
+      )
+      text = result.cleaned
+      addToHistory(result)
+    }
+    markDictationActive()
+    updateTrayMenu()
+    await deleteRecording(id)
+    await deliverRecovered(text, meta)
+  } catch (err) {
+    logError('Recording retry failed', err)
+    await handleRecordingFailure(id, err)
+  }
+}
+
+// Get recovered text to the user without ever pasting it somewhere they
+// didn't intend.
+async function deliverRecovered(text: string, meta: RecordingMeta): Promise<void> {
+  // Read CURRENT focus, not the cache — the cached value is from whenever
+  // the last pipeline ran and would defeat the whole point of the check.
+  await captureFocusedApp()
+  const current = getFocusedApp().bundleId
+  const elapsed = Date.now() - meta.timestamp
+
+  if (shouldAutoPaste(meta.context.bundleId, current, elapsed)) {
+    const { method } = await pasteText(text, { skipAxGate: true })
+    if (method === 'paste') {
+      logInfo('Recovered dictation pasted', { app: meta.context.name, elapsedMs: elapsed })
+      return
+    }
+  }
+
+  // Same affordance as a failed paste: click-to-insert, cannot land
+  // anywhere unintended, and the text is on the clipboard regardless.
+  logInfo('Recovered dictation offered via fallback', {
+    app: meta.context.name, elapsedMs: elapsed, chars: text.length,
+  })
+  showPasteFallback(text)
+}
+
+// Replay recordings orphaned by a hard crash or quit mid-pipeline. Runs
+// sequentially so a backlog can't stampede the whisper worker, and the
+// elapsed-time gate in deliverRecovered guarantees none of these can
+// auto-paste — they all land in the click-to-insert popup.
+async function recoverOrphansAtStartup(): Promise<void> {
+  try {
+    const swept = await sweepRecordings(Date.now())
+    if (swept > 0) logInfo('Recording retention sweep', { removed: swept })
+
+    const metas = await listRecordings()
+    if (metas.length === 0) return
+
+    // Newest first — those are the ones the user still cares about.
+    const ordered = [...metas].reverse()
+    const batch = ordered.slice(0, MAX_STARTUP_RECOVERIES)
+    const deferred = ordered.length - batch.length
+    logInfo('Recovering orphaned recordings', {
+      found: ordered.length, recovering: batch.length, deferred,
+    })
+
+    for (const meta of batch) {
+      await retryRecording(meta.id)
+    }
+  } catch (err) {
+    logError('Startup recording recovery failed', err)
+  }
 }
 
 function setupIpcListeners(): void {
@@ -655,6 +849,9 @@ app.whenReady().then(() => {
     app.dock?.hide()
   }
 
+  // Must precede setupAudioIpc — the first AUDIO_DONE writes through it.
+  initRecordingStore(join(app.getPath('userData'), 'recordings'))
+
   registerIpcHandlers()
   setupAudioIpc()
   setupIpcListeners()
@@ -704,6 +901,11 @@ app.whenReady().then(() => {
   if (settings.firstRun) {
     createOnboardingWindow()
   }
+
+  // Sweep retention and replay anything a crash left behind. Deliberately
+  // last and un-awaited: it transcribes, so it must not delay the tray,
+  // hotkeys, or the indicator becoming usable.
+  void recoverOrphansAtStartup()
 })
 
 app.on('window-all-closed', () => {

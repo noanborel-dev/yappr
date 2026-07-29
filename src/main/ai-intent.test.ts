@@ -44,42 +44,48 @@ describe('classifyCodeSurface', () => {
     ).toBe('reformat')
   })
 
-  it('FP1: AI CLI + strong spoken cue caps at faithful_ai, NEVER the destructive reformat', () => {
+  it('Option C: a detected AI CLI alone (no spoken cue) → reformat', () => {
+    const r = classifyCodeSurface({
+      ...base,
+      terminalAiCli: { isAiCli: true },
+      transcript: 'add a retry around the whisper worker spawn',
+    })
+    expect(r.register).toBe('reformat')
+    expect(r.reason).toBe('ai-cli-detected')
+  })
+
+  it('AI CLI + strong spoken cue → reformat', () => {
     const r = classifyCodeSurface({
       ...base,
       terminalAiCli: { isAiCli: true, cli: 'claude' },
       transcript: 'hey claude rename getCwd',
     })
-    expect(r.register).toBe('faithful_ai')
+    expect(r.register).toBe('reformat')
   })
 
-  it('Option B: a detected AI CLI alone (no spoken cue) → faithful_ai', () => {
-    const r = classifyCodeSurface({
-      ...base,
-      terminalAiCli: { isAiCli: true },
-      transcript: 'git rebase -i main',
-    })
-    expect(r.register).toBe('faithful_ai')
-  })
-
-  it('INVARIANT: a detected CLI never reaches reformat, even beside an unreadable textarea', () => {
+  it('a detected CLI reformats even where the editor is AX-opaque (VS Code, Cursor)', () => {
     const r = classifyCodeSurface({
       ...base,
       terminalAiCli: { isAiCli: true },
       axRole: 'AXTextArea',
-      isAxReadable: false, // editor is AX-opaque: not a localized signal
+      isAxReadable: false, // Electron editor: the AX probe tells us nothing
       transcript: 'rename getCwd to getWorkingDir',
     })
-    expect(r.register).toBe('faithful_ai')
+    expect(r.register).toBe('reformat')
   })
 
-  it('AI CLI + strong cue → faithful_ai', () => {
+  it('SURVIVING INVARIANT: spoken words alone never reach reformat', () => {
+    // The CLI exception is deliberate and scoped to a detected PROCESS.
+    // A transcript that merely mentions an AI, with no tool running, must
+    // still cap at faithful — otherwise dictating *about* Claude into a
+    // file would restructure the sentence.
     const r = classifyCodeSurface({
       ...base,
-      terminalAiCli: { isAiCli: true },
-      transcript: 'ask claude to fix the flaky test',
+      terminalAiCli: { isAiCli: false },
+      transcript: 'the claude api call needs a retry here',
     })
     expect(r.register).toBe('faithful_ai')
+    expect(r.register).not.toBe('reformat')
   })
 
   it('FP2: no CLI, generic transcript, weak-cue setting off → code', () => {

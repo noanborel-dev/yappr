@@ -14,7 +14,8 @@ import { captureFocusedApp, getFocusedApp } from './focused-app'
 import { pasteText, probeFocusedAXRole, getPressTimeAXRolePromise } from './paste'
 import { logInfo, logError } from './log'
 import { NoSpeechError } from './errors'
-import { focusedTerminalRunningAiCli, TERMINAL_BUNDLE_IDS } from './terminal-ai-cli'
+import { focusedAppRunningAiCli } from './terminal-ai-cli'
+import { classifyCodeSurface } from './ai-intent'
 
 // Apps that are PRIMARILY AI chat surfaces. Dictation here is always
 // a prompt to an AI assistant — route to 'ai_prompt' regardless of
@@ -258,6 +259,9 @@ function canSkipCleanup(
 const QUICK_FIXES: Array<[RegExp, string]> = [
   // "cloud" → "Claude" only when followed by Claude-y context
   [/\bcloud(?=\s+(?:code|opus|sonnet|haiku|api|agent|sdk|desktop|model|terminal|3\.\d|4\.\d))/gi, 'Claude'],
+  // "clawed" → "Claude", the other way whisper mangles it. Same guarded
+  // lookahead so the ordinary verb survives ("the cat clawed the sofa").
+  [/\bclawed(?=\s+(?:code|opus|sonnet|haiku|api|agent|sdk|desktop|model|terminal|3\.\d|4\.\d))/gi, 'Claude'],
   // "Cloud Code" capitalization
   [/\bClaude\s+code\b/g, 'Claude Code'],
   // common bigrams
@@ -809,7 +813,17 @@ export async function runDictationPipeline(
   // words as whisper produces them on long clips. No-op for cloud
   // providers that don't stream.
   onPartial?: (text: string) => void,
-): Promise<DictationResult & { pasteMethod: 'paste' | 'clipboard' }> {
+  // Replay of a recording recovered from disk (see recording-store.ts).
+  // Two effects, both essential:
+  //   1. the focused-app refresh below is SKIPPED in favour of this
+  //      snapshot — a retry running 30s (or a restart) later must be
+  //      polished for the app the user actually dictated into, not
+  //      whatever is frontmost now;
+  //   2. the pipeline does NOT paste. Delivery is the caller's job,
+  //      because by now the user may be somewhere else entirely and
+  //      pasting would dump text into the wrong window.
+  replay?: { focus: FocusedApp },
+): Promise<DictationResult & { pasteMethod: 'paste' | 'clipboard' | 'deferred' }> {
   const start = Date.now()
   onState('processing')
 
@@ -823,15 +837,15 @@ export async function runDictationPipeline(
   // Whisper call are async, so this adds no hot-path latency — the
   // ~50–150ms osascript completes during transcription's network
   // roundtrip. Read the value AFTER both have resolved.
-  const refreshFocusedApp = captureFocusedApp()
+  const refreshFocusedApp = replay ? null : captureFocusedApp()
 
   const tStart = Date.now()
   const transcript = (await withRetry('Transcription', () =>
     transcription.transcribe(audioBuffer, { dictionary, onPartial }))).trim()
   logInfo('Transcribed', { ms: Date.now() - tStart, chars: transcript.length, preview: transcript.slice(0, 60) })
 
-  await refreshFocusedApp
-  const focusedApp = getFocusedApp()
+  if (refreshFocusedApp) await refreshFocusedApp
+  const focusedApp = replay?.focus ?? getFocusedApp()
 
   const category = settings.devModeApps.includes(focusedApp.bundleId)
     ? ('code' as const)
@@ -862,22 +876,51 @@ export async function runDictationPipeline(
   //
   // The press-time AX-role probe (paste.ts) is fired at hotkey press
   // and resolves by now (overlapped with transcription). Reuse it.
+  //
+  // The decision itself is pure (classifyCodeSurface, ai-intent.ts) and
+  // adversarially tested; here we only gather the FREE signals it needs —
+  // none of which is an LLM call:
+  //   - the press-time AX role (overlapped with transcription)
+  //   - whether a known AI CLI runs in the focused terminal / the editor's
+  //     integrated-terminal subtree (a local `ps` scan, hard-capped)
+  // Three outcomes:
+  //   reformat    → ai_prompt (aggressive restructure into a markdown prompt)
+  //   faithful_ai → stay code, but force the LLM to run a verbatim cleanup
+  //                 (fixes "cloud"→"Claude" mishears without restructuring)
+  //   code        → unchanged; the verbatim fast path stays eligible
+  let runFaithfulAi = false
   if (effectiveCategory === 'code' || PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId)) {
     const axRole = await (getPressTimeAXRolePromise() ?? Promise.resolve('script-error'))
-    const isAiChat = PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId)
-      || (effectiveCategory === 'code' && CODE_APP_AI_CHAT_ROLES.has(axRole))
-    if (isAiChat) {
+    const isAxReadable = axRole !== 'no-focus' && axRole !== 'script-error'
+
+    // Only code surfaces have an integrated terminal worth scanning; the
+    // primary AI chat apps route on bundleId alone.
+    const terminalAiCli = effectiveCategory === 'code'
+      ? await focusedAppRunningAiCli({ bundleId: focusedApp.bundleId, rootPid: focusedApp.pid })
+      : { isAiCli: false as const }
+
+    const surface = classifyCodeSurface({
+      category: effectiveCategory,
+      transcript,
+      bundleId: focusedApp.bundleId,
+      axRole,
+      isAxReadable,
+      terminalAiCli,
+      isPrimaryAiBundle: PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId),
+      browserAiRouted: false,   // Phase 6: browser AI-URL detection
+      weakCueSettingOn: false,  // not yet exposed as a user setting
+    })
+
+    if (surface.register === 'reformat') {
       effectiveCategory = 'ai_prompt'
-      logInfo('Routed to ai_prompt', { bundleId: focusedApp.bundleId, axRole })
-    } else if (effectiveCategory === 'code' && TERMINAL_BUNDLE_IDS.has(focusedApp.bundleId)) {
-      const cliCheck = await focusedTerminalRunningAiCli(focusedApp.bundleId)
-      if (cliCheck.isAiCli) {
-        effectiveCategory = 'ai_prompt'
-        logInfo('Routed to ai_prompt (terminal AI CLI)', {
-          bundleId: focusedApp.bundleId,
-          cli: cliCheck.cli,
-        })
-      }
+      logInfo('Routed to ai_prompt (reformat)', {
+        bundleId: focusedApp.bundleId, axRole, reason: surface.reason,
+      })
+    } else if (surface.register === 'faithful_ai') {
+      runFaithfulAi = true
+      logInfo('Routed to faithful_ai', {
+        bundleId: focusedApp.bundleId, cli: terminalAiCli.cli, reason: surface.reason,
+      })
     }
   }
 
@@ -928,10 +971,13 @@ export async function runDictationPipeline(
     // downstream regex passes (brand names, dictionary, self-
     // correction, spelled-name collapse, question marks) still run.
     logInfo('Cleanup skipped (user-paused)', { chars: transcript.length })
-  } else if (canSkipCleanup(transcript, effectiveCategory, effectiveStrictness)) {
+  } else if (!runFaithfulAi && canSkipCleanup(transcript, effectiveCategory, effectiveStrictness)) {
     // Only fires for code-category dictations with no filler/stutter/
     // correction markers. Every non-code category runs the LLM
     // regardless of strictness — strictness controls HOW it cleans.
+    // runFaithfulAi forces the LLM on (the user is prompting an AI in a
+    // code surface, so we must run the faithful cleanup to fix "cloud"→
+    // "Claude" and similar mishears the fast path would leave uncorrected).
     logInfo('Cleanup skipped (fast path)', { chars: transcript.length })
   } else {
     const editor = IDE_EDITORS[focusedApp.bundleId]
@@ -1017,21 +1063,30 @@ export async function runDictationPipeline(
   // — see CORRECTION_REWRITES.
   cleaned = applySelfCorrection(cleaned)
 
-  // Collapse spelled-out letters into joined words ALWAYS — the user
-  // never wants hyphenated letters in their final output:
-  //   "Julia, J-U-L-I-A" → "Julia"  (redundant spelling dropped)
-  //   "text me J-U-L-I-A" → "text me Julia"  (standalone collapse)
-  //   "Julia, J-A-N-E"    → "Jane"  (user re-spelled; spelled version wins)
-  // Runs BEFORE question-mark normalization so collapsed sentences
-  // are correctly punctuated.
-  cleaned = applySpelledNameCollapse(cleaned)
+  // The next two passes are DESTRUCTIVE for code — they rewrite content
+  // that is legitimate in a coding/AI-prompt surface — so we skip them
+  // whenever the surface is code (both the verbatim fast path and the
+  // faithful_ai LLM path keep effectiveCategory === 'code'). A dictated
+  // identifier spelled out letter-by-letter, or a line that merely reads
+  // like a question (`grep foo bar`), must survive untouched; the LLM
+  // already handles punctuation in the faithful path.
+  if (effectiveCategory !== 'code') {
+    // Collapse spelled-out letters into joined words — the user never
+    // wants hyphenated letters in prose:
+    //   "Julia, J-U-L-I-A" → "Julia"  (redundant spelling dropped)
+    //   "text me J-U-L-I-A" → "text me Julia"  (standalone collapse)
+    //   "Julia, J-A-N-E"    → "Jane"  (user re-spelled; spelled version wins)
+    // Runs BEFORE question-mark normalization so collapsed sentences
+    // are correctly punctuated.
+    cleaned = applySpelledNameCollapse(cleaned)
 
-  // Question-mark normalization: sentences shaped like questions
-  // ("do you want to go", "are you free tonight") get "?" appended
-  // or swapped from "." → "?". Statements like "I know what you mean"
-  // are left alone via the STATEMENT_OPENER_RE guard. See
-  // applyQuestionMarks for the full opener list + heuristics.
-  cleaned = applyQuestionMarks(cleaned)
+    // Question-mark normalization: sentences shaped like questions
+    // ("do you want to go", "are you free tonight") get "?" appended
+    // or swapped from "." → "?". Statements like "I know what you mean"
+    // are left alone via the STATEMENT_OPENER_RE guard. See
+    // applyQuestionMarks for the full opener list + heuristics.
+    cleaned = applyQuestionMarks(cleaned)
+  }
 
   // Await the emoji judge (fired in parallel above) and append. The
   // emoji is appended to the CLEANED text, not stuffed in mid-sentence,
@@ -1044,8 +1099,14 @@ export async function runDictationPipeline(
     logInfo('Emoji appended', { emoji })
   }
 
-  const { method: pasteMethod } = await pasteText(cleaned, { rolePromise: axRolePromise })
-  logInfo('Pasted', {
+  // A replay hands the text back instead of pasting it — see the `replay`
+  // parameter. Pasting here would ignore the caller's same-app/elapsed
+  // safety gate and could land the text in a window the user never
+  // intended, which is the whole failure mode recovery exists to avoid.
+  const pasteMethod = replay
+    ? ('deferred' as const)
+    : (await pasteText(cleaned, { rolePromise: axRolePromise })).method
+  logInfo(replay ? 'Replay cleaned (delivery deferred to caller)' : 'Pasted', {
     method: pasteMethod,
     totalMs: Date.now() - start,
     app: focusedApp.name,
@@ -1101,7 +1162,11 @@ function looksLikeMarkdown(text: string): boolean {
 export async function runCommandPipeline(
   audioBuffer: Buffer,
   selectedText: string,
-  settings: Settings
+  settings: Settings,
+  // Same focus-replay semantics as runDictationPipeline. No paste-related
+  // effect here: this pipeline already returns its text for the caller to
+  // deliver rather than pasting it itself.
+  focusOverride?: FocusedApp,
 ): Promise<string> {
   // Command mode ("rewrite my selection with this voice instruction")
   // fundamentally requires an LLM — there's no regex-able way to
@@ -1116,13 +1181,13 @@ export async function runCommandPipeline(
   const dictionary = buildDictionary(settings)
   // Same release-time refresh as the dictation pipeline — see comment
   // there. The user may have moved between apps mid-recording.
-  const refreshFocusedApp = captureFocusedApp()
+  const refreshFocusedApp = focusOverride ? null : captureFocusedApp()
 
   const command = await withRetry('Transcription', () =>
     transcription.transcribe(audioBuffer, { dictionary }))
 
-  await refreshFocusedApp
-  const focusedApp = getFocusedApp()
+  if (refreshFocusedApp) await refreshFocusedApp
+  const focusedApp = focusOverride ?? getFocusedApp()
 
   // Markdown-preservation rule. The 8B model flattens structured
   // input into a single paragraph by default. If the selection has

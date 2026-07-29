@@ -11,6 +11,12 @@ import type { AppCategory } from '../shared/types'
 // to FAITHFUL_AI (run the LLM, fix brand names, but preserve every word).
 // REFORMAT requires a focus-LOCALIZED signal (the user is literally in a
 // known AI chat surface).
+//
+// AMENDED 2026-07-29 — the invariant now has exactly ONE deliberate
+// exception: a detected AI CLI routes to REFORMAT (see rule 1b). Spoken
+// words alone still cannot; that half of the invariant is intact and still
+// enforced by test. Any NEW signal added here inherits the original rule
+// unless it is explicitly argued otherwise.
 
 export type AiCue = 'strong' | 'weak' | 'none'
 export type CodeRegister = 'reformat' | 'faithful_ai' | 'code'
@@ -129,19 +135,27 @@ export function classifyCodeSurface(input: CodeSurfaceInput): CodeSurfaceResult 
     return { register: 'reformat', reason: 'readable-chat-textarea' }
   }
 
-  // 2) FAITHFUL_AI — run the LLM, stay faithful. Reachable by focus-DECOUPLED
-  //    signals (a background AI CLI, words merely spoken), but NEVER reformat.
+  // 1b) REFORMAT — a DETECTED AI CLI in the focused app's process subtree.
   //
-  // Option B (user decision 2026-06-03): a DETECTED AI CLI in the focused
-  // editor's process subtree is sufficient on its own — if Claude Code / Codex
-  // / Cursor is running where you're working, you're prompting an AI, so run
-  // the faithful cleanup even when you never spoke an AI name. This is safe
-  // precisely because faithful is non-destructive (fixes brand-name mishears,
-  // preserves every word): a false positive costs one extra Groq call, never a
-  // mangled transcript. That is also why a decoupled CLI signal can stop here
-  // but can never reach the destructive REFORMAT path above.
-  if (input.terminalAiCli?.isAiCli) return { register: 'faithful_ai', reason: 'ai-cli-detected' }
+  // Option C (user decision 2026-07-29), superseding Option B: "when Claude
+  // Code is detected, it should start writing things in a clear way." If an
+  // agent CLI is running where you are working, you are overwhelmingly
+  // talking TO it, and the product's value there is producing a well-shaped
+  // prompt — not a verbatim transcript.
+  //
+  // This DELIBERATELY relaxes the original invariant (a focus-decoupled
+  // signal never reaching destructive reformat). The accepted cost: dictating
+  // a code comment into the editor pane while an agent runs in the integrated
+  // terminal gets restructured, because a process scan cannot see where the
+  // caret is. The other three reformat routes above remain focus-localized;
+  // this is the single deliberate exception, and it is the one the user asked
+  // for. Revisit by gating on caret position if editor-pane dictation ever
+  // becomes common.
+  if (input.terminalAiCli?.isAiCli) return { register: 'reformat', reason: 'ai-cli-detected' }
 
+  // 2) FAITHFUL_AI — run the LLM, stay faithful. Reached when the user merely
+  //    SPOKE an AI name with no tool detected: enough to fix "cloud"→"Claude"
+  //    and friends, not enough to justify restructuring their words.
   const cue = detectAiAddressing(input.transcript)
   if (cue === 'strong') return { register: 'faithful_ai', reason: 'strong-cue' }
   // Opt-in: escalate on a weak spoken cue even when no tool was detected —

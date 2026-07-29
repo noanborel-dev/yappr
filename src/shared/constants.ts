@@ -46,6 +46,16 @@ export const APP_CATEGORY_MAP: Record<string, AppCategory> = {
   'com.github.atom': 'code',
   'org.gnu.Emacs': 'code',
   'com.replit.ReplitDesktop': 'code',
+  // The rest of TERMINAL_BUNDLE_IDS (terminal-ai-cli.ts). These were listed
+  // for AI-CLI scanning but missing here, so they resolved to 'other' — and
+  // since the routing block is gated on category === 'code', the scan could
+  // never run for them and they got prose cleanup on shell commands.
+  'com.github.wez.wezterm': 'code',           // WezTerm
+  'org.alacritty': 'code',                    // Alacritty
+  'net.kovidgoyal.kitty': 'code',             // Kitty
+  'co.zeit.hyper': 'code',                    // Hyper
+  'org.tabby': 'code',                        // Tabby
+  'com.mitchellh.ghostty': 'code',            // Ghostty
   'notion.id': 'docs',
   'md.obsidian': 'docs',
   'com.microsoft.Word': 'docs',

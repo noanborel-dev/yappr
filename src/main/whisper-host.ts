@@ -37,6 +37,16 @@ interface PendingRequest {
 }
 
 let proc: ChildProcess | null = null
+// When the host itself tears the worker down (app quitting), the child
+// dies by signal and reports `code: null` — identical on the wire to a
+// segfault or an OOM kill. Without this flag every clean shutdown was
+// logged as `Whisper worker exited {code: null}` at ERROR level, which is
+// why the log showed a pile of "crashes" that were mostly just quits.
+let expectedExit = false
+// Spawn time, so an exit can report how long the worker survived. A death
+// seconds into a transcribe reads very differently from one after an hour
+// of idling.
+let procStartedAt = 0
 let readyPromise: Promise<void> | null = null
 let loadedModelPath: string | null = null
 let loadingModelPath: string | null = null
@@ -74,13 +84,33 @@ function ensureProc(): Promise<void> {
       execPath: process.execPath,
     })
     proc = child
+    procStartedAt = Date.now()
+    expectedExit = false
+    logInfo('Whisper worker spawned', { pid: child.pid })
 
     child.on('message', (msg: unknown) => {
       handleWorkerMessage(msg as Record<string, unknown>, resolve, reject)
     })
 
-    child.on('exit', (code) => {
-      logError('Whisper worker exited', { code })
+    child.on('exit', (code, signal) => {
+      // `signal` is the field that actually identifies the cause and was
+      // previously discarded: SIGTERM is us (or the dev-server restart),
+      // SIGKILL is the OS reaping us (memory pressure), SIGSEGV/SIGABRT is
+      // a genuine fault inside whisper.cpp. `inFlight` separates a death
+      // that cost the user a dictation from one that cost nothing.
+      const detail = {
+        code,
+        signal,
+        pid: child.pid,
+        uptimeMs: Date.now() - procStartedAt,
+        inFlight: pending.size,
+        model: loadedModelPath,
+      }
+      if (expectedExit) {
+        logInfo('Whisper worker stopped', detail)
+      } else {
+        logError('Whisper worker exited unexpectedly', detail)
+      }
       for (const [, req] of pending) {
         req.reject(new Error(`Whisper worker exited (code ${code})`))
       }
@@ -244,6 +274,9 @@ export function prewarmWhisper(modelPath: string): void {
 
 app.on('will-quit', () => {
   if (proc) {
+    // Mark BEFORE killing so the exit handler files this as a normal stop
+    // rather than a crash.
+    expectedExit = true
     try { proc.kill() } catch { /* ignore */ }
     proc = null
   }
