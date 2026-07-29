@@ -44,23 +44,17 @@ describe('classifyCodeSurface', () => {
     ).toBe('reformat')
   })
 
-  it('Option C: a detected AI CLI alone (no spoken cue) → reformat', () => {
+  const REAL_PROMPT =
+    "I think there's an issue because it's taking forever for things to paste, just check the logs and fix it"
+
+  it('Option C: a detected AI CLI + a substantial dictation → reformat', () => {
     const r = classifyCodeSurface({
       ...base,
       terminalAiCli: { isAiCli: true },
-      transcript: 'add a retry around the whisper worker spawn',
+      transcript: REAL_PROMPT,
     })
     expect(r.register).toBe('reformat')
     expect(r.reason).toBe('ai-cli-detected')
-  })
-
-  it('AI CLI + strong spoken cue → reformat', () => {
-    const r = classifyCodeSurface({
-      ...base,
-      terminalAiCli: { isAiCli: true, cli: 'claude' },
-      transcript: 'hey claude rename getCwd',
-    })
-    expect(r.register).toBe('reformat')
   })
 
   it('a detected CLI reformats even where the editor is AX-opaque (VS Code, Cursor)', () => {
@@ -69,9 +63,32 @@ describe('classifyCodeSurface', () => {
       terminalAiCli: { isAiCli: true },
       axRole: 'AXTextArea',
       isAxReadable: false, // Electron editor: the AX probe tells us nothing
-      transcript: 'rename getCwd to getWorkingDir',
+      transcript: REAL_PROMPT,
     })
     expect(r.register).toBe('reformat')
+  })
+
+  // Latency regression, 2026-07-29: reformatting EVERY dictation pushed paste
+  // from ~1.4s to 3–7s and mangled short input (46 chars in, 27 out).
+  it('LATENCY: a short aside beside a running CLI takes the cheap path, not reformat', () => {
+    for (const transcript of [
+      'let us see how well this works',
+      'just wanted to see how quick this thing works',
+      'yeah that works',
+    ]) {
+      const r = classifyCodeSurface({ ...base, terminalAiCli: { isAiCli: true }, transcript })
+      expect(r.register, transcript).toBe('faithful_ai')
+      expect(r.reason, transcript).toBe('ai-cli-detected-short')
+    }
+  })
+
+  it('a short dictation with a spoken AI name still only reaches faithful', () => {
+    const r = classifyCodeSurface({
+      ...base,
+      terminalAiCli: { isAiCli: true, cli: 'claude' },
+      transcript: 'hey claude rename getCwd',
+    })
+    expect(r.register).toBe('faithful_ai')
   })
 
   it('SURVIVING INVARIANT: spoken words alone never reach reformat', () => {

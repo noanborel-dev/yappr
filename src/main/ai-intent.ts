@@ -103,6 +103,18 @@ export function detectAiAddressing(transcript: string): AiCue {
   return 'none'
 }
 
+// Word count below which a dictation is an aside, not a prompt worth
+// restructuring. Calibrated against real usage: "let's see how well this
+// works" (6) and "just wanted to see how quick this thing works" (9) are
+// asides; "I think there's an issue because it's taking forever for things
+// to paste, just check the logs and fix" (20) is a genuine instruction to
+// an agent and does deserve shaping.
+export const MIN_REFORMAT_WORDS = 12
+
+export function hasPromptSubstance(transcript: string): boolean {
+  return transcript.trim().split(/\s+/).filter(Boolean).length >= MIN_REFORMAT_WORDS
+}
+
 export interface CodeSurfaceInput {
   category: AppCategory
   transcript: string
@@ -151,7 +163,21 @@ export function classifyCodeSurface(input: CodeSurfaceInput): CodeSurfaceResult 
   // this is the single deliberate exception, and it is the one the user asked
   // for. Revisit by gating on caret position if editor-pane dictation ever
   // becomes common.
-  if (input.terminalAiCli?.isAiCli) return { register: 'reformat', reason: 'ai-cli-detected' }
+  //
+  // Gated on LENGTH. Reformat sends a large markdown-template system prompt
+  // (plus the context block) and restructures the text — worth it for a real
+  // prompt, ruinous for an aside. Measured on 2026-07-29: routing every
+  // dictation through it took paste latency from ~1.4s to 3–7s, because the
+  // heavy prompt on every clip chews through the 6000 TPM Groq budget and
+  // starts getting rate-limited. It also mangles short input (46 chars in,
+  // 27 out). The ai_prompt template's own sections are specified for input
+  // of "2+ sentences", so anything shorter has no business there — it takes
+  // the cheap faithful path instead, which still fixes "cloud"→"Claude".
+  if (input.terminalAiCli?.isAiCli) {
+    return hasPromptSubstance(input.transcript)
+      ? { register: 'reformat', reason: 'ai-cli-detected' }
+      : { register: 'faithful_ai', reason: 'ai-cli-detected-short' }
+  }
 
   // 2) FAITHFUL_AI — run the LLM, stay faithful. Reached when the user merely
   //    SPOKE an AI name with no tool detected: enough to fix "cloud"→"Claude"
