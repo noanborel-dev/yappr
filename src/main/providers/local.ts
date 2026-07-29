@@ -49,6 +49,19 @@ type ModelSelectionReason =
 // feel?" — a one-liner is fine on Balanced; a paragraph in an email
 // is worth the extra second to get right.
 const AUTO_THRESHOLDS = {
+  // Code — elevate only once the clip is long enough to be worth a
+  // second of inference. Measured on this machine's own logs:
+  //   base            p50   92ms
+  //   small           p50  270ms
+  //   large-v3-turbo  p50  920ms   (flat — Whisper pads every clip to a
+  //                                 30s encoder window, so a 1s clip
+  //                                 costs the same as a 25s one)
+  // Elevating a 1.5s "double check" to Accurate bought nothing and cost
+  // ~650ms, and it fired on EVERY dictation in an editor because the
+  // code branch had no length gate at all — unlike email/docs below.
+  // Short technical one-liners are also the case the QUICK_FIXES regex
+  // and the user dictionary already cover.
+  codeSeconds: 3,
   // Email is a higher-stakes app — even short emails benefit from
   // proper capitalization and brand-name accuracy. Use a low bar.
   emailSeconds: 8,
@@ -86,14 +99,19 @@ function selectedModel(audioSeconds: number): { id: LocalModelId; reason: ModelS
       return { id: userPick, reason: 'user-pick' }
     }
 
-    // Code / IDE / terminal — ALWAYS elevate to Accurate regardless
-    // of audio length. Technical terms and brand names need the
-    // larger vocabulary. "Claude Code" / "useEffect" / "GPT-4" /
-    // "tRPC" come through cleanly on large; Balanced mangles them
-    // and the QUICK_FIXES regex only catches the most common.
+    // Code / IDE / terminal — elevate to Accurate once there's enough
+    // audio to be worth it. Technical terms and brand names need the
+    // larger vocabulary: "Claude Code" / "useEffect" / "GPT-4" / "tRPC"
+    // come through cleanly on large; Balanced mangles them and the
+    // QUICK_FIXES regex only catches the most common.
+    //
+    // Below codeSeconds we honor the user's tier instead. Whisper's
+    // encoder cost is flat, so elevating a 1.5s utterance costs the full
+    // ~920ms while transcribing almost nothing — and dictation in an
+    // editor is mostly short one-liners, so this fired constantly.
     const isCode = focused.category === 'code'
       || settings.devModeApps.includes(focused.bundleId)
-    if (isCode) {
+    if (isCode && audioSeconds >= AUTO_THRESHOLDS.codeSeconds) {
       return { id: 'large-v3-turbo', reason: 'auto-code', focusedBundleId: focused.bundleId }
     }
 

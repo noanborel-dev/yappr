@@ -22,18 +22,18 @@ describe('short-utterance bypass', () => {
   })
 
   it('runs the LLM at exactly the threshold', () => {
-    const eight = 'one two three four five six seven eight'
-    expect(eight.split(' ')).toHaveLength(SHORT_UTTERANCE_MAX_WORDS)
-    expect(cleanupSkipReason(eight, 'messaging')).toBe('none')
+    const ten = 'one two three four five six seven eight nine ten'
+    expect(ten.split(' ')).toHaveLength(SHORT_UTTERANCE_MAX_WORDS)
+    expect(cleanupSkipReason(ten, 'messaging')).toBe('none')
   })
 
   it('skips one word below the threshold', () => {
-    expect(cleanupSkipReason('one two three four five six seven', 'messaging'))
+    expect(cleanupSkipReason('one two three four five six seven eight nine', 'messaging'))
       .toBe('short-utterance')
   })
 
   it('runs the LLM well above the threshold', () => {
-    const long = 'hey I wanted to check whether you had a chance to look at the document I sent yesterday'
+    const long = 'hey I wanted to check whether you had a chance to look at the document I sent over to you yesterday'
     expect(cleanupSkipReason(long, 'messaging')).toBe('none')
   })
 })
