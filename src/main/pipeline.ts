@@ -229,6 +229,19 @@ function looksEnumerated(transcript: string): boolean {
   return false
 }
 
+// Length floor for the LLM. Below this, a cleanup call cannot earn its
+// latency: a handful of characters has no filler to strip, no stutter to
+// collapse and no structure to fix, so the round-trip is pure delay in
+// front of the paste. The deterministic passes further down (brand-name
+// quick fixes, dictionary, self-correction) still run on this path, which
+// is why "cloud"→"Claude" survives it.
+//
+// This is NOT a re-introduction of the regex-only Light path. That rule is
+// about STRICTNESS — Light must never mean "skip the LLM" for messaging or
+// anything else. This is an orthogonal LENGTH floor: every category still
+// runs the LLM at every strictness for anything longer than a few words.
+const INSTANT_PATH_MAX_CHARS = 10
+
 function canSkipCleanup(
   transcript: string,
   category: AppCategory,
@@ -971,6 +984,14 @@ export async function runDictationPipeline(
     // downstream regex passes (brand names, dictionary, self-
     // correction, spelled-name collapse, question marks) still run.
     logInfo('Cleanup skipped (user-paused)', { chars: transcript.length })
+  } else if (transcript.trim().length < INSTANT_PATH_MAX_CHARS) {
+    // Deliberately ahead of every other branch, so it also beats
+    // runFaithfulAi and the ai_prompt category. A two-word utterance must
+    // paste instantly even when an AI CLI is running or the user is sitting
+    // in ChatGPT — there is nothing in "yeah ok" for a reformat to shape,
+    // and a 4k-token prompt round-trip to decide that is the whole latency
+    // problem this avoids.
+    logInfo('Cleanup skipped (instant path)', { chars: transcript.trim().length })
   } else if (!runFaithfulAi && canSkipCleanup(transcript, effectiveCategory, effectiveStrictness)) {
     // Only fires for code-category dictations with no filler/stutter/
     // correction markers. Every non-code category runs the LLM
