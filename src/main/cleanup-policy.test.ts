@@ -121,3 +121,43 @@ describe('rate-limit retry decision', () => {
     expect(d.waitMs).toBe(5000)
   })
 })
+
+// Regression: these five transcripts are lifted verbatim from a real
+// session log where each one routed to faithful_ai (an AI CLI was
+// running in the editor), forced the LLM on, hit Groq's TPM limit and
+// took 6.2-6.5s to paste a six-word phrase.
+//
+// The category is 'code' — which is exactly the trap: an earlier
+// ordering checked category first, labelled these 'code-verbatim', and
+// let runFaithfulAi override the skip. Length must win over category.
+describe('short code dictation with an AI CLI running (real log regression)', () => {
+  const observed = [
+    "Let's just see how quick this is",
+    "Let's see how fast this is.",
+    "Let's see how quick this is.",
+    'Why does this thing always take so long?',
+    'Why does this thing take so long?',
+  ]
+
+  for (const transcript of observed) {
+    it(`skips the LLM for "${transcript}"`, () => {
+      expect(cleanupSkipReason(transcript, 'code')).toBe('short-utterance')
+    })
+  }
+
+  it('reports short-utterance, NOT code-verbatim, so it beats runFaithfulAi', () => {
+    // code-verbatim yields to runFaithfulAi in pipeline.ts; short-utterance
+    // deliberately does not. Getting this label wrong is the whole bug.
+    expect(cleanupSkipReason('Why does this thing take so long?', 'code'))
+      .not.toBe('code-verbatim')
+  })
+
+  it('still yields to the LLM for a substantial code dictation', () => {
+    const long = 'refactor the transcription provider so the worker cache is injected instead of module state'
+    expect(cleanupSkipReason(long, 'code')).toBe('code-verbatim')
+  })
+
+  it('still runs the LLM on a short but disfluent code dictation', () => {
+    expect(cleanupSkipReason('um why does this take so long', 'code')).toBe('none')
+  })
+})

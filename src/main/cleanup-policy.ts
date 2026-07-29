@@ -59,17 +59,26 @@ function hasDisfluency(transcript: string): boolean {
 }
 
 export function cleanupSkipReason(transcript: string, category: AppCategory): SkipReason {
-  // Code dictation = verbatim. Nothing to clean unless the user
-  // stumbled, in which case the LLM earns its round-trip.
-  if (category === 'code') {
-    return hasDisfluency(transcript) ? 'none' : 'code-verbatim'
-  }
+  // A stumble needs the LLM regardless of length or category — pasting
+  // the "um" is worse than the round-trip saved.
+  if (hasDisfluency(transcript)) return 'none'
 
-  // Short-utterance bypass, all remaining categories. Same disfluency
-  // guard: length alone is not sufficient.
-  if (countWords(transcript) < SHORT_UTTERANCE_MAX_WORDS && !hasDisfluency(transcript)) {
+  // Short-utterance bypass FIRST, before any category rule.
+  //
+  // Order matters and is load-bearing. Checking `category === 'code'`
+  // first labels a six-word phrase 'code-verbatim', which the pipeline
+  // then lets `runFaithfulAi` override — so dictating "let's see how
+  // quick this is" into an editor with an AI CLI running went to the
+  // LLM after all, 429'd, and took 6.5s. Length wins over category:
+  // there is nothing for any cleanup register to do at this size.
+  if (countWords(transcript) < SHORT_UTTERANCE_MAX_WORDS) {
     return 'short-utterance'
   }
+
+  // Longer code dictation = verbatim; the deterministic passes cover
+  // jargon and casing. This one DOES yield to runFaithfulAi, because a
+  // substantial prompt aimed at an AI benefits from the faithful pass.
+  if (category === 'code') return 'code-verbatim'
 
   // Everything else runs the LLM. Strictness controls HOW it cleans,
   // never WHETHER it runs — a deliberate product decision: "the light
