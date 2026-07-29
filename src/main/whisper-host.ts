@@ -145,7 +145,9 @@ function handleWorkerMessage(
     return
   }
   if (type === 'loaded') {
-    logInfo('Whisper worker loaded model', { ms: msg.ms, path: loadingModelPath })
+    // `cached: true` means the worker already had this model resident
+    // and the switch cost nothing — that's the 2-model cache working.
+    logInfo('Whisper worker loaded model', { ms: msg.ms, cached: msg.cached === true, path: loadingModelPath })
     loadedModelPath = loadingModelPath
     loadingModelPath = null
     if (loadResolve) {
