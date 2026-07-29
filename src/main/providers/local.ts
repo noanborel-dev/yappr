@@ -141,27 +141,20 @@ function selectedModel(audioSeconds: number): { id: LocalModelId; reason: ModelS
   }
 }
 
-// Best-guess tier for prewarm (no audio yet). Returns the model the
-// user is MOST LIKELY to need first. If auto-switch is on AND
-// Accurate is downloaded, prewarm Accurate — the code/email/long
-// dictation paths all elevate there, and those are the slow-path
-// users notice most. Otherwise prewarm the user's picked tier.
+// Best-guess tier for prewarm (no audio yet) — the model the user is
+// MOST LIKELY to need first, which is now their own picked tier.
 //
-// The worker can swap models between dictations (~150ms reload),
-// so an occasional miss isn't catastrophic — just one slow first
-// transition. Optimizing for the common case.
+// This used to prewarm Accurate on the reasoning that the code/email/
+// long paths all elevate there. That stopped being true once elevation
+// gained a length gate: the majority of dictations are short one-liners
+// that stay on the user's tier, so prewarming Accurate meant the common
+// case paid a model swap on the very first dictation after launch.
+//
+// A miss now costs one load of the OTHER model, after which the worker's
+// two-slot cache holds both and no further swap occurs.
 export function prewarmModelId(): LocalModelId {
   try {
-    const settings = getSettings()
-    const userPick = settings.provider.localModel ?? DEFAULT_LOCAL_MODEL
-    if (
-      settings.provider.localAutoAccurateInCode !== false
-      && userPick !== 'large-v3-turbo'
-      && localModelDownloaded('large-v3-turbo')
-    ) {
-      return 'large-v3-turbo'
-    }
-    return userPick
+    return getSettings().provider.localModel ?? DEFAULT_LOCAL_MODEL
   } catch {
     return DEFAULT_LOCAL_MODEL
   }
