@@ -24,6 +24,7 @@ import {
 } from './text-passes'
 import { strictnessFor, registerFor } from './routing'
 import { countWords, type DictationMetric } from './metrics'
+import { cleanupSkipReason, type SkipReason } from './cleanup-policy'
 
 // Apps that are PRIMARILY AI chat surfaces. Dictation here is always
 // a prompt to an AI assistant — route to 'ai_prompt' regardless of
@@ -195,70 +196,6 @@ function buildDictionary(settings: Settings): string[] {
   return out
 }
 
-// Heuristic: can we skip the LLM cleanup pass entirely?
-//
-// Two cleanup modes (see prompts.ts):
-//   - FAITHFUL (code): only used to normalize jargon/paths/casing. If the
-//     transcript has no filler/stutter/correction markers, raw Whisper
-//     output is good enough — skip.
-//   - POLISHED (messaging/email/docs/other): restructures rambling into
-//     clean prose even when there are no obvious filler markers, so we
-//     can't skip based on absence of fillers alone. Only skip very short
-//     inputs where there's nothing meaningful to polish.
-const FILLER_RE = /\b(um+|uh+|er+|erm+|hmm*|uhh+|umm+)\b/i
-const STUTTER_RE = /\b(\w+)[, ]+\1\b/i  // "the the", "I, I"
-// "I mean" is contextual: as a sentence-opener / clause-opener ("I mean,
-// it's fast") it's a hedging softener, NOT a correction. As a mid-sentence
-// pivot after a comma ("at 6, I mean 7", "send to Alice, I mean Bob") it
-// IS a correction. We require the leading comma / pause to disambiguate.
-const CORRECTION_RE = /\b(actually|wait|scratch that|nevermind|never mind)\b|,\s*i mean\s+\w/i
-
-// Enumeration markers — when ≥2 of these appear in the transcript, the
-// user is dictating a list-shaped thought and cleanup should run so
-// list-formatting can apply, even when there are no fillers/stutters.
-const ENUM_RE = /\b(first|second|third|fourth|fifth|next|then|finally|lastly|one|two|three|four|five)\b/gi
-
-// Explicit list intent: user says "list of", "make a list", "items",
-// "bullets", "numbered", etc. Always run cleanup so LIST_FORMATTING fires.
-const LIST_KEYWORD_RE = /\b(list of|a list|in a list|the list|bullets?|numbered|items?:|to-?dos?:?)\b/i
-
-// Comma-series lists: "X, Y, Z" or "X, Y, and Z" with at least 3 items.
-// We look for two short tokens separated by commas in close succession,
-// optionally followed by "and <token>". Avoids over-triggering on
-// "Hi, I think, well, you know, this..." by requiring tokens to be
-// short content words (≤14 chars, no spaces).
-const COMMA_SERIES_RE = /\b\w{1,14},\s*\w{1,14},\s*(?:and\s+|or\s+)?\w{1,14}\b/i
-
-function looksEnumerated(transcript: string): boolean {
-  const matches = transcript.match(ENUM_RE)
-  if ((matches?.length ?? 0) >= 2) return true
-  if (LIST_KEYWORD_RE.test(transcript)) return true
-  if (COMMA_SERIES_RE.test(transcript)) return true
-  return false
-}
-
-function canSkipCleanup(
-  transcript: string,
-  category: AppCategory,
-  _strictness: Strictness,
-): boolean {
-  // Code dictation = verbatim, no cleanup ever needed unless there's
-  // something to clean. The downstream regex passes handle the rest.
-  if (category === 'code') {
-    if (FILLER_RE.test(transcript)) return false
-    if (STUTTER_RE.test(transcript)) return false
-    if (CORRECTION_RE.test(transcript)) return false
-    return true
-  }
-  // Every non-code category (messaging at Light, email at Strict,
-  // docs at Balanced, ai_prompt always) runs through the LLM. The
-  // user explicitly asked for this: "The light setting should never
-  // skip the LLM for personal messaging or anything. The LLM should
-  // always be used." Strictness controls HOW the LLM cleans, not
-  // WHETHER it runs.
-  return false
-}
-
 export async function runDictationPipeline(
   audioBuffer: Buffer,
   settings: Settings,
@@ -392,16 +329,27 @@ export async function runDictationPipeline(
     : Promise.resolve('')
 
   const effectiveStrictness = strictnessFor(focusedApp, settings)
+  const skipReason: SkipReason = settings.pauseCleanup
+    ? 'none'  // user-paused is tracked separately below
+    : cleanupSkipReason(transcript, effectiveCategory)
+  let cleanupSkipReasonLogged: string = 'none'
   if (settings.pauseCleanup) {
     // User-controlled hard bypass. Skip the LLM entirely. The
     // downstream regex passes (brand names, dictionary, self-
     // correction, spelled-name collapse, question marks) still run.
+    cleanupSkipReasonLogged = 'user-paused'
     logInfo('Cleanup skipped (user-paused)', { chars: transcript.length })
-  } else if (canSkipCleanup(transcript, effectiveCategory, effectiveStrictness)) {
-    // Only fires for code-category dictations with no filler/stutter/
-    // correction markers. Every non-code category runs the LLM
-    // regardless of strictness — strictness controls HOW it cleans.
-    logInfo('Cleanup skipped (fast path)', { chars: transcript.length })
+  } else if (skipReason !== 'none') {
+    // Two ways to get here: a code-category dictation with no
+    // filler/stutter/correction markers, or any dictation shorter than
+    // SHORT_UTTERANCE_MAX_WORDS that is likewise clean. Both remove the
+    // whole LLM round-trip from the latency the user feels.
+    cleanupSkipReasonLogged = skipReason
+    logInfo('Cleanup skipped (fast path)', {
+      reason: skipReason,
+      words: countWords(transcript),
+      chars: transcript.length,
+    })
   } else {
     const editor = IDE_EDITORS[focusedApp.bundleId]
     const strictness = strictnessFor(focusedApp, settings)
@@ -542,6 +490,7 @@ export async function runDictationPipeline(
       transcribeMs,
       cleanupMs,
       cleanupSkipped,
+      skipReason: cleanupSkipReasonLogged,
       category: effectiveCategory,
       provider: transcription.name,
     }

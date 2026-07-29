@@ -30,6 +30,11 @@ export interface DictationMetric {
   // SDK does not separate them).
   cleanupMs: number
   cleanupSkipped: boolean
+  // Why the LLM was skipped, when it was: 'code-verbatim',
+  // 'short-utterance', 'user-paused', or 'none' when it ran. Lets the
+  // report show whether the short-utterance cutoff is actually firing
+  // and at what rate, rather than just that some calls were skipped.
+  skipReason: string
   // Local-provider-only breakdown, when available.
   decodeMs?: number
   inferMs?: number

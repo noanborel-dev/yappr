@@ -110,6 +110,23 @@ console.log(`  transcription   ${pct(totals.transcribe)}   <- what streaming rem
 console.log(`  LLM cleanup     ${pct(totals.cleanup)}   <- the floor streaming cannot go below`)
 console.log(`  other           ${pct(totals.final - totals.transcribe - totals.cleanup)}   (paste, regex passes, emoji judge)`)
 
+// Why the LLM was skipped. Confirms the short-utterance cutoff is
+// firing at the rate you'd expect, and at what median latency.
+const byReason = new Map()
+for (const m of metrics) {
+  const r = m.skipReason ?? (m.cleanupSkipped ? 'skipped (pre-cutoff build)' : 'none')
+  if (!byReason.has(r)) byReason.set(r, [])
+  byReason.get(r).push(m.releaseToFinalMs)
+}
+console.log(`\nCleanup decision:`)
+for (const [reason, finals] of [...byReason].sort((a, b) => b[1].length - a[1].length)) {
+  const label = reason === 'none' ? 'LLM ran' : reason
+  const share = Math.round((finals.length / metrics.length) * 100)
+  console.log(
+    `  ${label.padEnd(28)} ${String(finals.length).padStart(4)}  (${String(share).padStart(3)}%)   p50 ${percentile(finals, 50)}ms`
+  )
+}
+
 const byProvider = new Map()
 for (const m of metrics) byProvider.set(m.provider, (byProvider.get(m.provider) ?? 0) + 1)
 console.log(`\nProviders: ${[...byProvider].map(([k, v]) => `${k} (${v})`).join(', ')}`)

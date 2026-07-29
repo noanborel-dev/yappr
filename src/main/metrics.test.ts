@@ -16,6 +16,7 @@ function metric(over: Partial<DictationMetric> = {}): DictationMetric {
     transcribeMs: 500,
     cleanupMs: 250,
     cleanupSkipped: false,
+    skipReason: 'none',
     category: 'messaging',
     provider: 'groq',
     ...over,
