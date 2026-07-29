@@ -1,7 +1,7 @@
 import { app, ipcMain, systemPreferences, shell } from 'electron'
 import { IPC } from '../shared/types'
 import type { DictationResult, LocalModelId } from '../shared/types'
-import { localModelDownloaded, localModelPath } from './local-models'
+import { localModelDownloaded, localModelPath, LOCAL_MODELS } from './local-models'
 import { prewarmWhisper } from './whisper-host'
 import { prewarmModelId } from './providers/local'
 import { getSettings, setSettings } from './store'
@@ -136,20 +136,23 @@ export function registerIpcHandlers(): void {
     app.setLoginItemSettings({ openAtLogin: enabled, openAsHidden: true })
   })
 
-  // Local model management. Status returns the three-prong readiness
-  // for the currently-selected model + last-known progress for every
-  // model that's ever started downloading, so the Settings UI can
-  // render all three cards with their actual state on mount.
+  // Local model management. Status returns readiness for the
+  // currently-selected model + last-known progress for every model
+  // that's ever started downloading, so the Settings UI can render
+  // every tier card with its actual state on mount.
   ipcMain.handle(IPC.LOCAL_MODEL_STATUS, () => ({
     readiness: localWhisperReadiness(),
     // getLocalModelProgress() with no arg returns the array of all
     // known per-model progress entries.
     progress: getLocalModelProgress(),
-    downloaded: {
-      'base': localModelDownloaded('base'),
-      'small': localModelDownloaded('small'),
-      'large-v3-turbo': localModelDownloaded('large-v3-turbo'),
-    },
+    // Derived from the registry, NOT hand-listed. The hand-written
+    // version silently omitted any newly added tier, so its card sat at
+    // "Download" forever no matter how many times the file downloaded
+    // successfully — the file was on disk, the UI just had no key for it.
+    downloaded: Object.fromEntries(
+      (Object.keys(LOCAL_MODELS) as LocalModelId[])
+        .map(id => [id, localModelDownloaded(id)]),
+    ) as Record<LocalModelId, boolean>,
   }))
 
   ipcMain.handle(IPC.LOCAL_MODEL_DOWNLOAD, async (_e, modelId: LocalModelId) => {
