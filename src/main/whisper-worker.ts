@@ -41,9 +41,10 @@
 // Node IPC serializes payloads as JSON, so PCM travels as base64.
 // Worker decodes back to Buffer → ArrayBuffer before calling fugood.
 
-import { initWhisper, toggleNativeLog } from '@fugood/whisper.node'
-import type { WhisperContext, TranscribeOptions } from '@fugood/whisper.node'
+import { initWhisper, initParakeet, toggleNativeLog } from '@fugood/whisper.node'
+import type { WhisperContext, ParakeetContext, TranscribeOptions } from '@fugood/whisper.node'
 import { chooseEvictionVictim } from './model-cache-policy'
+import { engineForModel } from './transcribe-core'
 
 interface LoadMsg {
   type: 'load'
@@ -76,9 +77,13 @@ type IncomingMsg = LoadMsg | TranscribeMsg | FreeMsg
 // currently transcribing and never the active one.
 const MAX_RESIDENT_MODELS = 2
 
+// Either engine's context. Both expose transcribeData()/release(); only
+// the accepted options differ, which the host resolves before sending.
+type AnyContext = WhisperContext | ParakeetContext
+
 interface CacheEntry {
-  ctx: WhisperContext | null
-  loading: Promise<WhisperContext> | null
+  ctx: AnyContext | null
+  loading: Promise<AnyContext> | null
   lastUsed: number
 }
 
@@ -128,7 +133,7 @@ async function evictIfNeeded(keepPath: string): Promise<void> {
 // host blocks on exactly one 'loaded' per 'load' it sends, so that reply
 // is the caller's responsibility (see handle()). Sending it from in here
 // would skip the reply on a cache hit and hang the host forever.
-async function load(modelPath: string): Promise<[WhisperContext, boolean]> {
+async function load(modelPath: string): Promise<[AnyContext, boolean]> {
   activeModelPath = modelPath
   const existing = models.get(modelPath)
   if (existing) {
@@ -140,11 +145,12 @@ async function load(modelPath: string): Promise<[WhisperContext, boolean]> {
   await evictIfNeeded(modelPath)
 
   const entry: CacheEntry = { ctx: null, loading: null, lastUsed: Date.now() }
-  entry.loading = initWhisper({
-    filePath: modelPath,
-    useGpu: true,
-    useFlashAttn: true,
-  }).then((c) => {
+  // Parakeet is a separate context type in the binding, not a whisper
+  // checkpoint — it needs initParakeet and rejects whisper's options.
+  const init = engineForModel(modelPath) === 'parakeet'
+    ? initParakeet({ filePath: modelPath, useGpu: true })
+    : initWhisper({ filePath: modelPath, useGpu: true, useFlashAttn: true })
+  entry.loading = init.then((c) => {
     entry.ctx = c
     entry.loading = null
     entry.lastUsed = Date.now()
@@ -211,12 +217,19 @@ async function handle(msg: IncomingMsg): Promise<void> {
       // indicator UI with the running transcript. The final result
       // still comes through `result` so callers can rely on a single
       // canonical "done" signal.
-      const result = await ctx.transcribeData(pcm, {
-        ...options,
-        onNewSegments: (r) => {
-          send({ type: 'partial', id, text: r.result })
-        },
-      }).promise
+      // The host has already built options for the right engine.
+      // Parakeet takes no onNewSegments, so only attach it for whisper.
+      const isParakeet = engineForModel(modelPath) === 'parakeet'
+      const result = isParakeet
+        ? await (ctx as ParakeetContext).transcribeData(
+            pcm, options as unknown as { maxThreads?: number },
+          ).promise
+        : await (ctx as WhisperContext).transcribeData(pcm, {
+            ...options,
+            onNewSegments: (r) => {
+              send({ type: 'partial', id, text: r.result })
+            },
+          }).promise
       send({
         type: 'result',
         id,

@@ -38,7 +38,7 @@ const CORRECTION_RE = /\b(actually|wait|scratch that|nevermind|never mind)\b|,\s
 // messaging or anything else. This is an orthogonal LENGTH floor: every
 // category still runs the LLM at every strictness for anything longer
 // than a handful of words.
-export const SHORT_UTTERANCE_MAX_WORDS = 10
+export const SHORT_UTTERANCE_MAX_WORDS = 8
 
 export type SkipReason = 'none' | 'code-verbatim' | 'short-utterance'
 

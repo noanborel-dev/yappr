@@ -16,9 +16,10 @@ interface LocalModelMeta {
 }
 
 const LOCAL_MODEL_META: LocalModelMeta[] = [
+  { id: 'parakeet-tdt-0.6b-v3', name: 'Instant', speed: '~25 ms', size: '339 MB', description: 'NVIDIA Parakeet. ~30x faster than Accurate at matching English quality. English + 24 European languages.', recommended: true },
   { id: 'base',            name: 'Fast',     speed: '~100 ms', size: '57 MB',  description: 'Tiny + ultra-fast. Multilingual. Some mistakes on technical terms.' },
-  { id: 'small',           name: 'Balanced', speed: '~200 ms', size: '181 MB', description: 'Sub-300ms warm. Multilingual. Near-perfect for English dictation.', recommended: true },
-  { id: 'large-v3-turbo',  name: 'Accurate', speed: '~1000 ms', size: '547 MB', description: 'Highest accuracy on non-English and technical terms. Slower.' },
+  { id: 'small',           name: 'Balanced', speed: '~200 ms', size: '181 MB', description: 'Sub-300ms warm. Multilingual. Near-perfect for English dictation.' },
+  { id: 'large-v3-turbo',  name: 'Accurate', speed: '~1000 ms', size: '547 MB', description: 'Best on rarer languages. Whisper pads every clip to 30s, so short clips cost the same as long ones.' },
 ]
 
 interface ProviderInfo {

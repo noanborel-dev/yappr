@@ -22,13 +22,13 @@ describe('short-utterance bypass', () => {
   })
 
   it('runs the LLM at exactly the threshold', () => {
-    const ten = 'one two three four five six seven eight nine ten'
-    expect(ten.split(' ')).toHaveLength(SHORT_UTTERANCE_MAX_WORDS)
-    expect(cleanupSkipReason(ten, 'messaging')).toBe('none')
+    const eight = 'one two three four five six seven eight'
+    expect(eight.split(' ')).toHaveLength(SHORT_UTTERANCE_MAX_WORDS)
+    expect(cleanupSkipReason(eight, 'messaging')).toBe('none')
   })
 
   it('skips one word below the threshold', () => {
-    expect(cleanupSkipReason('one two three four five six seven eight nine', 'messaging'))
+    expect(cleanupSkipReason('one two three four five six seven', 'messaging'))
       .toBe('short-utterance')
   })
 
@@ -132,11 +132,10 @@ describe('rate-limit retry decision', () => {
 // let runFaithfulAi override the skip. Length must win over category.
 describe('short code dictation with an AI CLI running (real log regression)', () => {
   const observed = [
-    "Let's just see how quick this is",
-    "Let's see how fast this is.",
-    "Let's see how quick this is.",
-    'Why does this thing always take so long?',
-    'Why does this thing take so long?',
+    "Let's just see how quick this is",      // 7 words
+    "Let's see how fast this is.",           // 6
+    "Let's see how quick this is.",          // 6
+    'Why does this thing take so long?',     // 7
   ]
 
   for (const transcript of observed) {
@@ -144,6 +143,15 @@ describe('short code dictation with an AI CLI running (real log regression)', ()
       expect(cleanupSkipReason(transcript, 'code')).toBe('short-utterance')
     })
   }
+
+  // NOTE: the threshold is "fewer than 8 words", so an 8-word dictation
+  // still reaches the LLM. This one is from the same log and still costs
+  // a Groq round-trip. Flip the comparison to <= if that is unwanted.
+  it('runs the LLM at exactly 8 words, even in code', () => {
+    const eightWords = 'Why does this thing always take so long?'
+    expect(eightWords.trim().split(/\s+/)).toHaveLength(8)
+    expect(cleanupSkipReason(eightWords, 'code')).toBe('code-verbatim')
+  })
 
   it('reports short-utterance, NOT code-verbatim, so it beats runFaithfulAi', () => {
     // code-verbatim yields to runFaithfulAi in pipeline.ts; short-utterance

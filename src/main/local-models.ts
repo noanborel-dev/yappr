@@ -27,7 +27,7 @@ export function modelsDir(): string {
 //   base   ~80ms   small but rough on names
 //   small  ~200ms  near-perfect English + multilingual capable
 //   large  ~970ms  best accuracy on multilingual + technical terms
-export type LocalModelId = 'base' | 'small' | 'large-v3-turbo'
+export type LocalModelId = 'base' | 'small' | 'large-v3-turbo' | 'parakeet-tdt-0.6b-v3'
 
 // Balanced (small, multilingual) is the default. It hits ~200ms
 // warm on M5 Pro for typical clips, transcribes English brand names
@@ -75,6 +75,15 @@ export const LOCAL_MODELS: Record<LocalModelId, LocalModelInfo> = {
     sizeLabel: '547 MB',
     speedLabel: '~1000 ms',
     description: 'Highest accuracy on non-English and technical terms. Slower.',
+  },
+  'parakeet-tdt-0.6b-v3': {
+    id: 'parakeet-tdt-0.6b-v3',
+    filename: 'ggml-parakeet-tdt-0.6b-v3-q4_0.bin',
+    url: 'https://huggingface.co/ggml-org/parakeet-GGUF/resolve/main/ggml-parakeet-tdt-0.6b-v3-q4_0.bin',
+    bytes: 355_615_679,
+    sizeLabel: '339 MB',
+    speedLabel: '~25 ms',
+    description: 'NVIDIA Parakeet. 30x faster than Accurate at similar English quality. English + 24 European languages.',
   },
 }
 

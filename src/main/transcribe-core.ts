@@ -51,6 +51,28 @@ export function isChunkArtifact(text: string): boolean {
   return CHUNK_ARTIFACTS.has(cleaned)
 }
 
+// Which engine backs a given model file.
+//
+// Parakeet is a different architecture, not a whisper checkpoint: it has
+// no fixed 30-second encoder window, so inference scales with audio
+// length instead of being flat. Measured on an M5 Pro:
+//
+//   clip        base   small   large-v3-turbo   parakeet
+//   1.27s       55ms   170ms          825ms       24ms
+//   4.43s       77ms   219ms          849ms       48ms
+//   7.11s       86ms   245ms          870ms       64ms
+//
+// It also takes a much narrower option set — no language, no initial
+// prompt, no beam/temperature. The dictionary bias prompt therefore does
+// NOT apply on this engine; applyDictionaryReplacements (a deterministic
+// post-pass) still does, so user dictionary terms are still corrected,
+// just not biased for during decoding.
+export type TranscribeEngine = 'whisper' | 'parakeet'
+
+export function engineForModel(modelIdOrPath: string): TranscribeEngine {
+  return /parakeet/i.test(modelIdOrPath) ? 'parakeet' : 'whisper'
+}
+
 export interface DecodeParams {
   // Whisper bias dictionary → initial prompt (biases toward known spellings).
   dictionary?: string[]
@@ -79,4 +101,19 @@ export function buildDecodeOptions(params: DecodeParams = {}): TranscribeOptions
     language: params.language ?? 'auto',
     ...(prompt ? { prompt } : {}),
   }
+}
+
+// Parakeet's option set is deliberately tiny — the binding accepts only
+// maxThreads and audioCtx. Passing whisper's options here is not merely
+// ignored, it is a type error, which is why engine selection has to
+// happen before options are built rather than inside the worker.
+export interface ParakeetDecodeOptions {
+  maxThreads: number
+}
+
+export function buildParakeetOptions(): ParakeetDecodeOptions {
+  // Same 4-thread reasoning as whisper: >4 spills onto E-cores.
+  // audioCtx is left at the model default; parakeet already scales with
+  // audio length, so there is no fixed window to trim.
+  return { maxThreads: 4 }
 }

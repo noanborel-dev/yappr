@@ -12,7 +12,7 @@ import { ffmpegPath, ffmpegAvailable } from '../local-binaries'
 import { getSettings } from '../store'
 import { getFocusedApp } from '../focused-app'
 import { workerTranscribe, workerFree } from '../whisper-host'
-import { buildDecodeOptions, isLikelyHallucination } from '../transcribe-core'
+import { buildDecodeOptions, buildParakeetOptions, engineForModel, isLikelyHallucination } from '../transcribe-core'
 
 export class LocalModelMissingError extends Error {
   constructor() {
@@ -85,6 +85,15 @@ function selectedModel(audioSeconds: number): { id: LocalModelId; reason: ModelS
     }
     // User already picked Accurate — no elevation needed.
     if (userPick === 'large-v3-turbo') {
+      return { id: userPick, reason: 'user-pick' }
+    }
+    // Parakeet is never "elevated" away from. The whole premise of
+    // auto-elevation is trading latency for accuracy, and against
+    // parakeet that trade is backwards: large-v3-turbo is ~30x slower
+    // (870ms vs 24ms measured) for no clear accuracy gain on English.
+    // Silently swapping a parakeet user onto Accurate mid-session would
+    // undo the entire reason they chose it.
+    if (userPick === 'parakeet-tdt-0.6b-v3') {
       return { id: userPick, reason: 'user-pick' }
     }
     // Accurate must be downloaded for any auto-elevation to fire.
@@ -280,7 +289,13 @@ export function createLocalWhisperProvider(): TranscriptionProvider {
       const result = await workerTranscribe(
         localModelPath(modelId),
         pcm,
-        buildDecodeOptions({ dictionary: options.dictionary ?? [], language: options.language }),
+        // Parakeet takes a different (much smaller) option set and has no
+        // initial-prompt support, so the dictionary bias does not apply
+        // there — applyDictionaryReplacements still corrects those terms
+        // deterministically downstream.
+        engineForModel(modelId) === 'parakeet'
+          ? buildParakeetOptions()
+          : buildDecodeOptions({ dictionary: options.dictionary ?? [], language: options.language }),
         // Forward fugood's per-segment callback so the indicator can show
         // words as whisper produces them (time-to-first-segment ~200ms).
         options.onPartial,
