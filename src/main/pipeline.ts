@@ -16,6 +16,7 @@ import { logInfo, logError } from './log'
 import { NoSpeechError } from './errors'
 import { focusedAppRunningAiCli } from './terminal-ai-cli'
 import { classifyCodeSurface } from './ai-intent'
+import { cleanupSkipReason, cleanupRetryDecision, countWords } from './cleanup-policy'
 
 // Apps that are PRIMARILY AI chat surfaces. Dictation here is always
 // a prompt to an AI assistant — route to 'ai_prompt' regardless of
@@ -141,9 +142,18 @@ async function withCleanupRetry<T>(fn: () => Promise<T>): Promise<T> {
     return await fn()
   } catch (err) {
     if (err instanceof NoSpeechError) throw err
-    const wait = parseRateLimitDelayMs(err)
+    const decision = cleanupRetryDecision(err)
+    // Groq told us the rate-limit window is longer than we're willing
+    // to stall the user for. A retry cannot succeed, so don't burn the
+    // wait — fall back to the raw transcript immediately. This is what
+    // turned short dictations into 6.7s round-trips: two doomed
+    // attempts against a 28s window.
+    if (!decision.retry) {
+      logError('Cleanup rate-limited beyond wait cap — using raw transcript', err)
+      throw err
+    }
     logError('Cleanup failed (attempt 1) — retrying', err)
-    await new Promise(r => setTimeout(r, wait))
+    await new Promise(r => setTimeout(r, decision.waitMs))
     try {
       return await fn()
     } catch (err2) {
@@ -152,8 +162,6 @@ async function withCleanupRetry<T>(fn: () => Promise<T>): Promise<T> {
     }
   }
 }
-
-const CLEANUP_RETRY_CAP_MS = 5000
 
 // Length-ratio guard thresholds. Only fire when the input is long
 // enough to be a real dictation (not a one-line message), and only
@@ -164,15 +172,6 @@ const CLEANUP_RETRY_CAP_MS = 5000
 // filler removal (~85-95% retention is typical).
 const LENGTH_GUARD_MIN_INPUT_CHARS = 300
 const LENGTH_GUARD_MIN_RATIO = 0.4
-function parseRateLimitDelayMs(err: unknown): number {
-  if (!(err instanceof Error)) return 250
-  const m = err.message.match(/Please try again in ([\d.]+)\s*s/i)
-  if (!m) return 250
-  const seconds = parseFloat(m[1])
-  if (!Number.isFinite(seconds) || seconds <= 0) return 250
-  return Math.min(CLEANUP_RETRY_CAP_MS, Math.ceil(seconds * 1000))
-}
-
 function buildDictionary(settings: Settings): string[] {
   const user = settings.userDictionary ?? []
   // Lowercased de-dup so the same term in different cases doesn't repeat.
@@ -197,72 +196,6 @@ function buildDictionary(settings: Settings): string[] {
 //     clean prose even when there are no obvious filler markers, so we
 //     can't skip based on absence of fillers alone. Only skip very short
 //     inputs where there's nothing meaningful to polish.
-const FILLER_RE = /\b(um+|uh+|er+|erm+|hmm*|uhh+|umm+)\b/i
-const STUTTER_RE = /\b(\w+)[, ]+\1\b/i  // "the the", "I, I"
-// "I mean" is contextual: as a sentence-opener / clause-opener ("I mean,
-// it's fast") it's a hedging softener, NOT a correction. As a mid-sentence
-// pivot after a comma ("at 6, I mean 7", "send to Alice, I mean Bob") it
-// IS a correction. We require the leading comma / pause to disambiguate.
-const CORRECTION_RE = /\b(actually|wait|scratch that|nevermind|never mind)\b|,\s*i mean\s+\w/i
-
-// Enumeration markers — when ≥2 of these appear in the transcript, the
-// user is dictating a list-shaped thought and cleanup should run so
-// list-formatting can apply, even when there are no fillers/stutters.
-const ENUM_RE = /\b(first|second|third|fourth|fifth|next|then|finally|lastly|one|two|three|four|five)\b/gi
-
-// Explicit list intent: user says "list of", "make a list", "items",
-// "bullets", "numbered", etc. Always run cleanup so LIST_FORMATTING fires.
-const LIST_KEYWORD_RE = /\b(list of|a list|in a list|the list|bullets?|numbered|items?:|to-?dos?:?)\b/i
-
-// Comma-series lists: "X, Y, Z" or "X, Y, and Z" with at least 3 items.
-// We look for two short tokens separated by commas in close succession,
-// optionally followed by "and <token>". Avoids over-triggering on
-// "Hi, I think, well, you know, this..." by requiring tokens to be
-// short content words (≤14 chars, no spaces).
-const COMMA_SERIES_RE = /\b\w{1,14},\s*\w{1,14},\s*(?:and\s+|or\s+)?\w{1,14}\b/i
-
-function looksEnumerated(transcript: string): boolean {
-  const matches = transcript.match(ENUM_RE)
-  if ((matches?.length ?? 0) >= 2) return true
-  if (LIST_KEYWORD_RE.test(transcript)) return true
-  if (COMMA_SERIES_RE.test(transcript)) return true
-  return false
-}
-
-// Length floor for the LLM. Below this, a cleanup call cannot earn its
-// latency: a handful of characters has no filler to strip, no stutter to
-// collapse and no structure to fix, so the round-trip is pure delay in
-// front of the paste. The deterministic passes further down (brand-name
-// quick fixes, dictionary, self-correction) still run on this path, which
-// is why "cloud"→"Claude" survives it.
-//
-// This is NOT a re-introduction of the regex-only Light path. That rule is
-// about STRICTNESS — Light must never mean "skip the LLM" for messaging or
-// anything else. This is an orthogonal LENGTH floor: every category still
-// runs the LLM at every strictness for anything longer than a few words.
-const INSTANT_PATH_MAX_CHARS = 10
-
-function canSkipCleanup(
-  transcript: string,
-  category: AppCategory,
-  _strictness: Strictness,
-): boolean {
-  // Code dictation = verbatim, no cleanup ever needed unless there's
-  // something to clean. The downstream regex passes handle the rest.
-  if (category === 'code') {
-    if (FILLER_RE.test(transcript)) return false
-    if (STUTTER_RE.test(transcript)) return false
-    if (CORRECTION_RE.test(transcript)) return false
-    return true
-  }
-  // Every non-code category (messaging at Light, email at Strict,
-  // docs at Balanced, ai_prompt always) runs through the LLM. The
-  // user explicitly asked for this: "The light setting should never
-  // skip the LLM for personal messaging or anything. The LLM should
-  // always be used." Strictness controls HOW the LLM cleans, not
-  // WHETHER it runs.
-  return false
-}
 
 // Deterministic regex pass for the most common Whisper mishearings of
 // tech brand names. Applied to EVERY transcript (even fast-path skips)
@@ -979,27 +912,28 @@ export async function runDictationPipeline(
     : Promise.resolve('')
 
   const effectiveStrictness = strictnessFor(focusedApp, settings)
+  const skipReason = cleanupSkipReason(transcript, effectiveCategory)
   if (settings.pauseCleanup) {
     // User-controlled hard bypass. Skip the LLM entirely. The
     // downstream regex passes (brand names, dictionary, self-
     // correction, spelled-name collapse, question marks) still run.
     logInfo('Cleanup skipped (user-paused)', { chars: transcript.length })
-  } else if (transcript.trim().length < INSTANT_PATH_MAX_CHARS) {
-    // Deliberately ahead of every other branch, so it also beats
-    // runFaithfulAi and the ai_prompt category. A two-word utterance must
-    // paste instantly even when an AI CLI is running or the user is sitting
-    // in ChatGPT — there is nothing in "yeah ok" for a reformat to shape,
-    // and a 4k-token prompt round-trip to decide that is the whole latency
-    // problem this avoids.
-    logInfo('Cleanup skipped (instant path)', { chars: transcript.trim().length })
-  } else if (!runFaithfulAi && canSkipCleanup(transcript, effectiveCategory, effectiveStrictness)) {
-    // Only fires for code-category dictations with no filler/stutter/
-    // correction markers. Every non-code category runs the LLM
-    // regardless of strictness — strictness controls HOW it cleans.
-    // runFaithfulAi forces the LLM on (the user is prompting an AI in a
-    // code surface, so we must run the faithful cleanup to fix "cloud"→
-    // "Claude" and similar mishears the fast path would leave uncorrected).
-    logInfo('Cleanup skipped (fast path)', { chars: transcript.length })
+  } else if (skipReason === 'short-utterance'
+             || (!runFaithfulAi && skipReason === 'code-verbatim')) {
+    // The short-utterance case is deliberately allowed to beat
+    // runFaithfulAi and the ai_prompt category: there is nothing in
+    // "yeah ok" for a reformat to shape, and a ~3.4k-token round-trip to
+    // decide that is the whole latency problem. The "cloud"->"Claude"
+    // mishears that runFaithfulAi exists to fix are already handled
+    // deterministically by QUICK_FIXES, which still runs below.
+    //
+    // code-verbatim still yields to runFaithfulAi, because a longer code
+    // dictation aimed at an AI genuinely benefits from the faithful pass.
+    logInfo('Cleanup skipped (fast path)', {
+      reason: skipReason,
+      words: countWords(transcript),
+      chars: transcript.trim().length,
+    })
   } else {
     const editor = IDE_EDITORS[focusedApp.bundleId]
     const strictness = strictnessFor(focusedApp, settings)
