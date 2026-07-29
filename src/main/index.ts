@@ -55,6 +55,12 @@ const audioChunks: Buffer[] = []
 // a newer session is in progress and the callback skips its hide.
 let sessionId = 0
 
+// Latency instrumentation timestamps for the current dictation.
+// pressedAt → releasedAt is the hold duration (proxy for audio length);
+// releasedAt is t0 for the post-release wall-clock the user feels.
+let pressedAt = 0
+let releasedAt = 0
+
 // Mirrors the last state broadcast to the indicator. Lets external
 // action triggers (idle-pill clicks, future MCP hooks) know whether to
 // start or stop without polling the renderer.
@@ -371,6 +377,8 @@ function broadcastState(state: string): void {
 // the idle-pill's click menu. Keeps the two entry points consistent.
 function actionStartRecording(): void {
   sessionId++
+  pressedAt = Date.now()
+  releasedAt = 0
   audioChunks.length = 0
   captureFocusedApp()
   captureSelectedText()
@@ -381,6 +389,10 @@ function actionStartRecording(): void {
 }
 
 function actionStopRecording(): void {
+  // t0 for every latency metric: the instant the user let go of the
+  // hotkey. Everything before this overlaps with them still talking and
+  // is therefore free; everything after is wall-clock they wait through.
+  releasedAt = Date.now()
   broadcastState('stopping')
 }
 
@@ -506,7 +518,11 @@ function setupAudioIpc(): void {
         // tracked state in broadcastState (it's not a state); the
         // pill's renderer just paints the latest partial text when
         // in 'processing' state.
-        (text) => { if (stillLatest()) broadcastState(`partial:${text}`) }
+        (text) => { if (stillLatest()) broadcastState(`partial:${text}`) },
+        // Latency instrumentation. releasedAt is 0 for paths that don't
+        // come from a hotkey hold (paste-last), which suppresses the
+        // metric rather than logging a bogus one.
+        { pressedAt, releasedAt }
       )
 
       addToHistory(result)

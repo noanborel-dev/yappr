@@ -23,6 +23,7 @@ import {
   applyQuestionMarks,
 } from './text-passes'
 import { strictnessFor, registerFor } from './routing'
+import { countWords, type DictationMetric } from './metrics'
 
 // Apps that are PRIMARILY AI chat surfaces. Dictation here is always
 // a prompt to an AI assistant — route to 'ai_prompt' regardless of
@@ -268,9 +269,17 @@ export async function runDictationPipeline(
   // words as whisper produces them on long clips. No-op for cloud
   // providers that don't stream.
   onPartial?: (text: string) => void,
+  // Hotkey timestamps for latency instrumentation. Omitted (or with a
+  // zero releasedAt) for non-hotkey entry points like paste-last, which
+  // suppresses the metric instead of recording a meaningless one.
+  timing?: { pressedAt: number; releasedAt: number },
 ): Promise<DictationResult & { pasteMethod: 'paste' | 'clipboard' }> {
   const start = Date.now()
   onState('processing')
+  // Per-phase accumulators for the latency record emitted at the end.
+  let transcribeMs = 0
+  let cleanupMs = 0
+  let cleanupSkipped = true
 
   const { transcription, cleanup } = buildProviders(settings)
   const dictionary = buildDictionary(settings)
@@ -287,7 +296,8 @@ export async function runDictationPipeline(
   const tStart = Date.now()
   const transcript = (await withRetry('Transcription', () =>
     transcription.transcribe(audioBuffer, { dictionary, onPartial }))).trim()
-  logInfo('Transcribed', { ms: Date.now() - tStart, chars: transcript.length, preview: transcript.slice(0, 60) })
+  transcribeMs = Date.now() - tStart
+  logInfo('Transcribed', { ms: transcribeMs, chars: transcript.length, preview: transcript.slice(0, 60) })
 
   await refreshFocusedApp
   const focusedApp = getFocusedApp()
@@ -410,6 +420,7 @@ export async function runDictationPipeline(
       contextBlock,
     ).replace('{text}', transcript)
     const cStart = Date.now()
+    cleanupSkipped = false
     try {
       cleaned = await withCleanupRetry(() =>
         cleanup.cleanup(transcript, {
@@ -417,6 +428,7 @@ export async function runDictationPipeline(
           appCategory: effectiveCategory,
           systemPrompt,
         }))
+      cleanupMs = Date.now() - cStart
       // The 8B cleanup model occasionally ignores LENGTH_PRESERVATION
       // and summarizes long dictations down to a sentence. ai_prompt
       // legitimately restructures (rambling → structured prompt), so
@@ -451,6 +463,9 @@ export async function runDictationPipeline(
       // their content. Deterministic passes below still run on it.
       logError('Cleanup failed — falling back to raw transcript', err)
       cleaned = transcript
+      // Still count the time — a failed cleanup is wall-clock the user
+      // waited through, and hiding it would flatter the p95.
+      cleanupMs = Date.now() - cStart
     }
   }
 
@@ -504,11 +519,34 @@ export async function runDictationPipeline(
   }
 
   const { method: pasteMethod } = await pasteText(cleaned, { rolePromise: axRolePromise })
+  const pastedAt = Date.now()
   logInfo('Pasted', {
     method: pasteMethod,
-    totalMs: Date.now() - start,
+    totalMs: pastedAt - start,
     app: focusedApp.name,
   })
+
+  // One structured latency record per dictation, parsed by
+  // scripts/latency-report.mjs. Only emitted for hotkey-driven
+  // dictations, where "release → pasted" is a wall-clock the user
+  // actually sat through.
+  if (timing && timing.releasedAt > 0) {
+    const releaseToFinalMs = pastedAt - timing.releasedAt
+    const metric: DictationMetric = {
+      audioMs: Math.max(0, timing.releasedAt - timing.pressedAt),
+      words: countWords(cleaned),
+      // Equal today: the text is pasted in one shot at the end. They
+      // diverge only if progressive insertion is ever built.
+      releaseToFirstMs: releaseToFinalMs,
+      releaseToFinalMs,
+      transcribeMs,
+      cleanupMs,
+      cleanupSkipped,
+      category: effectiveCategory,
+      provider: transcription.name,
+    }
+    logInfo('latency', metric)
+  }
 
   onState('done')
 
