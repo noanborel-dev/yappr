@@ -55,6 +55,21 @@ export default function Indicator() {
     async function prewarm() {
       try {
         const stream = await openMic()
+        // Constraints are advisory: a device may ignore any of them. Log what
+        // was actually applied so a regression in capture quality is visible
+        // rather than silent.
+        try {
+          const st = stream.getAudioTracks()[0]?.getSettings?.()
+          if (st) {
+            console.info('[Indicator] mic settings', {
+              echoCancellation: st.echoCancellation,
+              noiseSuppression: st.noiseSuppression,
+              autoGainControl: st.autoGainControl,
+              sampleRate: st.sampleRate,
+              channelCount: st.channelCount,
+            })
+          }
+        } catch { /* diagnostics only */ }
         if (cancelled) {
           stream.getTracks().forEach(t => t.stop())
           return
@@ -139,6 +154,35 @@ export default function Indicator() {
   // default rather than throwing — losing audio entirely is worse than
   // using a different mic. Settings IPC access is wrapped defensively
   // because the preload bridge may not be ready on cold start.
+  // Capture constraints tuned for SPEECH RECOGNITION, not for a phone call.
+  //
+  // `{ audio: true }` lets Chrome apply its defaults — echoCancellation,
+  // noiseSuppression and autoGainControl all ON. That chain is designed to
+  // make a voice intelligible to a human on a VoIP call, and it actively
+  // hurts an ASR model:
+  //   - noiseSuppression spectrally gates quiet, low-energy sounds, which
+  //     is precisely what French fricatives, liaisons and word-final
+  //     consonants are;
+  //   - autoGainControl pumps the level around speech onsets, smearing the
+  //     first phoneme of a phrase;
+  //   - echoCancellation applies non-linear attenuation.
+  //
+  // Symptom that led here: clean TTS French transcribes perfectly on every
+  // engine, while real dictation produced "Mais" -> "Made" (word-initial)
+  // and "bien ici" -> "bien iscidise" (soft consonants) — the two failure
+  // shapes this DSP is known to cause. Whisper and Parakeet are both trained
+  // on natural, noisy audio; they want the raw signal, not a cleaned one.
+  //
+  // Mono at 16kHz is what the models consume anyway (ffmpeg downsamples to
+  // exactly this), so asking for it here avoids a resample round-trip.
+  const ASR_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false,
+    channelCount: 1,
+    sampleRate: 16000,
+  }
+
   async function openMic(): Promise<MediaStream> {
     let deviceId: string | null = null
     try {
@@ -149,13 +193,23 @@ export default function Indicator() {
     if (deviceId) {
       try {
         return await navigator.mediaDevices.getUserMedia({
-          audio: { deviceId: { exact: deviceId } },
+          audio: { ...ASR_AUDIO_CONSTRAINTS, deviceId: { exact: deviceId } },
         })
       } catch (err) {
         console.warn('[Indicator] Saved mic unavailable, using default:', err)
       }
     }
-    return await navigator.mediaDevices.getUserMedia({ audio: true })
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: ASR_AUDIO_CONSTRAINTS })
+    } catch (err) {
+      // Some devices reject the exact sampleRate/channelCount. Drop to the
+      // DSP flags alone rather than falling all the way back to defaults —
+      // those flags are the part that actually matters for accuracy.
+      console.warn('[Indicator] ASR constraints rejected, retrying minimal:', err)
+      return await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      })
+    }
   }
 
   async function startRecording() {
@@ -166,7 +220,11 @@ export default function Indicator() {
     const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
       ? 'audio/webm;codecs=opus'
       : 'audio/webm'
-    const recorder = new MediaRecorder(stream, { mimeType })
+    // Chrome's default Opus bitrate for an audio-only recorder is modest;
+    // at 64kbps mono, Opus is effectively transparent for speech, so this
+    // stops the codec undoing the capture-quality work above. Still tiny:
+    // ~8KB/s, and the blob never leaves the machine on the local path.
+    const recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 64000 })
     mediaRecorderRef.current = recorder
 
     // One self-contained WebM blob emitted on stop. Streaming chunks
