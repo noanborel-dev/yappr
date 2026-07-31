@@ -9,6 +9,7 @@ export default function GeneralTab() {
   const [mics, setMics] = useState<MediaDeviceInfo[]>([])
   const [inputDeviceId, setInputDeviceId] = useState<string | null>(null)
   const [audioCues, setAudioCues] = useState<boolean>(true)
+  const [pauseMedia, setPauseMedia] = useState<boolean>(true)
 
   useEffect(() => {
     window.yappr.getLaunchAtLogin().then(setLaunchAtLogin)
@@ -24,6 +25,7 @@ export default function GeneralTab() {
       setMics(devices.filter((d) => d.kind === 'audioinput'))
       setInputDeviceId(settings.inputDeviceId)
       setAudioCues(settings.audioCues)
+      setPauseMedia(settings.pauseMediaWhileDictating)
     })
     return () => { cancelled = true }
   }, [])
@@ -36,6 +38,11 @@ export default function GeneralTab() {
   function toggleAudioCues(next: boolean) {
     setAudioCues(next)
     window.yappr.setSettings({ audioCues: next })
+  }
+
+  function togglePauseMedia(next: boolean) {
+    setPauseMedia(next)
+    window.yappr.setSettings({ pauseMediaWhileDictating: next })
   }
 
   async function toggleLaunchAtLogin(next: boolean) {
@@ -91,6 +98,15 @@ export default function GeneralTab() {
             <div className="text-[11px] text-ink-45 mt-0.5">Subtle blip when recording starts and ends.</div>
           </div>
           <Toggle on={audioCues} onChange={toggleAudioCues} />
+        </div>
+
+        {/* Pause music row */}
+        <div className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 border-b border-ink-08">
+          <div>
+            <div className="text-[13px] font-semibold leading-tight">Pause music while dictating</div>
+            <div className="text-[11px] text-ink-45 mt-0.5">Pauses Music and Spotify, then resumes them. Keeps speakers out of the mic.</div>
+          </div>
+          <Toggle on={pauseMedia} onChange={togglePauseMedia} />
         </div>
 
         {/* Launch at login */}

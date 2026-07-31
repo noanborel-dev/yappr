@@ -23,7 +23,7 @@ app.commandLine.appendSwitch('force-high-performance-gpu')
 app.commandLine.appendSwitch('disable-features', 'MacUtilityProcessQoSPolicy')
 import { join } from 'path'
 import { registerIpcHandlers, addToHistory, getHistory } from './ipc'
-import { notifyDictationCompleted, markDictationActive } from './context/compactor'
+import { notifyDictationCompleted, markDictationActive, startCompactionRetries } from './context/compactor'
 import { closeContextStore } from './context/store'
 import { registerHotkey, unregisterAll } from './hotkeys'
 import { getSettings, setSettings } from './store'
@@ -47,6 +47,7 @@ import {
   MAX_STARTUP_RECOVERIES,
 } from './recording-recovery'
 import { captureSelectedText, clearSelectedText, getSelectedText } from './selection'
+import { pausePlayingMedia, resumePausedMedia } from './media-control'
 import { pasteText, prewarmPasteHelper, shutdownPasteHelper, captureAXRoleAtPress, getPressTimeAXRolePromise } from './paste'
 import { prewarmWhisper } from './whisper-host'
 import { localModelDownloaded, localModelPath } from './local-models'
@@ -381,6 +382,13 @@ function broadcastState(state: string): void {
       state === 'processing' || state === 'done' || state === 'clipboard') {
     currentState = state
   }
+  // Resume music from the single place every dictation ends up, rather
+  // than from each call site — that way aborts, paste failures and error
+  // banners all restore playback too. resumePausedMedia() is a no-op when
+  // we didn't pause anything, so the extra calls cost nothing.
+  if (state === 'done' || state === 'clipboard' || state === 'idle' || state.startsWith('error')) {
+    void resumePausedMedia()
+  }
   indicatorWindow?.webContents.send(IPC.STATE_CHANGE, state)
 }
 
@@ -388,6 +396,12 @@ function broadcastState(state: string): void {
 // the idle-pill's click menu. Keeps the two entry points consistent.
 function actionStartRecording(): void {
   sessionId++
+  // Fire-and-forget so the Apple Event round-trip never delays capture.
+  // Music already in the buffer can't be un-recorded, but every millisecond
+  // earlier is less of it landing in the microphone.
+  if (getSettings().pauseMediaWhileDictating) {
+    void pausePlayingMedia()
+  }
   audioChunks.length = 0
   captureFocusedApp()
   captureSelectedText()
@@ -853,6 +867,13 @@ app.whenReady().then(() => {
   initRecordingStore(join(app.getPath('userData'), 'recordings'))
 
   registerIpcHandlers()
+  // A backlog can already exist from previous sessions — the counter is
+  // persisted. Without this kick, polling would only begin after the NEXT
+  // dictation, which is how a 316-dictation backlog sat uncompacted.
+  {
+    const s = getSettings()
+    if (s.useContextMemory && s.autoContextUpdate) startCompactionRetries()
+  }
   setupAudioIpc()
   setupIpcListeners()
 

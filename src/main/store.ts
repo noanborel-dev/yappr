@@ -27,6 +27,7 @@ const defaults: Settings = {
   },
   inputDeviceId: null,
   audioCues: true,
+  pauseMediaWhileDictating: true,
   emojiInMessages: false,
   pauseCleanup: false,
   licenseKey: '',
