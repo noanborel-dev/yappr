@@ -10,7 +10,7 @@ import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
 
-const INPUT = process.argv[2] ?? '/tmp/openflow-smoke.webm'
+const INPUT = process.argv[2] ?? '/tmp/yappr-smoke.webm'
 const HOME = os.homedir()
 
 function runProc(cmd, args) {
@@ -44,7 +44,7 @@ const pcm = await audioToPcm16(INPUT)
 console.log(`audio: ${(pcm.byteLength / 2 / 16000).toFixed(2)}s`)
 console.log()
 
-const model = path.join(HOME, 'Library/Application Support/openflow/models/ggml-large-v3-turbo-q5_0.bin')
+const model = path.join(HOME, 'Library/Application Support/yappr/models/ggml-large-v3-turbo-q5_0.bin')
 
 const configs = [
   { name: 'default (no flash)',            init: { filePath: model, useGpu: true } },

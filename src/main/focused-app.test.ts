@@ -3,22 +3,22 @@ import { parseFocusLine } from './focused-app'
 
 describe('parseFocusLine', () => {
   it('parses an ordinary reply', () => {
-    expect(parseFocusLine('com.microsoft.VSCode|Code|pipeline.ts — OpenFlow|4242')).toEqual({
+    expect(parseFocusLine('com.microsoft.VSCode|Code|pipeline.ts — Yappr|4242')).toEqual({
       bundleId: 'com.microsoft.VSCode',
       appName: 'Code',
-      windowTitle: 'pipeline.ts — OpenFlow',
+      windowTitle: 'pipeline.ts — Yappr',
       pid: 4242,
     })
   })
 
   it('keeps the pid when the window title itself contains pipes', () => {
-    // A shell title like `noan@mac | ~/OpenFlow | npm run dev` used to shift
+    // A shell title like `noan@mac | ~/Yappr | npm run dev` used to shift
     // the fields, zero the pid, and silently disable the AI-CLI scan.
-    const line = 'com.googlecode.iterm2|iTerm2|noan@mac | ~/OpenFlow | npm run dev|991'
+    const line = 'com.googlecode.iterm2|iTerm2|noan@mac | ~/Yappr | npm run dev|991'
     const r = parseFocusLine(line)
     expect(r.pid).toBe(991)
     expect(r.bundleId).toBe('com.googlecode.iterm2')
-    expect(r.windowTitle).toBe('noan@mac | ~/OpenFlow | npm run dev')
+    expect(r.windowTitle).toBe('noan@mac | ~/Yappr | npm run dev')
   })
 
   it('handles an empty window title', () => {

@@ -2,7 +2,7 @@
 // but against the alternative binding that uses whisper_full() instead
 // of whisper_full_with_state(), avoiding the per-call Metal init/free.
 //
-// Usage: node scripts/smoke-fugood.mjs /tmp/openflow-smoke.webm
+// Usage: node scripts/smoke-fugood.mjs /tmp/yappr-smoke.webm
 
 import { initWhisper, toggleNativeLog } from '@fugood/whisper.node'
 import { spawn } from 'node:child_process'
@@ -11,10 +11,10 @@ import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
 
-const INPUT = process.argv[2] ?? '/tmp/openflow-smoke.webm'
+const INPUT = process.argv[2] ?? '/tmp/yappr-smoke.webm'
 const MODEL = path.join(
   os.homedir(),
-  'Library/Application Support/openflow/models/ggml-large-v3-turbo-q5_0.bin'
+  'Library/Application Support/yappr/models/ggml-large-v3-turbo-q5_0.bin'
 )
 
 function runProc(cmd, args) {

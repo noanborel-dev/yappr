@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-02
 **Status:** Reviewed (critique team + user decisions folded in) — ready for implementation planning
-**Product:** Yappr (folder: OpenFlow)
+**Product:** Yappr (checkout directory is still named `OpenFlow` on disk)
 
 > **Change log:** Revised 2026-06-02 after a multi-agent critique (39 flaws raised,
 > 38 survived cross-examination, 16 improvements) and a round of user decisions.

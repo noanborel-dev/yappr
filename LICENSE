@@ -1,22 +1,22 @@
-OpenFlow
+Yappr
 
-Copyright (c) 2026 OpenFlow Labs. All rights reserved.
+Copyright (c) 2026 Yappr Labs. All rights reserved.
 
 This software is proprietary and confidential. No part of this software,
 including source code, design, or documentation, may be copied, modified,
 distributed, sublicensed, or used to create derivative works without prior
-written permission from OpenFlow Labs.
+written permission from Yappr Labs.
 
-The OpenFlow application is distributed in binary form to end users under
+The Yappr application is distributed in binary form to end users under
 a separate end-user license agreement (EULA) included with the installed
 product.
 
-OpenFlow incorporates third-party open-source software. The license terms
+Yappr incorporates third-party open-source software. The license terms
 for those components are reproduced in THIRD_PARTY_LICENSES.md, and the
 respective copyright holders retain all rights to their work.
 
 THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
 OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL
-OPENFLOW LABS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING
+YAPPR LABS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING
 FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE.
