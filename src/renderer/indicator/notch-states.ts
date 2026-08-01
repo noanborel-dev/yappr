@@ -287,6 +287,20 @@ export function fromPipelineState(s: PipelineState): NotchState {
  * so deciding this from the mapped notch state starts a second recorder
  * on stop — the audio never flushes and nothing ever pastes.
  */
+/**
+ * States whose UI paints the most recent dictation's text.
+ *
+ * These need the transcript fetched at the moment they're entered. It
+ * used to be fetched only on the return to idle, which is fine for the
+ * hover states — idle has already happened by then — but wrong for the
+ * ones the pipeline pushes mid-run: the clipboard drawer and the paste
+ * drawer both rendered the PREVIOUS dictation, so the text you were told
+ * to insert was not the text you had just spoken.
+ */
+export function paintsTranscript(s: NotchState): boolean {
+  return s === 'clipboard' || s === 'pasting' || s === 'expanded' || s === 'peek'
+}
+
 export function recorderActionFor(s: PipelineState): 'start' | 'stop' | null {
   if (s === 'recording') return 'start'
   if (s === 'stopping') return 'stop'

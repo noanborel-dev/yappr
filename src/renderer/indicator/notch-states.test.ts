@@ -5,6 +5,7 @@ import {
   transitionFor,
   fromPipelineState,
   recorderActionFor,
+  paintsTranscript,
   formatHotkey,
 
   RADIUS,
@@ -363,6 +364,33 @@ describe('formatHotkey', () => {
     expect(formatHotkey(undefined)).toBeNull()
     expect(formatHotkey('')).toBeNull()
     expect(formatHotkey('   ')).toBeNull()
+  })
+})
+
+describe('paintsTranscript', () => {
+  it('covers every state that actually renders the transcript', () => {
+    // Derived from the table so a new transcript-showing state can't be
+    // added without being listed here.
+    for (const state of ALL) {
+      const s = STATES[state]
+      const rendersText = Boolean(s.recent || s.panel || s.pastePanel || s.fallbackPanel)
+      if (rendersText) {
+        expect(paintsTranscript(state), `${state} shows text but isn't listed`).toBe(true)
+      }
+    }
+  })
+
+  it('includes the states the pipeline pushes mid-run', () => {
+    // These are the ones that were broken: `recent` was only refetched on
+    // the return to idle, so both drawers painted the PREVIOUS dictation.
+    expect(paintsTranscript('clipboard')).toBe(true)
+    expect(paintsTranscript('pasting')).toBe(true)
+  })
+
+  it('excludes states with no transcript to show', () => {
+    for (const state of ['idle', 'recording', 'processing', 'done', 'error'] as NotchState[]) {
+      expect(paintsTranscript(state)).toBe(false)
+    }
   })
 })
 

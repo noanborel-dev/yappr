@@ -3,6 +3,7 @@ import {
   resolve,
   fromPipelineState,
   recorderActionFor,
+  paintsTranscript,
   formatHotkey,
   ACCENT,
   LABEL_SIZE,
@@ -223,6 +224,11 @@ export default function NotchIndicator() {
       }
 
       runActiveRef.current = true
+      // Fetch the transcript for any state that paints it. The pipeline
+      // writes to history before broadcasting, so by now history[0] is
+      // this run's result — without this the drawer showed the previous
+      // dictation, i.e. told the user to insert text they hadn't spoken.
+      if (paintsTranscript(next)) refreshRecent()
       setState(next)
     })
 
