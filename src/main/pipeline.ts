@@ -1164,10 +1164,15 @@ The selected text contains markdown formatting (headings, lists, code blocks, bo
     : `FORMATTING RULE:
 The selected text is plain prose. Output as plain prose. Do not introduce markdown formatting unless the command explicitly asks for it.`
 
+  // Inject the user-context block (command framing) so a rewrite can
+  // fulfil commands like "turn this into an email and explain more about
+  // my internship" using facts from the stored overview. Empty when
+  // context memory is off or no overview exists.
+  const contextBlock = buildContextBlock({ enabled: settings.useContextMemory, mode: 'command' })
   const systemPrompt = `You are a text editing assistant. The user has selected the following text and dictated an editing command. Apply the command and return ONLY the modified text, nothing else (no preamble, no explanation, no quotes around the output).
 
 ${formatRule}
-
+${contextBlock}
 Selected text:
 ${selectedText}
 
