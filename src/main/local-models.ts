@@ -9,34 +9,22 @@ export function modelsDir(): string {
   return path.join(app.getPath('userData'), 'models')
 }
 
-// Available local Whisper model tiers.
+// The only local transcription model.
 //
-// We use the multilingual variants (not .en) for base and small
-// because:
-//   - The multilingual `small` is ~60ms slower than `small.en`
-//     (~200ms vs ~140ms warm on M5 Pro) but produces noticeably
-//     better English BRAND-NAME capitalization ("TypeScript" vs
-//     "type script", "TRPC" vs "trpc", "Anthropic" vs "anthropic").
-//     The .en variants were trained without the multilingual
-//     vocabulary that exposes the model to mixed-case tokens at
-//     scale.
-//   - Users who occasionally speak Spanish / French / German get
-//     reasonable transcription instead of phonetic garbage.
-//   - The latency cost (~60ms) is invisible at this scale.
+// Yappr shipped four whisper tiers (base / small / large-v3-turbo) plus
+// Parakeet. The whisper tiers are gone: Parakeet is faster than every one
+// of them at matching English quality, and having a single model removes
+// the entire auto-elevation machinery — the length thresholds, the tier
+// swapping, and the model-reload cost that came with it.
 //
-// Tiers map roughly to (speed × accuracy):
-//   base   ~80ms   small but rough on names
-//   small  ~200ms  near-perfect English + multilingual capable
-//   large  ~970ms  best accuracy on multilingual + technical terms
-export type LocalModelId = 'base' | 'small' | 'large-v3-turbo' | 'parakeet-tdt-0.6b-v3'
+// What was given up: whisper covers ~100 languages, Parakeet covers
+// English plus 24 European ones. Anything outside that set is no longer
+// supported on-device; the Groq cloud provider still uses whisper.
+export type LocalModelId = 'parakeet-tdt-0.6b-v3'
 
-// Balanced (small, multilingual) is the default. It hits ~200ms
-// warm on M5 Pro for typical clips, transcribes English brand names
-// with proper capitalization (TypeScript, TRPC, Anthropic), AND
-// handles Spanish / French / German for users who occasionally speak
-// non-English. Users who want maximum accuracy on heavy multilingual
-// or technical content can opt into Accurate (large-v3-turbo) in
-// Settings — it's there, just ~5x slower.
+// Single tier, so this is really just "the model". Kept as a named
+// export because callers read it as a fallback when settings are
+// unreadable.
 export const DEFAULT_LOCAL_MODEL: LocalModelId = DEFAULT_LOCAL_MODEL_ID
 
 interface LocalModelInfo {
@@ -50,33 +38,6 @@ interface LocalModelInfo {
 }
 
 export const LOCAL_MODELS: Record<LocalModelId, LocalModelInfo> = {
-  'base': {
-    id: 'base',
-    filename: 'ggml-base-q5_1.bin',
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin',
-    bytes: 60_000_000,
-    sizeLabel: '57 MB',
-    speedLabel: '~100 ms',
-    description: 'Tiny + ultra-fast. Multilingual. Some mistakes on technical terms.',
-  },
-  'small': {
-    id: 'small',
-    filename: 'ggml-small-q5_1.bin',
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin',
-    bytes: 190_085_487,
-    sizeLabel: '181 MB',
-    speedLabel: '~200 ms',
-    description: 'Sub-300ms warm. Multilingual. Near-perfect for English dictation.',
-  },
-  'large-v3-turbo': {
-    id: 'large-v3-turbo',
-    filename: 'ggml-large-v3-turbo-q5_0.bin',
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin',
-    bytes: 574_041_856,
-    sizeLabel: '547 MB',
-    speedLabel: '~1000 ms',
-    description: 'Highest accuracy on non-English and technical terms. Slower.',
-  },
   'parakeet-tdt-0.6b-v3': {
     id: 'parakeet-tdt-0.6b-v3',
     filename: 'ggml-parakeet-tdt-0.6b-v3-q4_0.bin',
@@ -84,7 +45,7 @@ export const LOCAL_MODELS: Record<LocalModelId, LocalModelInfo> = {
     bytes: 355_615_679,
     sizeLabel: '339 MB',
     speedLabel: '~25 ms',
-    description: 'NVIDIA Parakeet. 30x faster than Accurate at similar English quality. English + 24 European languages.',
+    description: 'NVIDIA Parakeet. Near-instant. English + 24 European languages.',
   },
 }
 

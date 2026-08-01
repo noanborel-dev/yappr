@@ -10,7 +10,7 @@
 
 - **Push-to-talk** — hold Right Option (⌥) anywhere in the OS, speak, release. Done.
 - **Instant on short phrases** — anything under 8 words skips the cleanup model entirely and pastes in roughly a tenth of a second.
-- **On-device transcription** — NVIDIA Parakeet or whisper.cpp, running locally. Your audio doesn't leave the Mac to be transcribed.
+- **On-device transcription** — NVIDIA Parakeet, running locally. Your audio doesn't leave the Mac to be transcribed.
 - **Context-aware cleanup** — detects Slack, Gmail, VS Code, Notion and adjusts tone automatically
 - **Prompt shaping** — dictating at an AI coding agent produces a well-structured prompt instead of a raw transcript
 - **Command mode** — highlight text, hold ⌘⇧Space, dictate an edit ("make this a bullet list")
@@ -27,24 +27,24 @@ Transcription runs locally. The optional cleanup pass — the step that strips f
 
 ### Speed
 
-Transcription is on-device, and the model tier is the whole story. Measured on an M5 Pro:
+One on-device model: NVIDIA Parakeet TDT 0.6B (339 MB). Measured on an M5 Pro:
 
-| tier | model | 1s clip | 7s clip | size |
-|---|---|---|---|---|
-| **Instant** | Parakeet TDT 0.6B | **24 ms** | **64 ms** | 339 MB |
-| Fast | whisper base | 55 ms | 86 ms | 57 MB |
-| Balanced | whisper small | 170 ms | 245 ms | 181 MB |
-| Accurate | whisper large-v3-turbo | 825 ms | 870 ms | 547 MB |
+| audio | transcription |
+|---|---|
+| 1s | **24 ms** |
+| 4s | 48 ms |
+| 7s | 64 ms |
+| 16s | 164 ms |
 
-Whisper pads every clip to a 30-second window internally, so its cost barely moves with clip length — a one-second phrase costs about the same as a twenty-second one. Parakeet has no fixed window, so short phrases really are near-instant. That's why Instant is the default tier.
+Cost scales with how long you spoke. Yappr previously offered whisper tiers as well, and dropped them: whisper pads every clip to a 30-second window internally, so its fastest useful tier still cost ~170 ms and its most accurate cost ~870 ms — for a one-second phrase. Parakeet was faster than all of them at matching English quality, so keeping four models only bought confusion.
 
-A short dictation on Instant, with cleanup skipped, lands in well under 200 ms end to end.
+A short dictation, with cleanup skipped, lands in well under 200 ms end to end.
 
 ## Quick start
 
 1. Download the latest build from [yappr.app/download](https://yappr.app/download)
 2. Open Yappr — the setup wizard appears
-3. Instant is preselected and downloads on first run — or pick another tier, or paste a [Groq API key](https://console.groq.com) to use the cloud
+3. The on-device model downloads on first run (339 MB) — or paste a [Groq API key](https://console.groq.com) to use the cloud instead
 4. Hold **Right Option (⌥)** anywhere and speak
 
 Cleanup is optional. With no API key, Yappr still transcribes on-device and applies its deterministic fixes — brand names, your custom dictionary, spelled-out names, question marks.
@@ -52,7 +52,7 @@ Cleanup is optional. With no API key, Yappr still transcribes on-device and appl
 ## FAQ
 
 **Does it work offline?**
-Transcription, always, on every tier. The cleanup pass needs a key — and is skipped for short dictations regardless.
+Transcription, always. The cleanup pass needs a key — and is skipped for short dictations regardless.
 
 **How much does BYOK actually cost?**
 Only the cleanup pass costs anything, and short dictations skip it. Groq's `llama-3.1-8b-instant` is fractions of a cent per call, and most users stay inside the free tier. Transcription is free because it runs on your machine.
@@ -61,7 +61,7 @@ Only the cleanup pass costs anything, and short dictations skip it. Groq's `llam
 No. This is an explicit anti-feature. We don't capture screenshots, and we never will.
 
 **Which languages?**
-Instant (Parakeet) covers English plus 24 European languages. The whisper tiers cover ~100. All of them handle switching language mid-sentence.
+English plus 24 European languages, including switching between them mid-sentence. Languages outside that set need the Groq cloud provider, which uses Whisper.
 
 **Why doesn't it always clean up what I said?**
 By design. Under 8 words there's nothing worth restructuring, so Yappr pastes your words with only the deterministic fixes applied — and saves you the round-trip.

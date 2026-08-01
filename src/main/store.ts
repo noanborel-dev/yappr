@@ -1,7 +1,7 @@
 import ElectronStore from 'electron-store'
 import type { Settings, Strictness } from '../shared/types'
 import { DEFAULT_HOTKEYS, DEFAULT_DEV_MODE_APPS, MODELS } from '../shared/constants'
-import { DEFAULT_LOCAL_MODEL } from './local-models'
+import { DEFAULT_LOCAL_MODEL, LOCAL_MODELS } from './local-models'
 
 const defaults: Settings = {
   firstRun: true,
@@ -11,7 +11,6 @@ const defaults: Settings = {
     transcriptionModel: MODELS.groq.transcription,
     cleanupModel: MODELS.groq.cleanup,
     localModel: DEFAULT_LOCAL_MODEL,
-    localAutoAccurateInCode: true,
   },
   hotkeys: DEFAULT_HOTKEYS,
   perAppRules: [],
@@ -93,9 +92,15 @@ export function getSettings(): Settings {
   // speed. The model file on disk has a different name so the user
   // will need to re-download — that's surfaced naturally in the
   // Settings card (showing "Download" instead of "✓ active").
-  const legacyModel = merged.provider.localModel as unknown as string
-  if (legacyModel === 'small.en') merged.provider.localModel = 'small'
-  if (legacyModel === 'base.en') merged.provider.localModel = 'base'
+  // The whisper tiers (base / small / large-v3-turbo, and the older
+  // .en variants) were retired in favour of Parakeet. A persisted value
+  // naming any of them is no longer a valid LocalModelId, and leaving it
+  // in place would send localModelPath() looking up a registry entry that
+  // no longer exists. Coerce anything unrecognised to the current model.
+  if (!(merged.provider.localModel in LOCAL_MODELS)) {
+    merged.provider.localModel = DEFAULT_LOCAL_MODEL
+    store.set('provider', merged.provider)
+  }
 
   // Merge in any new devModeApps bundle IDs that didn't exist when the
   // user first persisted their settings. Without this, users upgrading

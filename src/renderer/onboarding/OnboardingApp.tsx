@@ -897,10 +897,7 @@ interface OnboardingModelMeta {
   recommended?: boolean
 }
 const ONBOARDING_MODELS: OnboardingModelMeta[] = [
-  { id: 'parakeet-tdt-0.6b-v3', name: 'Instant', speed: '~25 ms', size: '339 MB', hint: 'Near-instant. English + 24 European languages.', recommended: true },
-  { id: 'base',            name: 'Fast',     speed: '~100 ms', size: '57 MB',  hint: 'Multilingual. Tiny + fastest.' },
-  { id: 'small',           name: 'Balanced', speed: '~200 ms', size: '181 MB', hint: 'Multilingual. Quick + accurate.' },
-  { id: 'large-v3-turbo',  name: 'Accurate', speed: '~1000 ms', size: '547 MB', hint: 'Best on rarer languages. Slower — whisper pads every clip to 30s.' },
+  { id: 'parakeet-tdt-0.6b-v3', name: 'Instant', speed: '~25 ms', size: '339 MB', hint: 'Near-instant, on-device. English + 24 European languages.' },
 ]
 
 function OnboardingModelCard({

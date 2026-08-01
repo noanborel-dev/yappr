@@ -16,10 +16,7 @@ interface LocalModelMeta {
 }
 
 const LOCAL_MODEL_META: LocalModelMeta[] = [
-  { id: 'parakeet-tdt-0.6b-v3', name: 'Instant', speed: '~25 ms', size: '339 MB', description: 'NVIDIA Parakeet. ~30x faster than Accurate at matching English quality. English + 24 European languages.', recommended: true },
-  { id: 'base',            name: 'Fast',     speed: '~100 ms', size: '57 MB',  description: 'Tiny + ultra-fast. Multilingual. Some mistakes on technical terms.' },
-  { id: 'small',           name: 'Balanced', speed: '~200 ms', size: '181 MB', description: 'Sub-300ms warm. Multilingual. Near-perfect for English dictation.' },
-  { id: 'large-v3-turbo',  name: 'Accurate', speed: '~1000 ms', size: '547 MB', description: 'Best on rarer languages. Whisper pads every clip to 30s, so short clips cost the same as long ones.' },
+  { id: 'parakeet-tdt-0.6b-v3', name: 'Instant', speed: '~25 ms', size: '339 MB', description: 'NVIDIA Parakeet, on-device. English + 24 European languages.' },
 ]
 
 interface ProviderInfo {
@@ -171,11 +168,6 @@ export default function AIProviderTab() {
             selectedModel={settings.provider.localModel}
             onSelectModel={(id) => save({ localModel: id })}
           />
-          <AutoAccurateToggle
-            value={settings.provider.localAutoAccurateInCode !== false}
-            onChange={(v) => save({ localAutoAccurateInCode: v })}
-            accurateDownloaded={!!downloaded['large-v3-turbo']}
-          />
           {/* Optional Groq key card for the Local provider. Without
               this key, cleanup is a no-op and the regex-based
               QUICK_FIXES + Light cleanup are all the polish you get.
@@ -312,55 +304,6 @@ function LocalModelPanel({
   )
 }
 
-// Smart-switch toggle: when on, the local provider auto-elevates to
-// Accurate for dictations into code/IDE contexts. Hidden when the
-// Accurate tier isn't downloaded — there's nothing to elevate to.
-function AutoAccurateToggle({
-  value,
-  onChange,
-  accurateDownloaded,
-}: {
-  value: boolean
-  onChange: (v: boolean) => void
-  accurateDownloaded: boolean
-}) {
-  if (!accurateDownloaded) return null
-  return (
-    <div className="mt-3 bg-card border border-ink-08 rounded-[14px] px-4 py-3.5 flex items-start gap-3">
-      <div className="flex-1 min-w-0">
-        <div className="text-[12.5px] font-semibold">Smart-switch to Accurate</div>
-        <p className="text-[11px] text-ink-60 mt-1 leading-relaxed">
-          Automatically use <span className="font-medium">Accurate</span> when it matters more:
-        </p>
-        <ul className="text-[11px] text-ink-60 mt-1 leading-relaxed list-disc pl-4 space-y-0.5">
-          <li>Code editors (Cursor, VS Code, Terminal) — always</li>
-          <li>Email (Gmail, Mail, Outlook) — for dictations over 8s</li>
-          <li>Docs (Notion, Word, Pages) — for dictations over 12s</li>
-          <li>Any app — for dictations over 20s</li>
-        </ul>
-        <p className="text-[11px] text-ink-60 mt-1.5 leading-relaxed">
-          Short casual dictations stay on your selected tier for speed.
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={() => onChange(!value)}
-        aria-pressed={value}
-        className={[
-          'shrink-0 mt-0.5 w-9 h-5 rounded-full transition-colors relative',
-          value ? 'bg-ink' : 'bg-ink-08',
-        ].join(' ')}
-      >
-        <span
-          className={[
-            'absolute top-0.5 w-4 h-4 rounded-full bg-paper transition-all',
-            value ? 'left-[18px]' : 'left-0.5',
-          ].join(' ')}
-        />
-      </button>
-    </div>
-  )
-}
 
 function LocalModelCard({
   meta,

@@ -18,7 +18,7 @@ export type Provider = 'groq' | 'local'
 // speed/accuracy sweet spot — ~200ms warm, 181 MB, handles English
 // plus Spanish/French/etc. Users who want minimum size pick `base`;
 // users who want maximum accuracy pick `large-v3-turbo`.
-export type LocalModelId = 'base' | 'small' | 'large-v3-turbo' | 'parakeet-tdt-0.6b-v3'
+export type LocalModelId = 'parakeet-tdt-0.6b-v3'
 
 export interface ProviderSettings {
   provider: Provider
@@ -31,7 +31,6 @@ export interface ProviderSettings {
   // Trade ~1s extra inference for noticeably better transcription
   // of technical terms, camelCase, and brand names. Disable to lock
   // the user's selected tier for every dictation regardless of app.
-  localAutoAccurateInCode?: boolean
 }
 
 export interface HotkeySettings {

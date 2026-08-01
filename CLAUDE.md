@@ -25,7 +25,7 @@ hotkey press ──► pause music ──┐
                 AX-role probe ─┘
 hotkey release ─── t0 ──────────────────────────────────────────►
    │
-   ├─ transcribe            local whisper.cpp or Parakeet, or cloud Groq
+   ├─ transcribe            local Parakeet, or cloud Groq (whisper)
    ├─ route                 which cleanup register applies
    ├─ cleanup (often skipped)  one Groq LLM call
    ├─ deterministic passes  always run, never skipped
@@ -38,34 +38,37 @@ hotkey release ─── t0 ─────────────────�
 
 ## Transcription engines
 
-Two engines behind one worker. `engineForModel(path)` in `transcribe-core.ts`
-picks by model path.
+**One local model: `parakeet-tdt-0.6b-v3`** (q4_0, 339MB), 37ms @1s → 164ms
+@16s. The whisper tiers (base / small / large-v3-turbo) were retired — Parakeet
+beat all of them at matching English quality, and a single tier deletes the
+entire auto-elevation machinery along with the tier-swap reload cost.
 
-| tier | model | measured on M5 Pro |
-|---|---|---|
-| Instant | `parakeet-tdt-0.6b-v3` (q4_0, 339MB) | 37ms @1s → 164ms @16s |
-| Fast | whisper `base` | ~55–90ms |
-| Balanced | whisper `small` | ~170–245ms |
-| Accurate | whisper `large-v3-turbo` | **~870ms, flat** |
+The whisper engine path REMAINS in the worker and `engineForModel(path)` still
+routes by model path — the Groq cloud provider uses Whisper, and re-adding a
+local tier should stay cheap. Anything registered in `LOCAL_MODELS` whose path
+doesn't match /parakeet/i will load through `initWhisper`.
 
-**The single most important fact in this codebase:** Whisper's encoder always
+**Still the single most important fact in this codebase:** Whisper's encoder always
 runs on a padded **30-second window**. A 0.8s clip and a 27s clip both cost
 ~870ms. Cost is per *call*, not per *second*. Consequences:
 
-- Elevating a short clip to Accurate buys nothing and costs ~800ms.
 - Chunked "streaming" at 2s intervals cannot help — the final chunk still
   costs a full window. Only chunking at ~30s boundaries would, and only for
   audio longer than one window.
 - Parakeet has no such window; its cost scales with audio length. That is why
-  it is the default tier.
+  it is now the only local tier.
+- This is also why auto-elevation was removed: it traded ~800ms for accuracy
+  that Parakeet already matched.
 
 Parakeet caveats: no `language` option, no initial prompt (so the dictionary
 *bias* doesn't apply — `applyDictionaryReplacements` still corrects those terms
 downstream), and it covers English + 24 European languages, not Whisper's ~100.
 
 The worker (`whisper-worker.ts`) keeps **two models resident** and evicts LRU.
-Tier switching is common now that elevation is length-gated, and a reload costs
-150–290ms plus a Metal recompile. `whisper-host.ts` serialises all transcribes
+With one local tier nothing swaps in practice, but the cache is kept: a reload
+costs 150–290ms plus a Metal recompile, and it makes re-adding a tier free.
+
+`whisper-host.ts` serialises all transcribes
 through a `SerialQueue` — the context is not reentrant.
 
 ---

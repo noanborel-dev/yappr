@@ -33,134 +33,22 @@ export class LocalBinaryMissingError extends Error {
   }
 }
 
-// Reason the active model was chosen. Used in logs so the user can
-// tell at a glance whether auto-switch fired and why.
-type ModelSelectionReason =
-  | 'user-pick'           // user's selected tier in Settings
-  | 'auto-code'           // code/IDE — always elevate to Accurate
-  | 'auto-email-long'     // email + audio long enough that polish matters
-  | 'auto-docs-long'      // long-form doc — content stakes are high
-  | 'auto-long'           // generic-context dictation, ≥ long threshold
-  | 'default'             // settings unreadable, fell back to DEFAULT_LOCAL_MODEL
+// With one model there is nothing to select and nothing to elevate to.
+// This used to weigh focused-app category against audio length to decide
+// whether to pay whisper's ~870ms Accurate tier; Parakeet is ~25ms at any
+// length, so the trade no longer exists.
+type ModelSelectionReason = 'user-pick' | 'default'
 
-// Auto-switch thresholds in seconds. Tuned for typical M-series speed
-// where Balanced is ~250ms/clip regardless of length and Accurate is
-// ~5x slower. Length is a proxy for "how bad would a misheard word
-// feel?" — a one-liner is fine on Balanced; a paragraph in an email
-// is worth the extra second to get right.
-const AUTO_THRESHOLDS = {
-  // Code — elevate only once the clip is long enough to be worth a
-  // second of inference. Measured on this machine's own logs:
-  //   base            p50   92ms
-  //   small           p50  270ms
-  //   large-v3-turbo  p50  920ms   (flat — Whisper pads every clip to a
-  //                                 30s encoder window, so a 1s clip
-  //                                 costs the same as a 25s one)
-  // Elevating a 1.5s "double check" to Accurate bought nothing and cost
-  // ~650ms, and it fired on EVERY dictation in an editor because the
-  // code branch had no length gate at all — unlike email/docs below.
-  // Short technical one-liners are also the case the QUICK_FIXES regex
-  // and the user dictionary already cover.
-  codeSeconds: 3,
-  // Email is a higher-stakes app — even short emails benefit from
-  // proper capitalization and brand-name accuracy. Use a low bar.
-  emailSeconds: 8,
-  // Docs (Notion, Word, Pages) — long-form writing. Polish matters
-  // after ~12s of content.
-  docsSeconds: 12,
-  // Everything else (messaging, browser, other apps) — only elevate
-  // when audio gets long enough that the chance of a Balanced
-  // mistake compounds.
-  longSeconds: 20,
-} as const
-
-function selectedModel(audioSeconds: number): { id: LocalModelId; reason: ModelSelectionReason; focusedBundleId?: string } {
+function selectedModel(_audioSeconds: number): { id: LocalModelId; reason: ModelSelectionReason; focusedBundleId?: string } {
   try {
-    const settings = getSettings()
-    const userPick = settings.provider.localModel ?? DEFAULT_LOCAL_MODEL
-
-    // Smart-switch off — always honor user's pick.
-    if (settings.provider.localAutoAccurateInCode === false) {
-      return { id: userPick, reason: 'user-pick' }
-    }
-    // User already picked Accurate — no elevation needed.
-    if (userPick === 'large-v3-turbo') {
-      return { id: userPick, reason: 'user-pick' }
-    }
-    // Parakeet is never "elevated" away from. The whole premise of
-    // auto-elevation is trading latency for accuracy, and against
-    // parakeet that trade is backwards: large-v3-turbo is ~30x slower
-    // (870ms vs 24ms measured) for no clear accuracy gain on English.
-    // Silently swapping a parakeet user onto Accurate mid-session would
-    // undo the entire reason they chose it.
-    if (userPick === 'parakeet-tdt-0.6b-v3') {
-      return { id: userPick, reason: 'user-pick' }
-    }
-    // Accurate must be downloaded for any auto-elevation to fire.
-    if (!localModelDownloaded('large-v3-turbo')) {
-      return { id: userPick, reason: 'user-pick' }
-    }
-
-    let focused
-    try {
-      focused = getFocusedApp()
-    } catch {
-      return { id: userPick, reason: 'user-pick' }
-    }
-
-    // Code / IDE / terminal — elevate to Accurate once there's enough
-    // audio to be worth it. Technical terms and brand names need the
-    // larger vocabulary: "Claude Code" / "useEffect" / "GPT-4" / "tRPC"
-    // come through cleanly on large; Balanced mangles them and the
-    // QUICK_FIXES regex only catches the most common.
-    //
-    // Below codeSeconds we honor the user's tier instead. Whisper's
-    // encoder cost is flat, so elevating a 1.5s utterance costs the full
-    // ~920ms while transcribing almost nothing — and dictation in an
-    // editor is mostly short one-liners, so this fired constantly.
-    const isCode = focused.category === 'code'
-      || settings.devModeApps.includes(focused.bundleId)
-    if (isCode && audioSeconds >= AUTO_THRESHOLDS.codeSeconds) {
-      return { id: 'large-v3-turbo', reason: 'auto-code', focusedBundleId: focused.bundleId }
-    }
-
-    // Email — elevate at a low audio-length threshold (8s). Even a
-    // short email is high-stakes; "GPT 4" → "GPT for" in a work
-    // email looks unprofessional.
-    if (focused.category === 'email' && audioSeconds >= AUTO_THRESHOLDS.emailSeconds) {
-      return { id: 'large-v3-turbo', reason: 'auto-email-long', focusedBundleId: focused.bundleId }
-    }
-
-    // Docs (Notion, Word, Pages) — elevate at the longer 12s
-    // threshold. Long-form writing benefits from polish.
-    if (focused.category === 'docs' && audioSeconds >= AUTO_THRESHOLDS.docsSeconds) {
-      return { id: 'large-v3-turbo', reason: 'auto-docs-long', focusedBundleId: focused.bundleId }
-    }
-
-    // Generic catch-all: any dictation over 20s in any app benefits
-    // from Accurate. By then there's enough text that a single
-    // missed term feels worse than the latency hit.
-    if (audioSeconds >= AUTO_THRESHOLDS.longSeconds) {
-      return { id: 'large-v3-turbo', reason: 'auto-long', focusedBundleId: focused.bundleId }
-    }
-
-    return { id: userPick, reason: 'user-pick' }
+    return { id: getSettings().provider.localModel ?? DEFAULT_LOCAL_MODEL, reason: 'user-pick' }
   } catch {
     return { id: DEFAULT_LOCAL_MODEL, reason: 'default' }
   }
 }
 
-// Best-guess tier for prewarm (no audio yet) — the model the user is
-// MOST LIKELY to need first, which is now their own picked tier.
-//
-// This used to prewarm Accurate on the reasoning that the code/email/
-// long paths all elevate there. That stopped being true once elevation
-// gained a length gate: the majority of dictations are short one-liners
-// that stay on the user's tier, so prewarming Accurate meant the common
-// case paid a model swap on the very first dictation after launch.
-//
-// A miss now costs one load of the OTHER model, after which the worker's
-// two-slot cache holds both and no further swap occurs.
+// Which model to load at startup. With a single tier this can no longer
+// guess wrong.
 export function prewarmModelId(): LocalModelId {
   try {
     return getSettings().provider.localModel ?? DEFAULT_LOCAL_MODEL
@@ -169,9 +57,7 @@ export function prewarmModelId(): LocalModelId {
   }
 }
 
-// Cheap accessor for the user's selected tier WITHOUT consulting
-// focused app or audio length. Used by readiness check + uninstall
-// gating; for actual transcription, use selectedModel(audioSeconds).
+// Used by the readiness check and uninstall gating.
 function userPickedModelId(): LocalModelId {
   try {
     return getSettings().provider.localModel ?? DEFAULT_LOCAL_MODEL
@@ -231,10 +117,7 @@ export function createLocalWhisperProvider(): TranscriptionProvider {
     name: 'Local',
     async transcribe(audio, options = {}) {
       if (!ffmpegAvailable()) throw new LocalBinaryMissingError('ffmpeg')
-      // Sanity-check the user's PICKED tier is downloaded before we
-      // even decode audio. Auto-switch might still elevate to a
-      // different model, but if the user has picked something that
-      // doesn't exist we want to fail fast.
+      // Fail fast if the model isn't on disk, before decoding audio.
       if (!localModelDownloaded(userPickedModelId())) throw new LocalModelMissingError()
 
       const ffmpegStart = Date.now()
@@ -242,41 +125,8 @@ export function createLocalWhisperProvider(): TranscriptionProvider {
       const ffmpegMs = Date.now() - ffmpegStart
       const seconds = pcm.byteLength / 2 / 16000
 
-      // NOW we know audio duration → make the smart tier decision.
-      // Tier depends on focused app category AND audio length:
-      //   code/IDE → always Accurate
-      //   email + ≥8s → Accurate
-      //   docs + ≥12s → Accurate
-      //   anything + ≥20s → Accurate
-      //   else → user's selected tier (typically Balanced)
       const selection = selectedModel(seconds)
-      if (!localModelDownloaded(selection.id)) {
-        // Auto-switch wants a model that isn't downloaded — fall
-        // back to the user's pick rather than hard-failing.
-        logInfo('Auto-switch target missing, falling back', {
-          wanted: selection.id,
-          fallback: userPickedModelId(),
-        })
-        selection.id = userPickedModelId()
-        selection.reason = 'user-pick'
-      }
       const modelId = selection.id
-
-      // Only log the model decision when auto-elevation actually fires —
-      // the user-pick path is the boring default. The model + reason
-      // also appear in the `Local whisper inference` line below.
-      if (selection.reason !== 'user-pick' && selection.reason !== 'default') {
-        const tierLabel =
-          selection.id === 'large-v3-turbo' ? 'ACCURATE (large-v3-turbo)' :
-          selection.id === 'small' ? 'BALANCED (small)' :
-          'FAST (base)'
-        const reasonLabel =
-          selection.reason === 'auto-code' ? `focused app ${selection.focusedBundleId} is a code editor`
-          : selection.reason === 'auto-email-long' ? `long email (${seconds.toFixed(1)}s ≥ ${AUTO_THRESHOLDS.emailSeconds}s)`
-          : selection.reason === 'auto-docs-long' ? `long doc dictation (${seconds.toFixed(1)}s ≥ ${AUTO_THRESHOLDS.docsSeconds}s)`
-          : `long dictation (${seconds.toFixed(1)}s ≥ ${AUTO_THRESHOLDS.longSeconds}s)`
-        logInfo(`Auto-elevated → ${tierLabel}`, { reason: reasonLabel })
-      }
 
       // Inference runs in the whisper utility process — see
       // src/main/whisper-host.ts and src/main/whisper-worker.ts.
