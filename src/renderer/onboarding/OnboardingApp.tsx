@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import groqLogo from '../shared/logos/groq.png'
 import type { CategoryStrictness, LocalModelId, Provider, Settings, Strictness } from '../../shared/types'
 import type { LocalModelProgress, LocalModelReadiness } from '../global'
-import { MODELS } from '../../shared/constants'
+import { MODELS, DEFAULT_LOCAL_MODEL_ID } from '../../shared/constants'
 import { Pill } from '../shared/ui/Pill'
 import { Card } from '../shared/ui/Card'
 import { Wordmark } from '../shared/ui/Wordmark'
@@ -39,7 +39,7 @@ export default function OnboardingApp() {
   // Two providers: Local (on-device whisper.cpp) and Groq (cloud).
   // Matches the Settings → Provider tab.
   const [provider, setProvider] = useState<Provider>('local')
-  const [localModel, setLocalModel] = useState<LocalModelId>('small')
+  const [localModel, setLocalModel] = useState<LocalModelId>(DEFAULT_LOCAL_MODEL_ID)
   const [groqKey, setGroqKey] = useState('')
   const [emojiInMessages, setEmojiInMessages] = useState(false)
   const [strictness, setStrictness] = useState<CategoryStrictness>({
@@ -548,7 +548,7 @@ interface ProviderInfo {
 }
 
 const ONBOARDING_PROVIDERS: ProviderInfo[] = [
-  { value: 'local', brand: 'local', name: 'Local',  model: 'whisper-large-v3-turbo (on-device)', description: 'Runs on your Mac. Offline, free, no keys. ~547MB download.', price: 'free, offline', keyPlaceholder: '',      keyHint: '' },
+  { value: 'local', brand: 'local', name: 'Local',  model: 'Parakeet TDT (on-device)', description: 'Runs on your Mac. Offline, free, no keys. ~339MB download.', price: 'free, offline', keyPlaceholder: '',      keyHint: '' },
   { value: 'groq',  brand: 'groq',  name: 'Groq',   model: 'whisper-large-v3-turbo', description: 'Fastest cloud Whisper. Free tier covers most users.',          price: 'free tier',     keyPlaceholder: 'gsk_…', keyHint: 'console.groq.com' },
 ]
 
@@ -614,7 +614,7 @@ function StepProvider({
   // `small` tier in a previous session). Otherwise hide it behind a
   // small disclosure — most users should never need to think about
   // model size.
-  const [showAdvanced, setShowAdvanced] = useState(localModel !== 'small')
+  const [showAdvanced, setShowAdvanced] = useState(localModel !== DEFAULT_LOCAL_MODEL_ID)
   const tierMeta = ONBOARDING_MODELS.find((m) => m.id === localModel)!
 
   return (
@@ -897,9 +897,10 @@ interface OnboardingModelMeta {
   recommended?: boolean
 }
 const ONBOARDING_MODELS: OnboardingModelMeta[] = [
+  { id: 'parakeet-tdt-0.6b-v3', name: 'Instant', speed: '~25 ms', size: '339 MB', hint: 'Near-instant. English + 24 European languages.', recommended: true },
   { id: 'base',            name: 'Fast',     speed: '~100 ms', size: '57 MB',  hint: 'Multilingual. Tiny + fastest.' },
-  { id: 'small',           name: 'Balanced', speed: '~200 ms', size: '181 MB', hint: 'Multilingual. Quick + accurate.', recommended: true },
-  { id: 'large-v3-turbo',  name: 'Accurate', speed: '~1000 ms', size: '547 MB', hint: 'Highest accuracy. Slower.' },
+  { id: 'small',           name: 'Balanced', speed: '~200 ms', size: '181 MB', hint: 'Multilingual. Quick + accurate.' },
+  { id: 'large-v3-turbo',  name: 'Accurate', speed: '~1000 ms', size: '547 MB', hint: 'Best on rarer languages. Slower — whisper pads every clip to 30s.' },
 ]
 
 function OnboardingModelCard({

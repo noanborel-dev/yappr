@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
+import { DEFAULT_LOCAL_MODEL_ID } from '../shared/constants'
 
 // On-disk model storage. We use Electron's user-data dir so models
 // survive app updates and don't bloat the .app bundle.
@@ -36,7 +37,7 @@ export type LocalModelId = 'base' | 'small' | 'large-v3-turbo' | 'parakeet-tdt-0
 // non-English. Users who want maximum accuracy on heavy multilingual
 // or technical content can opt into Accurate (large-v3-turbo) in
 // Settings — it's there, just ~5x slower.
-export const DEFAULT_LOCAL_MODEL: LocalModelId = 'small'
+export const DEFAULT_LOCAL_MODEL: LocalModelId = DEFAULT_LOCAL_MODEL_ID
 
 interface LocalModelInfo {
   id: LocalModelId

@@ -229,3 +229,13 @@ export const BUILTIN_DICTIONARY: string[] = [
   'macOS', 'iOS', 'iPadOS', 'tvOS', 'watchOS', 'visionOS', 'SwiftUI', 'AppKit', 'UIKit',
   'TestFlight', 'Xcode', 'Apple Silicon', 'M1', 'M2', 'M3', 'M4',
 ]
+
+// Default local transcription tier, in shared/ so main AND renderer read
+// the same value. Onboarding previously hardcoded its own 'small', which
+// is how a new install could disagree with the app about its own default.
+//
+// Parakeet: ~24ms on a 1s clip vs ~170ms (small) and ~825ms
+// (large-v3-turbo), measured on M5 Pro, with matching English output. It
+// also scales with audio length instead of paying whisper's fixed
+// 30-second encoder window.
+export const DEFAULT_LOCAL_MODEL_ID = 'parakeet-tdt-0.6b-v3' as const

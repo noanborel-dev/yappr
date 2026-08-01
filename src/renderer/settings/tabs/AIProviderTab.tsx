@@ -32,7 +32,7 @@ interface ProviderInfo {
 }
 
 const PROVIDERS: ProviderInfo[] = [
-  { value: 'local', brand: 'local', name: 'Local',  model: 'whisper-large-v3-turbo (on-device)', description: 'Runs on your Mac. Offline, free, no keys. ~547MB download.', price: 'free, offline' },
+  { value: 'local', brand: 'local', name: 'Local',  model: 'Parakeet TDT (on-device)', description: 'Runs on your Mac. Offline, free, no keys. ~339MB download.', price: 'free, offline' },
   { value: 'groq',  brand: 'groq',  name: 'Groq',   model: 'whisper-large-v3-turbo', description: 'Fastest cloud Whisper. Free tier covers most users.',          price: 'free tier' },
 ]
 

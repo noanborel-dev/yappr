@@ -36,7 +36,7 @@ Transcription is on-device, and the model tier is the whole story. Measured on a
 | Balanced | whisper small | 170 ms | 245 ms | 181 MB |
 | Accurate | whisper large-v3-turbo | 825 ms | 870 ms | 547 MB |
 
-Whisper pads every clip to a 30-second window internally, so its cost barely moves with clip length — a one-second phrase costs about the same as a twenty-second one. Parakeet has no fixed window, so short phrases really are near-instant. That's why Instant is the recommended tier.
+Whisper pads every clip to a 30-second window internally, so its cost barely moves with clip length — a one-second phrase costs about the same as a twenty-second one. Parakeet has no fixed window, so short phrases really are near-instant. That's why Instant is the default tier.
 
 A short dictation on Instant, with cleanup skipped, lands in well under 200 ms end to end.
 
@@ -44,7 +44,7 @@ A short dictation on Instant, with cleanup skipped, lands in well under 200 ms e
 
 1. Download the latest build from [yappr.app/download](https://yappr.app/download)
 2. Open Yappr — the setup wizard appears
-3. Pick a local model (Instant is recommended), or paste a [Groq API key](https://console.groq.com) to use the cloud
+3. Instant is preselected and downloads on first run — or pick another tier, or paste a [Groq API key](https://console.groq.com) to use the cloud
 4. Hold **Right Option (⌥)** anywhere and speak
 
 Cleanup is optional. With no API key, Yappr still transcribes on-device and applies its deterministic fixes — brand names, your custom dictionary, spelled-out names, question marks.
