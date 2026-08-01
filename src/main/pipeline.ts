@@ -863,7 +863,12 @@ export async function runDictationPipeline(
     if (surface.register === 'reformat') {
       effectiveCategory = 'ai_prompt'
       logInfo('Routed to ai_prompt (reformat)', {
+        // cli was captured but only ever logged on the faithful branch, so
+        // a prompt bound for Claude Code looked identical to one bound for
+        // Perplexity. Threading it is the prerequisite for shaping the two
+        // differently.
         bundleId: focusedApp.bundleId, axRole, reason: surface.reason,
+        cli: terminalAiCli.cli,
       })
     } else if (surface.register === 'faithful_ai') {
       runFaithfulAi = true

@@ -165,8 +165,6 @@ export default function AIProviderTab() {
             readiness={localReadiness}
             progress={localProgress}
             downloaded={downloaded}
-            selectedModel={settings.provider.localModel}
-            onSelectModel={(id) => save({ localModel: id })}
           />
           {/* Optional Groq key card for the Local provider. Without
               this key, cleanup is a no-op and the regex-based
@@ -257,18 +255,16 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
+// There is exactly one on-device model, so this panel reports its state
+// (downloaded / downloading / missing) rather than offering a choice.
 function LocalModelPanel({
   readiness,
   progress,
   downloaded,
-  selectedModel,
-  onSelectModel,
 }: {
   readiness: LocalModelReadiness | null
   progress: Record<string, LocalModelProgress>
   downloaded: Record<string, boolean>
-  selectedModel: LocalModelId
-  onSelectModel: (id: LocalModelId) => void
 }) {
   if (!readiness) {
     return <div className="bg-card border border-ink-08 rounded-[14px] px-4 py-4 text-[11px] text-ink-45">Loading model status…</div>
@@ -288,16 +284,14 @@ function LocalModelPanel({
   return (
     <div className="space-y-2.5">
       <div className="text-[10.5px] font-mono uppercase tracking-[0.14em] text-ink-45 mb-1">
-        Local model · pick one
+        On-device model
       </div>
       {LOCAL_MODEL_META.map((m) => (
         <LocalModelCard
           key={m.id}
           meta={m}
-          selected={selectedModel === m.id}
           downloaded={!!downloaded[m.id]}
           progress={progress[m.id]}
-          onSelect={() => onSelectModel(m.id)}
         />
       ))}
     </div>
@@ -307,16 +301,12 @@ function LocalModelPanel({
 
 function LocalModelCard({
   meta,
-  selected,
   downloaded,
   progress,
-  onSelect,
 }: {
   meta: LocalModelMeta
-  selected: boolean
   downloaded: boolean
   progress: LocalModelProgress | undefined
-  onSelect: () => void
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -348,25 +338,15 @@ function LocalModelCard({
     window.yappr.cancelLocalModel()
   }
 
-  // The whole card is clickable when downloaded — pick this model.
-  // When not downloaded, clicking the card body is a no-op (the
-  // Download button does the work). We use a <div> with role/onClick
-  // rather than a <button> because a disabled <button> would swallow
-  // child click events too, blocking the Download Pill inside.
-  const canSelect = downloaded
+  // Not interactive as a chooser: with a single model there is nothing to
+  // choose between, and a card that looks clickable but does nothing is
+  // worse than one that plainly doesn't. The Download / Uninstall pills
+  // inside are still the interactive parts.
   return (
     <div
-      role={canSelect ? 'button' : undefined}
-      tabIndex={canSelect ? 0 : -1}
-      onClick={canSelect ? onSelect : undefined}
-      onKeyDown={canSelect ? (e) => { if (e.key === 'Enter' || e.key === ' ') onSelect() } : undefined}
       className={[
-        'w-full text-left bg-card border rounded-[14px] px-4 py-3.5 transition-all duration-150',
-        selected
-          ? 'border-ink ring-1 ring-ink shadow-sm'
-          : canSelect
-            ? 'border-ink-08 hover:border-ink-45 cursor-pointer'
-            : 'border-ink-08',
+        'w-full text-left bg-card border rounded-[14px] px-4 py-3.5',
+        downloaded ? 'border-ink ring-1 ring-ink shadow-sm' : 'border-ink-08',
       ].join(' ')}
     >
       <div className="flex items-center gap-3.5">
@@ -393,7 +373,7 @@ function LocalModelCard({
             </>
           ) : downloaded ? (
             <>
-              {selected && <span className="text-[10.5px] font-mono text-ok">✓ active</span>}
+              <span className="text-[10.5px] font-mono text-ok">✓ active</span>
               <Pill onClick={uninstall} disabled={busy}>
                 {busy ? '…' : 'Uninstall'}
               </Pill>
@@ -404,12 +384,6 @@ function LocalModelCard({
             </Pill>
           )}
         </div>
-        <span className={[
-          'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0',
-          selected ? 'bg-ink border-ink' : 'border-ink-08',
-        ].join(' ')}>
-          {selected && <span className="w-2 h-2 rounded-full bg-paper" />}
-        </span>
       </div>
       {downloading && (
         <div className="h-1.5 bg-ink-08 rounded-full overflow-hidden mt-3">

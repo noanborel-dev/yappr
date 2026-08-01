@@ -174,7 +174,13 @@ export function buildCleanupPrompt(
     .replace('{app_name}', appName)
     .replace('{strictness_block}', STRICTNESS_BLOCK[strictness])
     .replace('{emoji_block}', category === 'messaging' && emojiInMessages ? EMOJI_BLOCK : '')
-  if (category === 'code' && editor) {
+  // ai_prompt is included deliberately. The reformat route sets
+  // effectiveCategory='ai_prompt', so gating on 'code' alone meant the
+  // one register aimed at AI chat surfaces could never emit "@auth.tsx" —
+  // the exact syntax that makes an agent LOAD the file instead of
+  // guessing at it. The addendum was built for this case and was switched
+  // off in it.
+  if ((category === 'code' || category === 'ai_prompt') && editor) {
     prompt += '\n\n' + buildIdeAddendum(editor)
   }
   // Hard register override goes LAST so the model attends to it most.

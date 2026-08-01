@@ -33,15 +33,50 @@ describe('detectAiAddressing', () => {
 
 describe('classifyCodeSurface', () => {
   const base = { category: 'code' as const, transcript: '', isAxReadable: false }
+  // Long enough to clear MIN_REFORMAT_WORDS. Every reformat route now
+  // requires this, not just the AI-CLI one.
+  const SUBSTANTIAL =
+    'can you go through the auth module and fix the login redirect so it stops looping'
 
   it('routes a primary AI app to reformat', () => {
-    expect(classifyCodeSurface({ ...base, isPrimaryAiBundle: true }).register).toBe('reformat')
+    expect(
+      classifyCodeSurface({ ...base, transcript: SUBSTANTIAL, isPrimaryAiBundle: true }).register
+    ).toBe('reformat')
   })
 
   it('routes a readable multi-line AXTextArea chat box in a code app to reformat', () => {
     expect(
-      classifyCodeSurface({ ...base, axRole: 'AXTextArea', isAxReadable: true }).register
+      classifyCodeSurface({
+        ...base, transcript: SUBSTANTIAL, axRole: 'AXTextArea', isAxReadable: true,
+      }).register
     ).toBe('reformat')
+  })
+
+  // The word floor used to guard ONLY the AI-CLI route. A nine-word aside
+  // in ChatGPT, or anywhere the AX probe happened to report AXTextArea,
+  // got the full markdown-section treatment. Since that probe is
+  // unreliable on Electron editors, identical input routed differently
+  // run to run. Length is now checked before every reformat route.
+  const SHORT = 'wait does this actually work'
+
+  it('does NOT reformat a short dictation in a primary AI app', () => {
+    const r = classifyCodeSurface({ ...base, transcript: SHORT, isPrimaryAiBundle: true })
+    expect(r.register).not.toBe('reformat')
+    expect(r.register).toBe('faithful_ai')
+  })
+
+  it('does NOT reformat a short dictation in a chat textarea', () => {
+    expect(
+      classifyCodeSurface({
+        ...base, transcript: SHORT, axRole: 'AXTextArea', isAxReadable: true,
+      }).register
+    ).not.toBe('reformat')
+  })
+
+  it('does NOT reformat a short dictation on a browser AI URL', () => {
+    expect(
+      classifyCodeSurface({ ...base, transcript: SHORT, browserAiRouted: true }).register
+    ).not.toBe('reformat')
   })
 
   const REAL_PROMPT =

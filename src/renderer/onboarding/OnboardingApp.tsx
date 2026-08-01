@@ -612,9 +612,6 @@ function StepProvider({
   // Show the tier-picker by default only if the user already touched
   // it before (i.e. picked something other than the recommended
   // `small` tier in a previous session). Otherwise hide it behind a
-  // small disclosure — most users should never need to think about
-  // model size.
-  const [showAdvanced, setShowAdvanced] = useState(localModel !== DEFAULT_LOCAL_MODEL_ID)
   const tierMeta = ONBOARDING_MODELS.find((m) => m.id === localModel)!
 
   return (
@@ -719,26 +716,8 @@ function StepProvider({
                 meta={tierMeta}
                 downloaded={!!localDownloaded[localModel]}
                 progress={localProgress[localModel]}
-                onToggleAdvanced={() => setShowAdvanced((v) => !v)}
-                advancedOpen={showAdvanced}
               />
 
-              {/* Advanced disclosure — shows the other two tiers when
-                  the user wants to deviate from "Balanced". */}
-              {showAdvanced && (
-                <div className="mt-2 space-y-2 animate-stepIn">
-                  {ONBOARDING_MODELS.filter((m) => m.id !== localModel).map((m) => (
-                    <OnboardingModelCard
-                      key={m.id}
-                      meta={m}
-                      selected={false}
-                      downloaded={!!localDownloaded[m.id]}
-                      progress={localProgress[m.id]}
-                      onSelect={() => onLocalModelChange(m.id)}
-                    />
-                  ))}
-                </div>
-              )}
             </>
           )
         ) : (
@@ -776,14 +755,14 @@ function StepProvider({
 // name, size, status (downloaded / downloading / not yet), plus a
 // disclosure toggle for changing tier. Keeps the provider step from
 // looking like a form with 3 redundant choices stacked.
+// Reports the single on-device model's download state. Not a chooser —
+// there is only one model, so there is nothing to switch to.
 function ActiveTierRow({
-  meta, downloaded, progress, onToggleAdvanced, advancedOpen,
+  meta, downloaded, progress,
 }: {
   meta: OnboardingModelMeta
   downloaded: boolean
   progress: LocalModelProgress | undefined
-  onToggleAdvanced: () => void
-  advancedOpen: boolean
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -830,13 +809,6 @@ function ActiveTierRow({
         </div>
       )}
       {error && <p className="text-[10.5px] text-danger mt-2">✗ {error}</p>}
-
-      <button
-        onClick={onToggleAdvanced}
-        className="mt-2.5 text-[10.5px] font-mono text-ink-45 hover:text-ink transition-colors"
-      >
-        {advancedOpen ? '▾ Hide other sizes' : '▸ Change size'}
-      </button>
     </div>
   )
 }
@@ -900,90 +872,6 @@ const ONBOARDING_MODELS: OnboardingModelMeta[] = [
   { id: 'parakeet-tdt-0.6b-v3', name: 'Instant', speed: '~25 ms', size: '339 MB', hint: 'Near-instant, on-device. English + 24 European languages.' },
 ]
 
-function OnboardingModelCard({
-  meta,
-  selected,
-  downloaded,
-  progress,
-  onSelect,
-}: {
-  meta: OnboardingModelMeta
-  selected: boolean
-  downloaded: boolean
-  progress: LocalModelProgress | undefined
-  onSelect: () => void
-}) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const downloading = progress?.status === 'starting' || progress?.status === 'downloading'
-  const pct = (downloading && progress!.totalBytes > 0)
-    ? Math.min(100, (progress!.receivedBytes / progress!.totalBytes) * 100)
-    : 0
-
-  async function startDownload(e: React.MouseEvent) {
-    e.stopPropagation()
-    setBusy(true)
-    setError(null)
-    const result = await window.yappr.downloadLocalModel(meta.id)
-    setBusy(false)
-    if (!result.ok) setError(result.error ?? 'Download failed')
-  }
-
-  // Use <div> not <button> — a disabled parent <button> would swallow
-  // click events to the Download Pill inside.
-  const canSelect = downloaded
-  return (
-    <div
-      role={canSelect ? 'button' : undefined}
-      tabIndex={canSelect ? 0 : -1}
-      onClick={canSelect ? onSelect : undefined}
-      onKeyDown={canSelect ? (e) => { if (e.key === 'Enter' || e.key === ' ') onSelect() } : undefined}
-      className={[
-        'w-full text-left bg-card border rounded-card px-4 py-3 transition-all duration-150',
-        selected
-          ? 'border-ink ring-1 ring-ink shadow-sm'
-          : canSelect
-            ? 'border-ink-08 hover:border-ink-45 cursor-pointer'
-            : 'border-ink-08',
-      ].join(' ')}
-    >
-      <div className="flex items-center gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="text-[12.5px] font-semibold">{meta.name}</span>
-            <span className="text-[10px] font-mono text-ink-45">{meta.speed} · {meta.size}</span>
-            {meta.recommended && (
-              <span className="text-[9px] font-mono uppercase tracking-wider text-volt bg-volt-muted px-1.5 py-0.5 rounded">
-                recommended
-              </span>
-            )}
-          </div>
-          <div className="text-[10.5px] text-ink-60 mt-0.5">{meta.hint}</div>
-        </div>
-        <div className="shrink-0">
-          {downloading ? (
-            <span className="text-[10.5px] font-mono text-ink-45">{pct.toFixed(0)}%</span>
-          ) : downloaded ? (
-            <span className={`text-[10.5px] font-mono ${selected ? 'text-ok' : 'text-ink-45'}`}>
-              {selected ? '✓ active' : 'ready'}
-            </span>
-          ) : (
-            <Pill variant="primary" onClick={startDownload} disabled={busy}>
-              {busy ? '…' : 'Download'}
-            </Pill>
-          )}
-        </div>
-      </div>
-      {downloading && (
-        <div className="h-1 bg-ink-08 rounded-full overflow-hidden mt-2">
-          <div className="h-full bg-volt transition-[width] duration-200" style={{ width: `${pct}%` }} />
-        </div>
-      )}
-      {error && <p className="text-[10.5px] text-danger mt-2">✗ {error}</p>}
-    </div>
-  )
-}
 
 // ─── Step 4: Hotkey ────────────────────────────────────────────────
 // Cycling Tap / Hold / Double-tap demo ported from the Hotkeys
