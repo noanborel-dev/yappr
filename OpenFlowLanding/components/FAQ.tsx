@@ -2,8 +2,20 @@ import { SectionHeader } from "./SectionHeader";
 
 const ITEMS: Array<{ q: React.ReactNode; a: React.ReactNode }> = [
   {
+    q: "Does it work in Claude Code, Cursor, and the terminal?",
+    a: "That's what it's built for. Yappr sees which app you're in and whether an AI tool is running there, then picks the right treatment: a prompt gets restructured, actual code stays verbatim. Spoken file paths come out as paths — \"app dot tsx\" becomes app.tsx.",
+  },
+  {
+    q: "What does prompt shaping do to my words?",
+    a: "It reorganizes them. Your ramble comes out as Goal, Context, Tasks, Constraints, Done when — with every file name, error code, condition and \"don't touch X\" you spoke still in there. It never summarizes. If you said eight things, eight things land.",
+  },
+  {
     q: "Does Yappr store my audio?",
-    a: "No. On Free and Pro, audio is forwarded through our proxy to Groq, transcribed, and discarded the same moment — nothing persisted on our side, nothing used for training. On Lifetime/BYOK, audio bypasses us entirely (Mac → Groq, with your key). On Local mode, audio never leaves your Mac at all. Transcripts are kept only on your Mac, as recent history.",
+    a: "No. Transcription runs locally on your Mac, so the audio doesn't leave the machine at all. Only text goes out for cleanup, and none of it is stored or trained on. Transcripts stay on your Mac as recent history.",
+  },
+  {
+    q: "Can it see my screen?",
+    a: "No. Yappr reads the macOS accessibility tree to know which app you're in and what text you've selected. It never takes screenshots.",
   },
   {
     q: (
@@ -11,34 +23,18 @@ const ITEMS: Array<{ q: React.ReactNode; a: React.ReactNode }> = [
         How is this different from <em>Wispr Flow</em>?
       </>
     ),
-    a: "Wispr is $15/mo, every month, forever. Yappr is $10/mo — or pay $99 once and own it. Polish is calibrated per destination app (iMessage stays lowercase, Gmail keeps its greeting). And Local mode actually works — no cloud round-trip if you don't want one.",
+    a: "Wispr cleans up your speech. So do we, unlimited and free. The difference is what sits on top. Your ramble becomes a structured prompt. You can rewrite any selection by voice. And you get a context window for your dictation — Wispr's personal dictionary learns your vocabulary, but it doesn't know what you're building; ours holds your stack, your files and your teammates' names, and keeps itself current. $9 instead of $15.",
   },
   {
-    q: "Which providers run the cloud side?",
-    a: "Groq for both transcription (whisper-large-v3-turbo) and cleanup (Llama 3.1). Free and Pro use Yappr's managed Groq account. Lifetime users plug in their own Groq key. No OpenAI dependency.",
+    q: "What do I actually get for free?",
+    a: "Unlimited dictation with cleanup — fillers, stutters and false starts removed — plus the dev dictionary and all three hotkey behaviors. No word cap, no card. Pro adds prompt shaping, select-and-rewrite, persistent context, and per-app polish.",
   },
   {
-    q: "Can I run it on-device?",
-    a: "Yes. Local mode runs Whisper on your Mac in three tiers — Fast, Balanced, Accurate. Sub-300ms warm latency on Balanced. Transcription stays on your machine; cleanup runs on Groq's Llama unless you skip it. No API key needed for transcription.",
+    q: "What runs the cleanup?",
+    a: "Whisper large-v3-turbo runs locally for transcription. Cleanup runs on Groq's Llama. No OpenAI dependency.",
   },
   {
-    q: "What's the difference between Pro and Lifetime?",
-    a: "Same features. Pro is managed — we run the Groq inference, you don't see a single API key. Lifetime is BYOK — you bring your own Groq key, we charge nothing again, ever. Pro is the right pick if you don't want to deal with keys. Lifetime is the right pick if you do.",
-  },
-  {
-    q: "Does the polish change per app?",
-    a: "Yes. iMessage stays lowercase fragments; Slack stays sentence-case; Gmail keeps greetings and signoffs; code stays faithful, never paraphrased. Same dictation, different output, depending on where you're typing.",
-  },
-  {
-    q: "Will it add emojis to my messages?",
-    a: "Only if you turn it on. Off by default. When enabled, a parallel judge call decides whether an emoji actually fits — only in messaging apps (iMessage, Slack, etc.), never in email, docs, or code.",
-  },
-  {
-    q: "Does it work inside Cursor, Claude Code, and terminals?",
-    a: "Yes — code contexts use a faithful cleanup mode that never paraphrases, recognizes dev jargon, and converts spoken file paths (\"app dot tsx\" → \"app.tsx\"). On Local mode it auto-elevates to the Accurate tier inside IDEs for better handling of technical terms.",
-  },
-  {
-    q: "What about Windows and Linux?",
+    q: "Windows or Linux?",
     a: "macOS is GA. Windows is in private beta. Linux (PipeWire) is coming.",
   },
 ];

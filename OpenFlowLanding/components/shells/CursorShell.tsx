@@ -1,77 +1,139 @@
+// Cursor, drawn to match the real editor: activity rail, tab strip,
+// gutter line numbers, minimap edge, status bar. The whole point of this
+// shell is that it reads as the actual app at a glance — if it looks like
+// a generic "code window", it isn't doing its job.
+
+export type CodeLine = { n: number; tokens: Token[] };
+export type Token = { t: string; c?: "kw" | "fn" | "str" | "num" | "cmt" | "op" | "var" };
+
 interface Props {
-  text: string;
-  flashing: boolean;
+  lines: CodeLine[];
+  /** 1-based indices (into `lines`) covered by the selection highlight. */
+  selected?: number[];
+  fileName?: string;
+  flashing?: boolean;
 }
 
-export function CursorShell({ text, flashing }: Props) {
+export function CursorShell({
+  lines,
+  selected = [],
+  fileName = "pipeline.ts",
+  flashing,
+}: Props) {
   return (
-    <div className="cur-window">
-      <div className="cur-titlebar">
-        <span className="tl" style={{ background: "#ff5f57" }} />
-        <span className="tl" style={{ background: "#febc2e" }} />
-        <span className="tl" style={{ background: "#28c840" }} />
-        <div
-          style={{
-            marginLeft: "auto",
-            display: "flex",
-            gap: 14,
-            color: "#7a7a7a",
-            fontSize: 14,
-          }}
-        >
-          ▦ ◧ ◨ ⚙
-        </div>
+    <div className="cur2">
+      <div className="cur2-title">
+        <span className="tl r" />
+        <span className="tl y" />
+        <span className="tl g" />
+        <span className="cur2-title-text">{fileName} — yappr</span>
       </div>
-      <div className="cur-editor">
-        <div className="cur-tab-bar">
-          <div className="cur-tab">
-            <span className="rust-icon" />
-            mod.rs
-            <span className="close">×</span>
-          </div>
-        </div>
-        <div className={`cur-suggestion ${flashing ? "land-flash" : ""}`}>
-          <div className="sugg-text">{text}</div>
-          <div className="sugg-actions">
-            <span className="pill-btn"><span className="kbd">⌘ ↵</span> Accept</span>
-            <span className="pill-btn dim"><span className="kbd">⌘ ⌫</span> Reject</span>
-            <span className="followup">
-              Follow-up instructions… <span className="kbd">⇧ ⌘ K</span>
+
+      <div className="cur2-main">
+        <nav className="cur2-rail" aria-hidden="true">
+          {["files", "search", "git", "debug", "ext"].map((k, i) => (
+            <span key={k} className={`cur2-rail-ico ${i === 0 ? "on" : ""}`}>
+              <RailIcon kind={i} />
+            </span>
+          ))}
+        </nav>
+
+        <div className="cur2-pane">
+          <div className="cur2-tabs">
+            <span className="cur2-tab on">
+              <span className="cur2-ts" aria-hidden="true">
+                TS
+              </span>
+              {fileName}
+              <span className="cur2-dot" aria-hidden="true" />
+            </span>
+            <span className="cur2-tab">
+              <span className="cur2-ts" aria-hidden="true">
+                TS
+              </span>
+              prompts.ts
             </span>
           </div>
-        </div>
-        <div className="cur-code">
-          <div className="ln"><div className="num">72</div><div><span className="kw">pub</span>(<span className="kw">crate</span>) <span className="kw">struct</span> <span className="nm">TransportStack</span> {"{"}</div></div>
-          <div className="ln"><div className="num">73</div><div>&nbsp;&nbsp;&nbsp;&nbsp;<span className="var-c">l4</span>: <span className="nm">ListenerEndpoint</span>,</div></div>
-          <div className="ln"><div className="num">74</div><div>&nbsp;&nbsp;&nbsp;&nbsp;<span className="var-c">tls</span>: Option&lt;Arc&lt;<span className="nm">Acceptor</span>&gt;&gt;,</div></div>
-          <div className="ln"><div className="num">75</div><div>&nbsp;&nbsp;&nbsp;&nbsp;<span className="cmt">// listeners sent from the old process</span></div></div>
-          <div className="ln"><div className="num">76</div><div>&nbsp;&nbsp;&nbsp;&nbsp;<span className="cmt">#[cfg(unix)]</span></div></div>
-          <div className="ln del"><div className="num">77</div><div>&nbsp;&nbsp;&nbsp;&nbsp;<span className="var-c">upgrade_listeners</span>: Option&lt;<span className="nm">ListenFds</span>&gt;,</div></div>
-          <div className="ln add"><div className="num">77</div><div>&nbsp;&nbsp;&nbsp;&nbsp;<span className="var-c">upgrade_listeners</span>: <span className="nm">ListenFds</span>,</div></div>
-          <div className="ln"><div className="num">78</div><div>{"}"}</div></div>
-        </div>
-      </div>
-      <div className="cur-chat">
-        <div className="cur-chat-tabs">
-          <div className="ct on">Chat</div>
-          <div className="ct">Composer</div>
-        </div>
-        <div className="cur-chat-body">
-          <div className="file-pill">
-            <span className="rust" />
-            mod.rs <span className="tag">Current File</span>
+
+          <div className={`cur2-code ${flashing ? "land-flash" : ""}`}>
+            {lines.map((ln, i) => (
+              <div
+                key={ln.n}
+                className={`cur2-line ${selected.includes(i + 1) ? "sel" : ""}`}
+              >
+                <span className="cur2-num">{ln.n}</span>
+                <code className="cur2-src">
+                  {ln.tokens.map((tk, j) => (
+                    <span key={j} className={tk.c ? `t-${tk.c}` : undefined}>
+                      {tk.t}
+                    </span>
+                  ))}
+                </code>
+              </div>
+            ))}
           </div>
-          <div className="user-msg">{text}</div>
-          {text && (
-            <div className="assistant-msg">
-              I&apos;ll help modify the code to make certificate switching more
-              flexible. The main changes will enhance the{" "}
-              <span className="code">TlsAccept</span> trait and how{" "}
-              <span className="code">TlsSettings</span> are handled.
-            </div>
-          )}
+
+          <div className="cur2-status" aria-hidden="true">
+            <span className="cur2-branch">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="6" cy="6" r="2.5" />
+                <circle cx="6" cy="18" r="2.5" />
+                <circle cx="18" cy="8" r="2.5" />
+                <path d="M6 8.5v7M8.5 7.2h4A3 3 0 0 1 15.5 10v0" strokeLinecap="round" />
+              </svg>
+              feat/streaming
+            </span>
+            <span className="cur2-status-sp" />
+            <span>TypeScript</span>
+            <span>UTF-8</span>
+            <span>Ln 42, Col 18</span>
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function RailIcon({ kind }: { kind: number }) {
+  const common = {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.7,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  if (kind === 0)
+    return (
+      <svg {...common}>
+        <path d="M4 5h6l2 2h8v12H4z" />
+      </svg>
+    );
+  if (kind === 1)
+    return (
+      <svg {...common}>
+        <circle cx="11" cy="11" r="6" />
+        <path d="m20 20-4.5-4.5" />
+      </svg>
+    );
+  if (kind === 2)
+    return (
+      <svg {...common}>
+        <circle cx="6" cy="6" r="2.5" />
+        <circle cx="6" cy="18" r="2.5" />
+        <circle cx="18" cy="8" r="2.5" />
+        <path d="M6 8.5v7M8.5 7.2h4A3 3 0 0 1 15.5 10" />
+      </svg>
+    );
+  if (kind === 3)
+    return (
+      <svg {...common}>
+        <path d="M12 4v16M6 8l12 8M18 8 6 16" />
+      </svg>
+    );
+  return (
+    <svg {...common}>
+      <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />
+    </svg>
   );
 }

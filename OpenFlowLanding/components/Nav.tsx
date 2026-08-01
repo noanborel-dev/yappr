@@ -13,16 +13,13 @@ export function Nav() {
     >
       <div className="max-w-[1240px] mx-auto px-10 h-[72px] flex items-center gap-8">
         <a href="#top" aria-label="Yappr home" className="flex items-center">
-          <PillLogo size="md" />
+          <PillLogo size="md" hanging />
         </a>
 
         <ul className="hidden md:flex gap-7 flex-1 ml-6 list-none">
           {[
             { href: "#demo", label: "Try it" },
-            { href: "#hotkey", label: "Hotkey" },
-            { href: "#ai-coding", label: "AI coding" },
-            { href: "#local", label: "Local" },
-            { href: "#privacy", label: "Privacy" },
+            { href: "#features", label: "Features" },
             { href: "#pricing", label: "Pricing" },
             { href: "#faq", label: "FAQ" },
           ].map((link) => (
@@ -48,7 +45,7 @@ export function Nav() {
             href="#download"
             className="inline-flex items-center gap-2 px-[18px] py-[11px] rounded-full text-[14.5px] font-semibold bg-ink text-cream hover:opacity-95 transition-opacity no-underline"
           >
-            Download
+            Start yapping
             <span
               className="font-mono font-medium px-[7px] py-[2px] rounded text-[12px]"
               style={{

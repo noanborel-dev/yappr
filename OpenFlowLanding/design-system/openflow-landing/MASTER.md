@@ -23,17 +23,27 @@ If a section needs 3+ paragraphs of body copy, it's wrong — rebuild as motion.
 
 **Hero-Centric + Interactive Product Demo** with **Exaggerated Minimalism** typography over an **Editorial Grid / Magazine** layout. The OpenFlow recording pill uses **Liquid Glass** (and ONLY the pill — nowhere else).
 
-Section order:
-1. Nav
-2. Hero (cycles Slack → iMessage → Gmail)
-3. **Try it live** — real mic, our key, rate-limited
-4. One key, three behaviors (Tap / Hold / Double-tap)
-5. Polish per context
-6. Dictionary
-7. Privacy / BYOK
-8. Pricing — Free, one card
-9. FAQ — 5 items
+Section order (2026-07-29 — builder repositioning):
+1. Nav — four items only: Try it · Features · Pricing · FAQ
+2. Hero — terminal running Claude Code, ramble in → structured prompt lands
+3. **01 Prompt shaping** — before/after
+4. **02 Select and rewrite** — Cursor editor, selection → spoken fix
+5. **03 Persistent context** — the overview paragraph gaining learned clauses
+6. **04 Per-app polish** — proof, not pitch
+7. **Try it live** — press-and-hold Control, terminal is the default target
+8. Pricing — two cards: Free (unlimited) and Pro $9
+9. FAQ
 10. Final CTA + footer
+
+**Section header pattern (`SectionHead.tsx`):** numbered mono eyebrow +
+serif headline on the left, the single line of body copy hung on the right
+and baseline-aligned. Don't stack the lede under the headline — it strands
+the right third of the measure.
+
+**Deleted sections:** Three behaviors, Dictionary, Local mode, AI coding,
+Privacy. The hotkey gestures survive as an animated row under the live demo;
+dictionary + gestures are Free-tier lines in pricing; privacy copy lives in
+the FAQ, verbatim and not to be reworded.
 
 ---
 
@@ -100,31 +110,59 @@ Headlines drop the period unless the sentence is the punchline. Italic is reserv
 
 ## Components
 
-### 1. The OpenFlow Pill (the brand mark, basically)
+### 1. Two different objects — do not merge them
 
-Spec pulled directly from the real product source (`/Users/noanborel/OpenFlow` app):
+**The brand mark** (`PillLogo.tsx`) is a charcoal pill with a red dot and the
+wordmark in italic serif. Nav, footer, final CTA. Unchanged, still correct.
+
+**The recording indicator** is NOT that pill. It is the **notch indicator**
+(`NotchIndicator.tsx`, ported from `src/renderer/indicator/`). The app source
+explains the relationship: *the notch itself is the charcoal pill the brand
+mark normally draws, so the mark sheds its container and keeps only the italic
+serif.*
+
+> ⚠️ This section previously documented a floating liquid-glass lozenge —
+> rounded on all sides, gradient fill, 6 bars. **That design no longer exists
+> in the app.** The whole site was showing it. If you find any of it left,
+> it's a bug.
+
+### 2. The notch indicator
+
+Pulled from `src/renderer/indicator/NotchIndicator.tsx` + `notch-states.ts`.
+**Re-pull rather than approximate** if the app changes.
 
 ```css
-background: linear-gradient(180deg, rgba(18,20,26,0.82), rgba(14,16,22,0.74));
-backdrop-filter: blur(34px) saturate(180%);
-border: 1px solid rgba(255,255,255,0.12);
+background: #0A0B0F;            /* flat. NOT a gradient — a gradient reads as
+                                   a panel sitting on the screen; flat + a
+                                   hairline rim reads as part of the machine */
+border-radius: 0 0 11px 11px;   /* square on top — it HANGS from the menu bar */
 box-shadow:
-  inset 0 1.2px 0 rgba(255,255,255,0.42),
-  inset 0 -1px 0 rgba(0,0,0,0.45),
-  0 8px 16px rgba(0,0,0,0.35);
-padding: 8px 16px;
-border-radius: 999px;
-animation: pill-breathe 3.6s ease-in-out infinite; /* scale 1 → 1.012 */
+  0 10px 28px rgba(0,0,0,.5),
+  inset 0 -1px 0 rgba(255,255,255,.08),
+  inset 0 0 0 1px rgba(255,255,255,.05);
 ```
 
-Pill states (cycle):
-- **`listening`** — red dot (#E84A3A) + 6 cobalt bars (#5A8FE8) + italic serif label
-- **`polishing…`** — 12px spinner (cobalt top-border) + italic serif label
-- **`copied — ⌘V to paste`** — 13px cobalt check SVG + italic serif label
+**The organizing rule, from the design handoff — this is load-bearing:**
+the shape is asymmetric with fixed meaning.
 
-No timer in the pill. Bars are 6, not 4, 2px wide with 1px radius, max-height 15px.
+| | |
+|---|---|
+| **LEFT wing** | always *input* — what Yappr is hearing |
+| **CENTRE** | the physical notch. Never moves, paints nothing |
+| **RIGHT wing** | always *outcome* — what Yappr did with it |
 
-**Bars pacing (matches the real macOS app):** randomize heights on a **220ms** tick. CSS transition is **200ms ease-out**. This produces a gentle, breathing visualization, not a frantic spectrum analyzer. Don't speed it up.
+- `ACCENT #5A8FE8` · `DANGER #E84A3A`
+- Waveform: **9 bars** (`BAR_COUNT`), 2px wide, 2.5px gap, **13px** max
+  (`WAVE_HEIGHT`), edge-masked, cobalt with a drop-shadow
+- Record dot: 6px `#E84A3A`, `0 0 8px` glow, 2s pulse
+- Label + wordmark: Instrument Serif italic **13.5px** (`LABEL_SIZE`)
+- Labels verbatim: `listening` · `polishing…` · `pasted` · `copied — ⌘V` ·
+  `didn't catch that`. Note it is **not** "copied — ⌘V to paste".
+
+**Placement is part of the spec.** It hangs from the top edge of a screen. It
+may never float in the middle of a window — a mockup that needs one gets a
+menu-bar strip (`.hero-menubar` / `.sr-menubar` / `.ws-menubar`) for it to
+hang from, or it doesn't get an indicator at all.
 
 ### 2. Buttons
 

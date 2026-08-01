@@ -67,18 +67,140 @@ When a new logo is needed (e.g., `cursor.png`, `chatgpt.png` for the parked "Bui
 
 ---
 
-## Section status
+## Positioning (2026-07-29 rewrite — read this before touching copy)
 
-| # | Section | Brainstorm prototype | Notes |
+The site is aimed at **builders who live in Claude Code, Cursor and the
+terminal**, not at general dictation users. The pitch is *not* "dictation is
+faster than typing" — it's "you already talk to Claude Code all day, and Yappr
+makes you better at it."
+
+**Three features carry the page, in this order:** prompt shaping →
+select-and-rewrite → persistent context. Per-app polish is demoted to proof.
+
+### Copy rules (hard)
+
+- Never "fully local" or "100% private" — transcription is local, cleanup is not.
+- **No latency numbers as a claim.** The live demo proves speed.
+- Banned words: "AI-powered", "seamless", "revolutionary", "supercharge".
+- Short sentences. Developer talking to developer, not landing-page voice.
+- Don't invent features. Only the three above plus per-app polish.
+- Primary CTA is **"Start yapping"** everywhere. Consistent, no variants.
+- Every section showing a paid feature carries a `.pro-tag`.
+- **Competitors are never named outside the FAQ.** In-section comparisons stay
+  oblique ("other voice tools…"). The FAQ is the one place Wispr is named.
+- **Keep the vocabulary/project distinction exact.** Persistent context is
+  pitched as "a context window for your dictation" — the Claude analogy does
+  the explaining for this audience. But rival tools *do* persist a personal
+  dictionary, so the honest claim is that they learn your **vocabulary** while
+  this learns your **project**. Never sharpen it into "they have no memory."
+
+### Section order (current)
+
+Page rhythm follows the shape that works on comparable sites (Wispr Flow):
+hero → "is this for me" → features → proof → try it → price → CTA.
+
+| # | Section | Component | Notes |
 |---|---|---|---|
-| 1 | IA / skeleton | `skeleton.html` | Locked |
-| 2 | Hero (multi-app cycle) | `hero-v5.html` | Locked. Caption-track approach. Auto-cycle Slack → iMessage → Gmail, no manual clicks. |
-| 3 | Live demo | `live-demo.html` + `live-demo-spec.html` | Press-and-hold Control. Edge function spec ready. Polish defaults per app researched. |
-| 4 | Three behaviors | `three-behaviors-v2.html` | Locked. Minimal version, not the verbose v1. |
-| 5–10 | Polish, Dictionary, Privacy, Pricing, FAQ, Final CTA | `remaining-sections.html` | Drafted, pending review |
-| **Parked** | "Built for AI coding" | Not started | Dedicated section showing pill inside Claude Code / Cursor / terminal. Like the Superwhisper screenshot the user shared. Build when we get to it, not in the hero. |
+| 1 | Hero | `Hero.tsx` | Terminal running Claude Code. Ramble in → `## Goal / ## Tasks / ## Constraints` lands. Single looped scenario — the old 3-app cycle is gone; the structured prompt needs the dwell time. |
+| 2 | Who it's for | `BuiltForBuilders.tsx` | Dark full-bleed **pinned scroll sequence**: 320vh track, panel sticks, three beats swap one line at a time while `WorkspaceScene.tsx` changes to match (idle tabs → ramble + pill → structured prompt + Claude working). Compatibility strip below the track. |
+| 3 | Prompt shaping | `PromptShaping.tsx` | **Autoplaying demo sequence**, loops while in view: transcript streams word by word → filler strikes through and drops → the shaped prompt types itself, and as each line lands the source phrase it came from lights up in the transcript. That highlight is the whole point — it shows nothing was summarised away. |
+| 4 | Select and rewrite | `SelectRewrite.tsx` | One surface (Cursor), done accurately. Not a carousel of generic windows. |
+| 5 | Persistent context | `PersistentContext.tsx` | Shows the overview paragraph gaining clauses it learned. |
+| 6 | Per-app polish | `PerAppPolish.tsx` | Proof, not pitch. Pro-gated. |
+| 7 | Try it live | `LiveDemo.tsx` | Below the features. Terminal is the default target. Carries the animated Tap/Hold/Double-tap row. |
+| 8 | Pricing | `Pricing.tsx` | Two tiers only: Free (unlimited) and Pro $9. |
+| 9 | FAQ | `FAQ.tsx` | Carries the privacy copy verbatim. |
+| 10 | Final CTA | `FinalCTA.tsx` | |
+
+**Two sections deliberately NOT copied from Wispr:**
+- **No "Nx faster than typing" stat block.** Speed isn't the pitch here, and we
+  don't publish latency claims. The live demo carries speed by doing.
+- **No testimonial wall.** Not until there are real quotes — don't invent them.
+  When real ones exist, the slot is between per-app polish and the live demo.
+
+**No borrowed likenesses.** A real person's photo on the page implies an
+endorsement they never gave, however aspirational the art direction.
+
+**Deleted:** `ThreeBehaviors`, `Dictionary`, `LocalMode`, `AiCoding`, `Privacy`
+(as a section). Dictionary and hotkey behaviors survive as Free-tier lines in
+pricing; the hotkey gestures also survive as the animated row under the demo.
+Privacy copy lives in the FAQ — **that wording is approved verbatim, don't
+reword it.**
+
+### Mockups must look like the real app
+
+If a shell reads as "a generic dark window with a title bar", it has failed.
+`CursorShell` has an activity rail, tab strip, gutter, syntax colors and a
+status bar because that's what makes it recognizable at a glance. Same standard
+applies to anything new.
 
 ---
+
+## Photography
+
+The page ships with **no photographs** — every visual is CSS-drawn app chrome.
+That's a deliberate constraint, not an oversight: this is software with no
+physical form, and a page of stock photos of people at laptops reads as a
+template. Apple can lead with product shots because the Vision Pro is an
+object you can hold.
+
+When real photography arrives, the slot is built:
+
+- `PhotoBand.tsx` — full-bleed 21:9 band (4:5 on phones), gradient scrim, one
+  huge line of type over it. **Renders `null` when no `src` is set**, so an
+  unfilled band never ships as a grey box.
+- `photos.tsx` — the shot list, with resolution/crop/licensing spec and search
+  terms for each. Two shots are specified (a build bench, a late desk); a third
+  is noted as probably unnecessary. Uncomment an entry once the file lands in
+  `public/photos/`.
+
+Hard rules for anything that goes in there: licensed for commercial use, no
+identifiable faces (on a product page a real person reads as an endorsement
+they never gave), warm natural light (cold blue-grey stock fights the cream),
+and never an image lifted from a competitor's site.
+
+**`.bleed`** is the Apple technique that needs no photography: it lets a
+mockup escape the 1240px text column and run to 1560px. Used on the dark
+select-and-rewrite section. Use it sparingly — it only reads as premium
+when most of the page respects the measure.
+
+## The Apple-inspired motion system
+
+Four devices, reused deliberately. A technique used once reads as a gimmick;
+used three times it reads as a system. Don't add a fifth without removing one.
+
+| Device | Component | Where |
+|---|---|---|
+| **Pinned scroll sequence** | `BuiltForBuilders` | Who it's for — panel sticks, three beats swap |
+| **Autoplaying demo loop** | `PromptShaping` | 01 — transcript streams, output types, source highlights |
+| **Scroll-linked growth** | `ScrollExpand.tsx` | 02 select-and-rewrite, 04 per-app polish, 03 context card |
+| **Statement chapter break** | `Statement.tsx` | Between the feature run and the live demo |
+
+- `ScrollExpand` maps scroll position to `scale` continuously (0.88 → 1). It
+  **replaces** `Reveal` on an element — never nest them, they both write
+  `transform` and fight. `transform-origin: 50% 15%` so it opens downward.
+- `Statement` never fades below `0.25` opacity. A chapter break that vanishes
+  reads as a rendering bug, not as restraint.
+- A statement immediately above a section means **that section drops its own
+  headline** — the live demo lost `.demo-title` for exactly this reason. Two
+  big serif lines back to back is the same sentence twice.
+
+## Animation gotchas (learned the hard way)
+
+- **`overflow: hidden` kills `position: sticky`.** It makes the element a
+  scroll container, so a pinned child silently un-pins and sits at the top of
+  its track — the section renders as a tall empty box. Use `overflow: clip`.
+- **Anything that types or streams needs a reserved height.** `min-height`
+  isn't enough: as content fills, the box grows and the whole section jitters.
+  Set a fixed `height` sized for the final state (`.ps-said` / `.ps-out` are
+  both `330px`), with mobile falling back to auto.
+- **Absolutely-positioned labels hung outside a card** get clipped the moment
+  that card gets `overflow: hidden`. Put them inside.
+- **Centred sections centre their mockups' text too.** Any window or terminal
+  shell inside a `text-align: center` block needs its own `text-align: left`.
+- **Turbopack drops newly-added CSS classes constantly** on this project. If a
+  new section renders as unstyled text, it's the dev server, not the code:
+  `pkill -f "next dev" && rm -rf .next` and restart. Production builds are fine.
 
 ## Backend spec (Section 3 live demo)
 

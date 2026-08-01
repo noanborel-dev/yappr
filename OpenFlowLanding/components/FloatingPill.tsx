@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pillBus } from "./pillBus";
+import { NotchIndicator } from "./NotchIndicator";
 
 type FloatState = "idle" | "listening" | "polishing" | "done";
 
@@ -15,6 +16,7 @@ export function FloatingPill() {
   const [showHint, setShowHint] = useState(true);
   const [interacted, setInteracted] = useState(false);
 
+  // 9 bars — the app's BAR_COUNT, not the 6 the old lozenge drew.
   const barsRef = useRef<HTMLSpanElement[]>([]);
   const setBarRef = (idx: number) => (el: HTMLSpanElement | null) => {
     if (el) barsRef.current[idx] = el;
@@ -90,19 +92,22 @@ export function FloatingPill() {
     const analyser = analyserRef.current;
     const useReal = !!analyser;
 
+    // 9 bars, 13px ceiling — BAR_COUNT and WAVE_HEIGHT from the app.
+    const N = 9;
+    const MAX = 13;
     const tick = () => {
       const bars = barsRef.current;
       if (useReal && analyser) {
         const data = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(data);
-        for (let i = 0; i < 6; i++) {
-          const idx = Math.floor((i / 6) * data.length);
-          const h = Math.max(3, Math.round((data[idx] / 255) * 15));
+        for (let i = 0; i < N; i++) {
+          const idx = Math.floor((i / N) * data.length);
+          const h = Math.max(2, Math.round((data[idx] / 255) * MAX));
           if (bars[i]) bars[i].style.height = `${h}px`;
         }
       } else {
-        for (let i = 0; i < 6; i++) {
-          if (bars[i]) bars[i].style.height = `${3 + Math.random() * 11}px`;
+        for (let i = 0; i < N; i++) {
+          if (bars[i]) bars[i].style.height = `${2 + Math.random() * (MAX - 2)}px`;
         }
       }
       animFrameRef.current = requestAnimationFrame(tick);
@@ -113,7 +118,7 @@ export function FloatingPill() {
   const stopWaveform = useCallback(() => {
     cancelAnimationFrame(animFrameRef.current);
     barsRef.current.forEach((b) => {
-      if (b) b.style.height = "3px";
+      if (b) b.style.height = "2px";
     });
   }, []);
 
@@ -211,87 +216,68 @@ export function FloatingPill() {
     };
   }, [startHold, endHold]);
 
+  // Nothing renders at rest. A notch permanently parked at the top of a
+  // marketing page is furniture pretending to be system UI — it isn't the
+  // app, and it made the page look broken. It appears only while you're
+  // actually holding the key, which is the one moment the feedback earns
+  // its place. The keyboard + mic plumbing above stays either way: the
+  // live demo listens to pillBus for hold-start / hold-end.
+  const active = state !== "idle";
+
+  const notchState =
+    state === "listening"
+      ? "recording"
+      : state === "polishing"
+        ? "processing"
+        : "done";
+
   return (
-    <div className="floating-pill-wrap" aria-live="polite">
-      {!interacted && showHint && (
-        <div className="floating-pill-hint">
+    <>
+      {/* Hint only — a small nudge that the page is dictatable, not a fake
+          app indicator. */}
+      {!interacted && showHint && !active && (
+        <div className="notch-hint-solo">
           tap · hold <span className="kbd">⌃</span> to dictate
         </div>
       )}
 
-      <button
-        type="button"
-        className={`floating-pill state-${state}`}
-        onPointerDown={onPointerDown}
-        onPointerUp={onPointerUp}
-        onPointerLeave={onPointerLeave}
-        aria-label={
-          state === "idle"
-            ? "Yappr — tap to scroll to demo, hold to dictate"
-            : state === "listening"
-              ? "listening"
-              : state === "polishing"
-                ? "polishing"
-                : DONE_LABEL
-        }
-      >
-        {state === "idle" && (
-          <>
-            <span className="pill-dot" aria-hidden="true" />
-            <span className="pill-bars pill-bars--static" aria-hidden="true">
-              <span style={{ height: 5 }} />
-              <span style={{ height: 8 }} />
-              <span style={{ height: 4 }} />
-              <span style={{ height: 9 }} />
-              <span style={{ height: 6 }} />
-            </span>
-          </>
-        )}
+      {active && (
+        <div className="notch-wrap" aria-live="polite">
+          <button
+            type="button"
+            className="notch-hit"
+            onPointerDown={onPointerDown}
+            onPointerUp={onPointerUp}
+            onPointerLeave={onPointerLeave}
+            aria-label={
+              state === "listening"
+                ? "listening"
+                : state === "polishing"
+                  ? "polishing"
+                  : DONE_LABEL
+            }
+          >
+            <NotchIndicator
+              state={notchState}
+              notchWidth={132}
+              barRef={state === "listening" ? setBarRef : undefined}
+            />
+          </button>
+        </div>
+      )}
 
-        {state === "listening" && (
-          <>
-            <span className="pill-dot" aria-hidden="true" />
-            <span className="pill-bars" aria-hidden="true">
-              <span ref={setBarRef(0)} />
-              <span ref={setBarRef(1)} />
-              <span ref={setBarRef(2)} />
-              <span ref={setBarRef(3)} />
-              <span ref={setBarRef(4)} />
-              <span ref={setBarRef(5)} />
-            </span>
-            <span className="floating-pill-label">listening</span>
-          </>
-        )}
-
-        {state === "polishing" && (
-          <>
-            <span className="pill-spinner" aria-hidden="true" />
-            <span className="floating-pill-label">polishing…</span>
-          </>
-        )}
-
-        {state === "done" && (
-          <>
-            <svg
-              className="pill-check"
-              viewBox="0 0 11 11"
-              fill="none"
-              aria-hidden="true"
-            >
-              <path
-                d="M2 5.5 L4.5 8 L9 3"
-                stroke="#5A8FE8"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span className="floating-pill-label floating-pill-label--done">
-              {DONE_LABEL}
-            </span>
-          </>
-        )}
-      </button>
-    </div>
+      {/* Invisible at rest, but still the tap/hold target so the gesture
+          works anywhere on the page. */}
+      {!active && (
+        <button
+          type="button"
+          className="notch-ghost"
+          onPointerDown={onPointerDown}
+          onPointerUp={onPointerUp}
+          onPointerLeave={onPointerLeave}
+          aria-label="Yappr — tap to jump to the demo, hold to dictate"
+        />
+      )}
+    </>
   );
 }

@@ -45,22 +45,14 @@ const roboto = Roboto({
   display: "swap",
 });
 
+const TAGLINE =
+  "Talk however you talk. Your ramble lands as a structured prompt — in Claude Code, Cursor, or anywhere you type.";
+
 export const metadata: Metadata = {
-  title: "YAPPR",
-  description:
-    "Voice to clean, context-aware text — anywhere you can type. Bring your own keys, keep your audio private.",
-  openGraph: {
-    title: "Yappr",
-    description:
-      "Voice to clean text — anywhere you can type. Bring your own keys, keep your audio private.",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Yappr",
-    description:
-      "Voice to clean text — anywhere you can type. Bring your own keys, keep your audio private.",
-  },
+  title: "Yappr — stop writing bad prompts out loud",
+  description: TAGLINE,
+  openGraph: { title: "Yappr", description: TAGLINE, type: "website" },
+  twitter: { card: "summary_large_image", title: "Yappr", description: TAGLINE },
 };
 
 export default function RootLayout({
@@ -71,6 +63,15 @@ export default function RootLayout({
       lang="en"
       className={`${instrumentSerif.variable} ${inter.variable} ${jetbrainsMono.variable} ${lato.variable} ${roboto.variable}`}
     >
+      <head>
+        {/* Scroll reveals are JS-driven — without this the page renders
+            blank for no-JS clients and some crawlers. */}
+        <noscript
+          dangerouslySetInnerHTML={{
+            __html: "<style>.reveal{opacity:1!important;transform:none!important}</style>",
+          }}
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

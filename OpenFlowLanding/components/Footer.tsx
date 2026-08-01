@@ -5,11 +5,9 @@ const COLUMNS: Array<{ title: string; links: Array<{ label: string; href: string
     title: "Product",
     links: [
       { label: "Try it", href: "#demo" },
-      { label: "Hotkey", href: "#hotkey" },
-      { label: "AI coding", href: "#ai-coding" },
-      { label: "Local", href: "#local" },
-      { label: "Privacy", href: "#privacy" },
-      { label: "Dictionary", href: "#dictionary" },
+      { label: "Prompt shaping", href: "#features" },
+      { label: "Select and rewrite", href: "#rewrite" },
+      { label: "Persistent context", href: "#context" },
       { label: "Pricing", href: "#pricing" },
       { label: "FAQ", href: "#faq" },
     ],
@@ -50,7 +48,7 @@ export function Footer() {
             className="m-0 mt-4 text-[13.5px] leading-[1.55] max-w-[280px]"
             style={{ color: "#9a9789" }}
           >
-            Voice dictation that respects your time and your typing.
+            The voice interface for people who build with AI.
           </p>
         </div>
 

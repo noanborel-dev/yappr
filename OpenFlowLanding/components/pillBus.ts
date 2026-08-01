@@ -11,6 +11,8 @@ export const pillBus = {
   },
   on(l: Listener) {
     listeners.add(l);
-    return () => listeners.delete(l);
+    return () => {
+      listeners.delete(l);
+    };
   },
 };
