@@ -133,9 +133,20 @@ export interface CodeSurfaceInput {
   weakCueSettingOn?: boolean
 }
 
+// Where a reformatted prompt is headed. Shapes the prompt: an agentic
+// tool has the repo, git, a shell and the test suite; a chat assistant
+// has none of that, so telling it to "run the tests" is noise.
+//
+// Note readable-chat-textarea is AGENTIC, not chat — that route fires on
+// Cursor / VS Code chat panes, which do have repo access. Only the
+// standalone assistants and browser AI URLs are 'chat'.
+export type PromptDestination = 'agentic' | 'chat'
+
 export interface CodeSurfaceResult {
   register: CodeRegister
   reason: string
+  // Only meaningful when register === 'reformat'.
+  destination?: PromptDestination
 }
 
 // Three-way routing. Decision order, first match wins.
@@ -152,10 +163,15 @@ export function classifyCodeSurface(input: CodeSurfaceInput): CodeSurfaceResult 
   // this only ever removes LLM calls.
   const substantial = hasPromptSubstance(input.transcript)
   if (substantial) {
-    if (input.isPrimaryAiBundle) return { register: 'reformat', reason: 'primary-ai-app' }
-    if (input.browserAiRouted) return { register: 'reformat', reason: 'browser-ai-url' }
+    if (input.isPrimaryAiBundle) {
+      return { register: 'reformat', reason: 'primary-ai-app', destination: 'chat' }
+    }
+    if (input.browserAiRouted) {
+      return { register: 'reformat', reason: 'browser-ai-url', destination: 'chat' }
+    }
     if (input.category === 'code' && input.axRole === 'AXTextArea' && input.isAxReadable === true) {
-      return { register: 'reformat', reason: 'readable-chat-textarea' }
+      // Cursor / VS Code chat panes: agentic, they can see the repo.
+      return { register: 'reformat', reason: 'readable-chat-textarea', destination: 'agentic' }
     }
   }
 
@@ -187,7 +203,7 @@ export function classifyCodeSurface(input: CodeSurfaceInput): CodeSurfaceResult 
   // the cheap faithful path instead, which still fixes "cloud"→"Claude".
   if (input.terminalAiCli?.isAiCli) {
     return substantial
-      ? { register: 'reformat', reason: 'ai-cli-detected' }
+      ? { register: 'reformat', reason: 'ai-cli-detected', destination: 'agentic' }
       : { register: 'faithful_ai', reason: 'ai-cli-detected-short' }
   }
 
