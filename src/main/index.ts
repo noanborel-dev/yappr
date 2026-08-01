@@ -73,6 +73,18 @@ const audioChunks: Buffer[] = []
 // callbacks check this against the ID they captured; if it has changed,
 // a newer session is in progress and the callback skips its hide.
 let sessionId = 0
+// The last sessionId whose audio has already been consumed by AUDIO_DONE.
+//
+// stillLatest() only rejects audio from a session OLDER than the current
+// one — two AUDIO_DONE messages for the SAME session both passed it, ran
+// the whole pipeline twice, and pasted twice. Observed in the wild: one
+// dictation produced two transcriptions 8ms apart ("Awesome looks great."
+// and "Awesome, looks great."), both pasted.
+//
+// Guarding here rather than chasing the duplicate upstream, because this
+// is the last point where "one dictation = one insertion" can be enforced
+// no matter which layer double-fires.
+let consumedSessionId = -1
 
 // Mirrors the last state broadcast to the indicator. Lets external
 // action triggers (idle-pill clicks, future MCP hooks) know whether to
@@ -90,6 +102,23 @@ const INDICATOR_WINDOW_HEIGHT = 260
  * of a readable result.
  */
 const PASTING_MIN_MS = 1100
+
+/**
+ * How long the clipboard-fallback drawer stays up.
+ *
+ * This is the one outcome that asks the user to do something, and the
+ * drawer teaches the gesture with a 2.6s animation loop. The pipeline
+ * used to dismiss it after 2200ms — shorter than a single cycle, so the
+ * double-tap never played through even once and the whole instruction
+ * went by unread. Long enough here for three cycles plus reading time.
+ *
+ * The state it replaced was a popup that stayed until dismissed, so
+ * erring long is the right direction.
+ */
+const CLIPBOARD_HOLD_MS = 10000
+
+/** Success needs only an acknowledgement, not reading time. */
+const DONE_HOLD_MS = 1500
 
 function createIndicatorWindow(): BrowserWindow {
   const { x: dx, y: dy, width } = screen.getPrimaryDisplay().bounds
@@ -484,7 +513,7 @@ function actionPasteLast(): void {
       setTimeout(() => {
         positionIndicatorOnActiveDisplay()
         broadcastState(method === 'clipboard' ? 'clipboard' : 'done')
-        setTimeout(() => broadcastState('idle'), method === 'clipboard' ? 6000 : 1500)
+        setTimeout(() => broadcastState('idle'), method === 'clipboard' ? CLIPBOARD_HOLD_MS : DONE_HOLD_MS)
       }, remaining)
     })
     .catch(err => {
@@ -517,6 +546,11 @@ function setupAudioIpc(): void {
 
   ipcMain.on(IPC.AUDIO_DONE, async () => {
     const mySession = sessionId
+    if (mySession === consumedSessionId) {
+      logInfo('Ignoring duplicate AUDIO_DONE', { sessionId: mySession })
+      return
+    }
+    consumedSessionId = mySession
     const audioBuffer = Buffer.concat(audioChunks)
     audioChunks.length = 0
 
@@ -595,7 +629,7 @@ function setupAudioIpc(): void {
           const isClipboard = method === 'clipboard'
           broadcastState(isClipboard ? 'clipboard' : 'done')
           if (isClipboard) showPasteFallback(rewritten)
-          const dismissAfter = isClipboard ? 2200 : 1500
+          const dismissAfter = isClipboard ? CLIPBOARD_HOLD_MS : DONE_HOLD_MS
           setTimeout(() => {
             if (stillLatest()) broadcastState('idle')
           }, dismissAfter)
@@ -641,7 +675,7 @@ function setupAudioIpc(): void {
         if (isClipboard) {
           showPasteFallback(result.cleaned)
         }
-        const dismissAfter = isClipboard ? 2200 : 1500
+        const dismissAfter = isClipboard ? CLIPBOARD_HOLD_MS : DONE_HOLD_MS
         setTimeout(() => {
           if (stillLatest()) broadcastState('idle')
         }, dismissAfter)
@@ -1021,9 +1055,6 @@ app.whenReady().then(() => {
   if (settings.firstRun) {
     createOnboardingWindow()
   }
-
-  // TEMP-SCREENSHOT
-  createSettingsWindow()
 
   // Sweep retention and replay anything a crash left behind. Deliberately
   // last and un-awaited: it transcribes, so it must not delay the tray,

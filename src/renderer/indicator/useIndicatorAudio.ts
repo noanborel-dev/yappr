@@ -152,6 +152,19 @@ export function useIndicatorAudio(): IndicatorAudio {
   }
 
   async function startRecording() {
+    // A second 'start' without an intervening 'stop' used to overwrite
+    // mediaRecorderRef while the previous recorder kept running. The
+    // orphan still fired its own onstop -> sendAudioDone, so one dictation
+    // delivered two blobs and pasted twice. Discard any live recorder
+    // first, and suppress its onstop so it cannot deliver.
+    const stale = mediaRecorderRef.current
+    if (stale) {
+      mediaRecorderRef.current = null
+      stale.onstop = null
+      try { if (stale.state !== 'inactive') stale.stop() } catch { /* already dead */ }
+      console.warn('[Indicator] discarded a recorder that was still running')
+    }
+
     const pipeline = await ensurePipeline()
     if (!pipeline) return
     const { stream, analyser } = pipeline
