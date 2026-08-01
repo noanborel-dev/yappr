@@ -32,6 +32,7 @@ const defaults: Settings = {
   licenseKey: '',
   useContextMemory: false,
   autoContextUpdate: true,
+  notchWidthOverride: null,
 }
 
 export const store = new ElectronStore<Settings>({ defaults, name: 'yappr-settings' })

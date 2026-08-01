@@ -55,11 +55,25 @@ export function clearHistory(): void {
   clearPersistedHistory()
 }
 
-export function registerIpcHandlers(): void {
+/**
+ * Side effects the handlers need but that belong to the window layer.
+ * Passed in rather than imported so ipc.ts stays free of window state.
+ */
+export interface IpcHooks {
+  onNotchGeometryChanged?: () => void
+}
+
+export function registerIpcHandlers(hooks: IpcHooks = {}): void {
   ipcMain.handle(IPC.SETTINGS_GET, () => getSettings())
 
   ipcMain.handle(IPC.SETTINGS_SET, (_e, partial) => {
+    const before = getSettings().notchWidthOverride
     setSettings(partial)
+    // The indicator reads geometry on mount and on display change, so a
+    // calibration change would otherwise sit dormant until relaunch.
+    if (getSettings().notchWidthOverride !== before) {
+      hooks.onNotchGeometryChanged?.()
+    }
     // If the user just switched to Local or changed model tier, kick
     // off a worker spawn + model load now so the next dictation hits
     // the warm path instead of paying the cold-start tax. Fire-and-

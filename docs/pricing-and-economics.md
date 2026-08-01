@@ -4,7 +4,25 @@
 unit economics, infra build-out, and rationale so the next session doesn't
 re-derive any of it.
 
-**Last updated:** 2026-06-02
+**Last updated:** 2026-07-29
+
+> **⚠️ 2026-07-29 — Free goes uncapped; Pro drops to $9. (User decision.)**
+> Supersedes the metering plan below. The landing page ships this now.
+>
+> - **Free = unlimited dictation with cleanup.** No weekly word cap, no card.
+>   Fillers, stutters, false starts and brand-name fixes included. Affordable
+>   precisely because of the 2026-06-02 change: transcription is local (~$0)
+>   and cleanup is rounding-error COGS (~$0.002–$0.14/user/mo), so metering
+>   Free was costing conversion without saving meaningful money.
+> - **Pro = $9/mo** (down from $10). The gate is now *features*, not volume:
+>   **prompt shaping**, **select-and-rewrite**, **persistent context**, and
+>   **per-app polish**. Note per-app polish moves from Free into Pro.
+> - **No Lifetime tier** anywhere in the UI (decided 2026-06-02, now reflected).
+> - **No card required to try Pro.**
+>
+> Open risk: Free no longer has a usage lever. If cleanup COGS stops being
+> rounding-error (larger model, longer dictations), the only remaining levers
+> are price or re-introducing a cap. Watch cleanup spend per active user.
 
 > **⚠️ 2026-06-02 — Local-default transcription changes the metering anchor.**
 > The streaming-transcription work (`docs/superpowers/specs/2026-06-02-streaming-
@@ -187,10 +205,36 @@ Already done in `2859d04`. 2.78× cheaper, slightly faster, same WER on
 dictation audio.
 
 ### Open-source / alternative models worth A/B testing later
-- **`gpt-oss-20b`** on Groq: reportedly cheaper than llama-8b with similar
-  quality on text-cleanup tasks. Untested in our pipeline.
+
+> **2026-06-03 correction (13-agent research, verified against Groq docs).**
+> The earlier note that **`gpt-oss-20b`** is "cheaper than llama-8b with
+> similar quality" was **wrong on all three counts** and has been struck:
+> - **Not cheaper** — $0.075/M in, $0.30/M out = **1.5× input / 3.75× output**
+>   vs `llama-3.1-8b-instant` ($0.05 / $0.08). More expensive at any token mix
+>   (reasoning tokens bill as output, widening the gap).
+> - **Not faster** — it is a **reasoning model** (harmony chain-of-thought).
+>   `reasoning_effort` floors at `low` (no `none`), so it emits CoT tokens
+>   *before* the answer → ~3s time-to-first-answer-token on Groq. For SHORT
+>   cleanups latency is TTFT-bound, so the ~1000 TPS headline is irrelevant —
+>   and cleanup becomes the post-release bottleneck once streaming ships.
+> - **Not higher quality** — IFEval ~69.5%, **below** `llama-3.1-8b`'s 80.4%.
+>
+> Reasoning models also risk pasting CoT into output: `groq.ts` reads
+> `message.content` verbatim with no `<think>`/`message.reasoning` guard.
+> Hide CoT via `include_reasoning:false` (NOT `reasoning_format`, which is
+> unsupported for gpt-oss). **Verdict: avoid `gpt-oss-*` for cleanup.** Full
+> scorecard in the 2026-06-03 decision-log entry below.
+
+- **`llama-3.3-70b-versatile`** is the right "bigger model" for a *routed*
+  long-form / Strict tier (IFEval 92.1%, non-reasoning, predictable parsing)
+  at ~11.8× COGS — Pro/Pro-Plus gated, never the default. See the 70B section
+  above and "Smart model routing per dictation."
 - **`llama-3.2-3b`**: even cheaper than 8b. Quality drops on prose
   restructuring but might be fine for simple filler removal.
+- Higher ROI than any swap: **prompt caching**, **`stream:true` on cleanup**,
+  and **smart per-dictation routing** (the sibling subsections above).
+- A/B any candidate with `scripts/bench-groq-cleanup.mjs` (latency + output
+  discipline + code-switch + COGS) before changing the default.
 
 ## Infrastructure to build
 
@@ -305,6 +349,7 @@ free, so the friction is small for honest users.
 
 - `docs/local-whisper-spec.md` — the on-device transcription spec
 - `scripts/bench-groq-whisper.mjs` — A/B bench for Groq Whisper models
+- `scripts/bench-groq-cleanup.mjs` — A/B bench for Groq cleanup LLMs (latency / discipline / COGS)
 - `src/main/pipeline.ts` — current cleanup + transcription pipeline
 - `src/shared/constants.ts:140` — `MODELS.groq` defaults
 
@@ -322,3 +367,16 @@ free, so the friction is small for honest users.
   market. COGS collapses ~95% (whisper minutes gone; llama cleanup is
   rounding-error). See the banner at the top of this file and the
   streaming spec §9.
+- **2026-06-03**: Researched adopting a newer Groq chat model for the
+  **cleanup** pass (13-agent workflow, adversarially verified). Decision:
+  **keep `llama-3.1-8b-instant` as the default.** For short cleanups latency
+  is TTFT-bound (not steady-state TPS), and cleanup becomes the dominant
+  post-release cost once streaming ships — so the high-TPS *reasoning* models
+  (`gpt-oss-20b/120b`, `qwen3-32b`) regress it. `gpt-oss-20b` is also more
+  expensive AND lower-IFEval than 8b (corrected note in "alternative models"
+  above). `llama-3.3-70b-versatile` is reserved for a *routed* long-form /
+  Strict (Pro-Plus) tier, not the default. Prefer prompt caching + `stream:true`
+  + per-dictation routing over a swap. Added `scripts/bench-groq-cleanup.mjs`
+  to A/B latency + output-discipline before any change. Orthogonal to the
+  `transcribeCore` seam; sequence after the Phase-0c `runDictationPipeline`
+  extraction (shares the `pipeline.ts` cleanup region).

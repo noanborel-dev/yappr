@@ -10,23 +10,21 @@ import HistoryTab from './tabs/HistoryTab'
 import AboutTab from './tabs/AboutTab'
 import { Wordmark } from '../shared/ui/Wordmark'
 
-const TABS = ['Dashboard', 'Provider', 'Hotkey', 'Polish', 'AI', 'Dictionary', 'General', 'About'] as const
+const TABS = ['Dashboard', 'Hotkey', 'Polish', 'AI', 'Dictionary', 'Provider', 'General', 'About'] as const
 type Tab = typeof TABS[number]
 
-const TITLES: Record<Tab, { title: string; italic: string; sub: string }> = {
-  Dashboard:  { title: 'Your',  italic: 'dashboard.',   sub: 'Every transcription + how you’re using Yappr' },
-  Provider:   { title: 'Your',  italic: 'provider.',    sub: 'Transcription + cleanup service' },
-  Hotkey:     { title: 'Your',  italic: 'hotkey.',      sub: 'Tap · hold · double-tap' },
-  Polish:     { title: 'Your',  italic: 'polish.',      sub: 'Same voice — three registers per context' },
-  AI:         { title: 'Your',  italic: 'AI.',          sub: 'Rewrite, restructure, and reformat what you select' },
-  Dictionary: { title: 'Your',  italic: 'dictionary.',  sub: 'Bias Whisper toward terms it mishears' },
-  General:    { title: 'Your',  italic: 'preferences.', sub: 'How Yappr should behave' },
-  About:      { title: 'About', italic: 'Yappr.',    sub: 'Version & diagnostics' },
-}
+// Grouped rather than run together. The old flat list mixed "what Yappr
+// does with your voice" (Polish, AI, Dictionary) with "how Yappr is wired
+// up" (Provider, General) in one undifferentiated column, so nothing in it
+// told you where to look for anything.
+const GROUPS: Array<{ label: string | null; tabs: Tab[] }> = [
+  { label: null, tabs: ['Dashboard'] },
+  { label: 'Voice', tabs: ['Hotkey', 'Polish', 'AI', 'Dictionary'] },
+  { label: 'Setup', tabs: ['Provider', 'General', 'About'] },
+]
 
 export default function SettingsApp() {
-  const [tab, setTab] = useState<Tab>('Provider')
-  const titleInfo = TITLES[tab]
+  const [tab, setTab] = useState<Tab>('Dashboard')
   const [provider, setProvider] = useState<Provider | null>(null)
 
   useEffect(() => {
@@ -44,50 +42,63 @@ export default function SettingsApp() {
         className="absolute top-0 left-0 right-0 h-8 z-10"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       />
-      <aside className="w-[200px] bg-[#F2F0E8] border-r border-ink-08 pt-9 px-3 flex flex-col shrink-0">
-        <div className="flex items-center px-1 pb-4 mb-3 border-b border-ink-08">
+
+      <aside className="w-[204px] bg-cream2 border-r border-line pt-9 px-3 flex flex-col shrink-0">
+        <div className="flex items-center px-1 pb-4 mb-3 border-b border-line">
           <Wordmark size="inline" />
         </div>
-        <nav className="flex flex-col gap-0.5">
-          {TABS.map((t) => {
-            const on = tab === t
-            return (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`text-left px-2.5 py-2 rounded-[8px] text-[12.5px] transition ${
-                  on ? 'bg-ink text-paper' : 'text-ink-60 hover:bg-ink-08'
-                }`}
-              >
-                <span className="inline-flex items-center gap-2.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${on ? 'bg-volt' : 'bg-ink/25'}`} />
-                  {t}
-                </span>
-              </button>
-            )
-          })}
+
+        <nav className="flex flex-col gap-4">
+          {GROUPS.map((group, gi) => (
+            <div key={gi} className="flex flex-col gap-0.5">
+              {group.label && (
+                <div className="text-[9.5px] font-mono uppercase tracking-[0.18em] text-ink-45 px-2.5 pb-1.5">
+                  {group.label}
+                </div>
+              )}
+              {group.tabs.map((t) => {
+                const on = tab === t
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    aria-current={on ? 'page' : undefined}
+                    className={[
+                      'text-left px-2.5 py-[7px] rounded-[9px] text-[12.5px] transition-colors duration-150',
+                      on ? 'bg-ink text-paper' : 'text-ink-60 hover:text-ink hover:bg-ink/[0.05]',
+                    ].join(' ')}
+                  >
+                    <span className="inline-flex items-center gap-2.5">
+                      <span
+                        className={`w-1 h-1 rounded-full transition-colors ${on ? 'bg-accent' : 'bg-ink/20'}`}
+                      />
+                      {t}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          ))}
         </nav>
-        <div className="mt-auto pb-3 px-2 pt-3 border-t border-ink-08 text-[10px] font-mono text-ink-45">
+
+        <div className="mt-auto pb-3 px-2 pt-3 border-t border-line text-[10px] font-mono text-ink-45">
           <span className="inline-flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-ok" />
-            connected · {provider ?? 'groq'}
+            {provider === 'local' ? 'on-device' : `connected · ${provider ?? 'groq'}`}
           </span>
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto px-8 py-8">
-        <h1 className="text-[34px] leading-none tracking-tight">
-          {titleInfo.title}{' '}
-          <span className="font-display italic font-medium">{titleInfo.italic}</span>
-        </h1>
-        <p className="text-[12px] text-ink-60 mt-2 mb-6 leading-relaxed max-w-[58ch]">{titleInfo.sub}</p>
-
-        {tab === 'Provider' && <AIProviderTab />}
+      {/* Each tab owns its own SectionHead. The shell used to render an
+          h1 + subtitle here AND every tab rendered a hero headline under
+          it — two big serif lines back to back saying the same thing. */}
+      <main className="flex-1 overflow-auto px-9 pt-11 pb-12">
+        {tab === 'Dashboard' && <HistoryTab />}
         {tab === 'Hotkey' && <HotkeysTab />}
         {tab === 'Polish' && <PolishTab />}
         {tab === 'AI' && <AITab />}
         {tab === 'Dictionary' && <DictionaryTab />}
-        {tab === 'Dashboard' && <HistoryTab />}
+        {tab === 'Provider' && <AIProviderTab />}
         {tab === 'General' && <GeneralTab />}
         {tab === 'About' && <AboutTab />}
       </main>

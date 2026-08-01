@@ -15,3 +15,6 @@ OpenFlowLanding/.next/
 
 # TypeScript incremental build artifacts
 *.tsbuildinfo
+
+# Agent worktrees — scratch checkouts, never part of the project
+.claude/worktrees/

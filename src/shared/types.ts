@@ -114,6 +114,13 @@ export interface Settings {
   // AND a Groq key being configured). Toggle off to freeze the
   // overview at its current hand-edited value.
   autoContextUpdate: boolean
+  // Notch width in points, overriding the estimate in
+  // shared/notch-geometry.ts. Electron exposes neither
+  // NSScreen.safeAreaInsets nor auxiliaryTopLeftArea, so the width is
+  // derived from display metrics and calibrated against one machine.
+  // Null uses the estimate; set a value if the indicator's centre band
+  // doesn't line up with the physical notch on your Mac.
+  notchWidthOverride: number | null
 }
 
 export interface DictationResult {
@@ -169,4 +176,15 @@ export const IPC = {
   INDICATOR_TOGGLE_RECORD: 'indicator:toggle-record',
   INDICATOR_PASTE_LAST: 'indicator:paste-last',
   INDICATOR_POLISH_SELECTION: 'indicator:polish-selection',
+  // Notch indicator. Geometry is per-display, so the renderer re-reads it
+  // whenever the window moves; recent/copy back the peek state's
+  // click-to-copy transcript.
+  INDICATOR_NOTCH_GEOMETRY: 'indicator:notch-geometry',
+  // Pushed when a setting that changes the shape lands — today only
+  // notchWidthOverride. The indicator otherwise re-reads geometry on
+  // mount and on display change, so a calibration slider would appear
+  // to do nothing until the next launch.
+  INDICATOR_GEOMETRY_CHANGED: 'indicator:geometry-changed',
+  INDICATOR_RECENT: 'indicator:recent',
+  INDICATOR_COPY_RECENT: 'indicator:copy-recent',
 } as const

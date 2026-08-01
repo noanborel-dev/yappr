@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import groqLogo from '../../shared/logos/groq.png'
 import type { Settings, Provider, LocalModelId } from '../../../shared/types'
 import type { LocalModelProgress, LocalModelReadiness } from '../../global'
 import { MODELS } from '../../../shared/constants'
 import { Pill } from '../../shared/ui/Pill'
-import { SectionHero } from '../../shared/ui/SectionHero'
+import { Toggle } from '../../shared/ui/Toggle'
+import { SectionHead, GroupLabel } from '../../shared/ui/SectionHead'
+import { Panel, SettingRow } from '../../shared/ui/Panel'
+import { BrandLogo } from '../../shared/ui/BrandLogo'
 
 interface LocalModelMeta {
   id: LocalModelId
@@ -16,15 +18,14 @@ interface LocalModelMeta {
 }
 
 const LOCAL_MODEL_META: LocalModelMeta[] = [
-  { id: 'parakeet-tdt-0.6b-v3', name: 'Instant', speed: '~25 ms', size: '339 MB', description: 'NVIDIA Parakeet. ~30x faster than Accurate at matching English quality. English + 24 European languages.', recommended: true },
-  { id: 'base',            name: 'Fast',     speed: '~100 ms', size: '57 MB',  description: 'Tiny + ultra-fast. Multilingual. Some mistakes on technical terms.' },
-  { id: 'small',           name: 'Balanced', speed: '~200 ms', size: '181 MB', description: 'Sub-300ms warm. Multilingual. Near-perfect for English dictation.' },
-  { id: 'large-v3-turbo',  name: 'Accurate', speed: '~1000 ms', size: '547 MB', description: 'Best on rarer languages. Whisper pads every clip to 30s, so short clips cost the same as long ones.' },
+  { id: 'parakeet-tdt-0.6b-v3', name: 'Instant', speed: '~25 ms', size: '339 MB', description: 'NVIDIA Parakeet. ~30× faster than Accurate at matching English quality. English + 24 European languages.', recommended: true },
+  { id: 'base', name: 'Fast', speed: '~100 ms', size: '57 MB', description: 'Tiny and ultra-fast. Multilingual. Some mistakes on technical terms.' },
+  { id: 'small', name: 'Balanced', speed: '~200 ms', size: '181 MB', description: 'Sub-300ms warm. Multilingual. Near-perfect for English dictation.' },
+  { id: 'large-v3-turbo', name: 'Accurate', speed: '~1000 ms', size: '547 MB', description: 'Best on rarer languages. Whisper pads every clip to 30s, so short clips cost the same as long ones.' },
 ]
 
 interface ProviderInfo {
   value: Provider
-  brand: 'groq' | 'local'
   name: string
   model: string
   description: string
@@ -32,8 +33,8 @@ interface ProviderInfo {
 }
 
 const PROVIDERS: ProviderInfo[] = [
-  { value: 'local', brand: 'local', name: 'Local',  model: 'whisper-large-v3-turbo (on-device)', description: 'Runs on your Mac. Offline, free, no keys. ~547MB download.', price: 'free, offline' },
-  { value: 'groq',  brand: 'groq',  name: 'Groq',   model: 'whisper-large-v3-turbo', description: 'Fastest cloud Whisper. Free tier covers most users.',          price: 'free tier' },
+  { value: 'local', name: 'On this Mac', model: 'whisper / parakeet (on-device)', description: 'Runs locally. Offline, free, no keys.', price: 'free · offline' },
+  { value: 'groq', name: 'Groq', model: 'whisper-large-v3-turbo', description: 'Fastest cloud Whisper. The free tier covers most people.', price: 'free tier' },
 ]
 
 export default function AIProviderTab() {
@@ -41,8 +42,6 @@ export default function AIProviderTab() {
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
   const [localReadiness, setLocalReadiness] = useState<LocalModelReadiness | null>(null)
-  // Per-model download progress, keyed by model id. Each card looks up
-  // its own state.
   const [localProgress, setLocalProgress] = useState<Record<string, LocalModelProgress>>({})
   const [downloaded, setDownloaded] = useState<Record<string, boolean>>({})
 
@@ -61,9 +60,7 @@ export default function AIProviderTab() {
     refreshStatus()
     const off = window.yappr.onLocalModelProgress((p) => {
       setLocalProgress((prev) => ({ ...prev, [p.modelId]: p }))
-      if (p.status === 'done') {
-        refreshStatus()
-      }
+      if (p.status === 'done') refreshStatus()
     })
     return off
   }, [])
@@ -89,81 +86,56 @@ export default function AIProviderTab() {
     setTesting(false)
   }
 
-  // Cleanup always uses the Groq key — even when transcription is local,
-  // cleanup needs an LLM. So we always surface the Groq key field.
-  const keyField = {
-    name: 'Groq',
-    value: settings.provider.groqKey,
-    set: (v: string) => save({ groqKey: v }),
-    placeholder: 'gsk_…',
-    help: 'console.groq.com',
-  }
-
   return (
-    <div className="max-w-[760px]">
-      <SectionHero
-        label="PROVIDER"
-        accent="coral"
-        headline={<>Audio goes <em className="font-display italic">straight</em> through.</>}
-        body="Bring your own keys. Yappr never proxies — your audio goes straight to your provider. Keys live in macOS Keychain (eventually) and are never sent to Yappr servers."
-        visual={<AudioFlowDiagram apiKeyMasked={maskKey(keyField.value)} />}
+    <div className="max-w-[720px]">
+      <SectionHead
+        ord="06"
+        label="Provider"
+        headline={<>Your keys, your <em className="italic">audio</em>.</>}
+        body="Audio goes from your mic to the provider you pick. Yappr's servers are not in the path."
       />
 
-      {/* Provider cards */}
-      <div className="space-y-2.5 mb-5">
-        {PROVIDERS.map((p) => {
-          const selected = p.value === provider
-          return (
-            <button
-              key={p.value}
-              onClick={() => save({
-                provider: p.value,
-                transcriptionModel: MODELS[p.value].transcription,
-                cleanupModel: MODELS[p.value].cleanup,
-              })}
-              className={[
-                'w-full text-left bg-card border rounded-[14px] px-4 py-3.5 transition-all duration-150',
-                selected
-                  ? 'border-ink ring-1 ring-ink shadow-sm'
-                  : 'border-ink-08 hover:border-ink-45',
-              ].join(' ')}
-            >
-              <div className="flex items-center gap-3.5">
-                {/* Local provider shows the bare Yappr pill (no
-                    tile background) — it IS the brand mark. Groq keeps
-                    the colored tile so its wordmark has contrast. */}
-                {p.brand === 'local' ? (
-                  <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                    <ProviderGlyph brand={p.brand} />
-                  </div>
-                ) : (
-                  <div className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0"
-                       style={{ background: brandTileColor(p.brand) }}>
-                    <ProviderGlyph brand={p.brand} />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-[13.5px] font-semibold">{p.name}</span>
-                    <span className="text-[10.5px] font-mono text-ink-45">{p.model}</span>
-                  </div>
-                  <div className="text-[11px] text-ink-60 mt-0.5">{p.description}</div>
-                </div>
-                <span className="text-[11px] font-mono text-ink-45 mr-2">{p.price}</span>
-                <span className={[
-                  'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0',
-                  selected ? 'bg-ink border-ink' : 'border-ink-08',
-                ].join(' ')}>
-                  {selected && <span className="w-2 h-2 rounded-full bg-paper" />}
-                </span>
+      <GroupLabel>Transcription</GroupLabel>
+      <div className="space-y-2 mb-6">
+        {PROVIDERS.map((p) => (
+          <button
+            key={p.value}
+            onClick={() => save({
+              provider: p.value,
+              transcriptionModel: MODELS[p.value].transcription,
+              cleanupModel: MODELS[p.value].cleanup,
+            })}
+            className={[
+              'w-full text-left bg-card border rounded-card px-4 py-3.5 transition-all duration-150',
+              p.value === provider
+                ? 'border-ink ring-1 ring-ink'
+                : 'border-line hover:border-ink-45',
+            ].join(' ')}
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0"
+                   style={{ background: p.value === 'local' ? '#0E1118' : '#F55036' }}>
+                {p.value === 'local'
+                  ? <MarkGlyph />
+                  : <BrandLogo brand="groq" size={16} />}
               </div>
-            </button>
-          )
-        })}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[13.5px] font-semibold">{p.name}</span>
+                  <span className="text-[10.5px] font-mono text-ink-45 truncate">{p.model}</span>
+                </div>
+                <div className="text-[11px] text-ink-60 mt-0.5">{p.description}</div>
+              </div>
+              <span className="text-[10.5px] font-mono text-ink-45 mr-1 shrink-0">{p.price}</span>
+              <Radio on={p.value === provider} />
+            </div>
+          </button>
+        ))}
       </div>
 
-      {provider === 'local' ? (
+      {provider === 'local' && (
         <>
+          <GroupLabel>On-device model</GroupLabel>
           <LocalModelPanel
             readiness={localReadiness}
             progress={localProgress}
@@ -171,98 +143,108 @@ export default function AIProviderTab() {
             selectedModel={settings.provider.localModel}
             onSelectModel={(id) => save({ localModel: id })}
           />
-          <AutoAccurateToggle
-            value={settings.provider.localAutoAccurateInCode !== false}
-            onChange={(v) => save({ localAutoAccurateInCode: v })}
-            accurateDownloaded={!!downloaded['large-v3-turbo']}
-          />
-          {/* Optional Groq key card for the Local provider. Without
-              this key, cleanup is a no-op and the regex-based
-              QUICK_FIXES + Light cleanup are all the polish you get.
-              With a key, the cloud LLM runs cleanup (prose
-              restructuring, list formatting, emoji injection, command
-              mode). Framed as "optional" so users who picked Local
-              for offline/privacy don't feel like they MUST add a key. */}
-          <div className="bg-card border border-ink-08 rounded-[14px] px-4 py-4 mt-3">
-            <div className="flex items-baseline justify-between mb-2">
-              <div className="text-[10.5px] font-mono uppercase tracking-[0.14em] text-ink-45">
-                Groq API Key
-              </div>
-              <span className="text-[10px] font-mono text-ink-45 italic">optional · enables polish</span>
-            </div>
-            <div className="flex items-stretch gap-2">
-              <input
-                type="password"
-                value={keyField.value}
-                onChange={(e) => keyField.set(e.target.value)}
-                placeholder={keyField.placeholder}
-                className="flex-1 bg-paper border border-ink-08 rounded-[10px] px-3 py-2.5 text-[12.5px] font-mono focus:outline-none focus:border-volt focus:ring-2 focus:ring-volt-muted"
-              />
-              <Pill variant="primary" onClick={testKey} disabled={testing || !keyField.value}>
-                {testing ? '…' : 'Test'}
-              </Pill>
-            </div>
-            <div className="flex items-center justify-between mt-2.5">
-              <p className="text-[10.5px] text-ink-45 leading-relaxed max-w-[440px]">
-                {keyField.value
-                  ? <>Without a key, dictations stay 100% on your Mac. With one, Yappr uses cloud cleanup for polish, list formatting, and command-mode rewrites.</>
-                  : <>Skip this to stay fully offline. Add a key later if you want polished prose, list formatting, or command-mode rewrites. <a onClick={() => window.open(`https://${keyField.help}`, '_blank')} className="text-ink-60 hover:text-ink underline cursor-pointer">Get a free Groq key ↗</a></>
-                }
-              </p>
-              {testResult && (
-                <span className={`text-[11px] font-medium ${testResult.ok ? 'text-ok' : 'text-danger'}`}>
-                  {testResult.ok ? '✓ Connected' : `✗ ${testResult.error}`}
-                </span>
-              )}
-            </div>
-          </div>
+          {downloaded['large-v3-turbo'] && (
+            <Panel className="mt-2 mb-6">
+              <SettingRow
+                title="Smart-switch to Accurate"
+                desc="Use the Accurate tier automatically where it pays for itself: code editors always, email over 8s, docs over 12s, anything over 20s. Short casual dictations stay on your tier."
+                last
+              >
+                <Toggle
+                  on={settings.provider.localAutoAccurateInCode !== false}
+                  onChange={(v) => save({ localAutoAccurateInCode: v })}
+                  label="Smart-switch to Accurate"
+                />
+              </SettingRow>
+            </Panel>
+          )}
         </>
-      ) : (
-        <div className="bg-card border border-ink-08 rounded-[14px] px-4 py-4">
-          <div className="text-[10.5px] font-mono uppercase tracking-[0.14em] text-ink-45 mb-2">
-            {keyField.name} API Key
-          </div>
+      )}
+
+      <GroupLabel className="mt-6">
+        Cleanup key {provider === 'local' && <span className="text-ink-45 normal-case tracking-normal font-sans">— optional</span>}
+      </GroupLabel>
+      <Panel>
+        <div className="px-5 py-4">
           <div className="flex items-stretch gap-2">
             <input
               type="password"
-              value={keyField.value}
-              onChange={(e) => keyField.set(e.target.value)}
-              placeholder={keyField.placeholder}
-              className="flex-1 bg-paper border border-ink-08 rounded-[10px] px-3 py-2.5 text-[12.5px] font-mono focus:outline-none focus:border-volt focus:ring-2 focus:ring-volt-muted"
+              value={settings.provider.groqKey}
+              onChange={(e) => save({ groqKey: e.target.value })}
+              placeholder="gsk_…"
+              className="flex-1 bg-paper border border-line rounded-input px-3 py-2.5 text-[12.5px] font-mono placeholder:text-ink-45 focus:outline-none focus:border-cobalt focus:ring-2 focus:ring-cobalt-soft"
             />
-            <Pill variant="primary" onClick={testKey} disabled={testing || !keyField.value}>
-              {testing ? '…' : 'Test'}
+            <Pill
+              variant={testResult?.ok ? 'ok' : 'primary'}
+              size="sm"
+              onClick={testKey}
+              disabled={testing || !settings.provider.groqKey}
+            >
+              {testing ? '…' : testResult?.ok ? 'Connected' : 'Test'}
             </Pill>
           </div>
-          <div className="flex items-center justify-between mt-2.5">
-            <a
-              onClick={() => window.open(`https://${keyField.help}`, '_blank')}
-              className="text-[10.5px] text-ink-45 hover:text-ink cursor-pointer"
-            >
-              Get a key at {keyField.help} ↗
-            </a>
-            {testResult && (
-              <span className={`text-[11px] font-medium ${testResult.ok ? 'text-ok' : 'text-danger'}`}>
-                {testResult.ok ? '✓ Connected' : `✗ ${testResult.error}`}
+
+          <div className="flex items-start justify-between gap-4 mt-3">
+            <p className="text-[11px] text-ink-60 leading-relaxed max-w-[52ch]">
+              {provider === 'local'
+                ? 'Transcription runs on your Mac either way. A key adds the cleanup pass — register, list formatting, prompt shaping. Without one you get the deterministic fixes only.'
+                : 'Used for transcription and cleanup. Stored on this Mac, never sent to a Yappr server.'}
+              {' '}
+              <button
+                onClick={() => window.open('https://console.groq.com', '_blank')}
+                className="text-ink-60 hover:text-ink underline underline-offset-2"
+              >
+                Get a free key ↗
+              </button>
+            </p>
+            {testResult && !testResult.ok && (
+              <span className="text-[11px] font-medium text-danger shrink-0">
+                {testResult.error}
               </span>
             )}
           </div>
         </div>
-      )}
+      </Panel>
 
       <p className="text-[10.5px] text-ink-45 mt-4 leading-relaxed">
         {provider === 'local'
-          ? 'Audio never leaves your device. The model is stored in your user-data folder.'
-          : 'Stored locally. Never sent to Yappr servers.'}
+          ? 'Audio never leaves your device for transcription. Models live in your user-data folder.'
+          : 'Keys are stored on this Mac in the app’s settings file.'}
       </p>
     </div>
   )
 }
 
-function formatBytes(n: number): string {
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(0)} MB`
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`
+function Radio({ on }: { on: boolean }) {
+  return (
+    <span
+      className={[
+        'w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors',
+        on ? 'bg-ink border-ink' : 'border-line',
+      ].join(' ')}
+    >
+      {on && <span className="w-1.5 h-1.5 rounded-full bg-paper" />}
+    </span>
+  )
+}
+
+// The brand mark, tile-sized: a red dot and the italic serif, on the same
+// charcoal the notch is drawn in.
+function MarkGlyph() {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="w-[5px] h-[5px] rounded-full"
+        style={{ background: '#E84A3A', boxShadow: '0 0 5px rgba(232,74,58,.6)' }}
+      />
+      <span
+        className="text-white leading-none"
+        style={{ fontFamily: '"Instrument Serif", Georgia, serif', fontStyle: 'italic', fontSize: 13 }}
+      >
+        Yappr
+      </span>
+    </span>
+  )
 }
 
 function LocalModelPanel({
@@ -279,25 +261,29 @@ function LocalModelPanel({
   onSelectModel: (id: LocalModelId) => void
 }) {
   if (!readiness) {
-    return <div className="bg-card border border-ink-08 rounded-[14px] px-4 py-4 text-[11px] text-ink-45">Loading model status…</div>
+    return (
+      <Panel>
+        <div className="px-5 py-4 text-[11.5px] text-ink-45">Loading model status…</div>
+      </Panel>
+    )
   }
 
   if (!readiness.ffmpeg) {
     return (
-      <div className="bg-card border border-danger/40 rounded-[14px] px-4 py-4">
-        <div className="text-[10.5px] font-mono uppercase tracking-[0.14em] text-danger mb-1">ffmpeg not found</div>
+      <div className="bg-card border border-danger/40 rounded-card px-5 py-4">
+        <div className="text-[10.5px] font-mono uppercase tracking-[0.14em] text-danger mb-1.5">
+          ffmpeg not found
+        </div>
         <p className="text-[11.5px] text-ink-60 leading-relaxed">
-          Run <code className="font-mono">npm install</code> to pull <code className="font-mono">@ffmpeg-installer/ffmpeg</code>, or reinstall Yappr.
+          Run <code className="font-mono">npm install</code> to pull{' '}
+          <code className="font-mono">@ffmpeg-installer/ffmpeg</code>, or reinstall Yappr.
         </p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-2.5">
-      <div className="text-[10.5px] font-mono uppercase tracking-[0.14em] text-ink-45 mb-1">
-        Local model · pick one
-      </div>
+    <div className="space-y-2">
       {LOCAL_MODEL_META.map((m) => (
         <LocalModelCard
           key={m.id}
@@ -308,56 +294,6 @@ function LocalModelPanel({
           onSelect={() => onSelectModel(m.id)}
         />
       ))}
-    </div>
-  )
-}
-
-// Smart-switch toggle: when on, the local provider auto-elevates to
-// Accurate for dictations into code/IDE contexts. Hidden when the
-// Accurate tier isn't downloaded — there's nothing to elevate to.
-function AutoAccurateToggle({
-  value,
-  onChange,
-  accurateDownloaded,
-}: {
-  value: boolean
-  onChange: (v: boolean) => void
-  accurateDownloaded: boolean
-}) {
-  if (!accurateDownloaded) return null
-  return (
-    <div className="mt-3 bg-card border border-ink-08 rounded-[14px] px-4 py-3.5 flex items-start gap-3">
-      <div className="flex-1 min-w-0">
-        <div className="text-[12.5px] font-semibold">Smart-switch to Accurate</div>
-        <p className="text-[11px] text-ink-60 mt-1 leading-relaxed">
-          Automatically use <span className="font-medium">Accurate</span> when it matters more:
-        </p>
-        <ul className="text-[11px] text-ink-60 mt-1 leading-relaxed list-disc pl-4 space-y-0.5">
-          <li>Code editors (Cursor, VS Code, Terminal) — always</li>
-          <li>Email (Gmail, Mail, Outlook) — for dictations over 8s</li>
-          <li>Docs (Notion, Word, Pages) — for dictations over 12s</li>
-          <li>Any app — for dictations over 20s</li>
-        </ul>
-        <p className="text-[11px] text-ink-60 mt-1.5 leading-relaxed">
-          Short casual dictations stay on your selected tier for speed.
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={() => onChange(!value)}
-        aria-pressed={value}
-        className={[
-          'shrink-0 mt-0.5 w-9 h-5 rounded-full transition-colors relative',
-          value ? 'bg-ink' : 'bg-ink-08',
-        ].join(' ')}
-      >
-        <span
-          className={[
-            'absolute top-0.5 w-4 h-4 rounded-full bg-paper transition-all',
-            value ? 'left-[18px]' : 'left-0.5',
-          ].join(' ')}
-        />
-      </button>
     </div>
   )
 }
@@ -379,7 +315,7 @@ function LocalModelCard({
   const [error, setError] = useState<string | null>(null)
 
   const downloading = progress?.status === 'starting' || progress?.status === 'downloading'
-  const pct = (downloading && progress!.totalBytes > 0)
+  const pct = downloading && progress!.totalBytes > 0
     ? Math.min(100, (progress!.receivedBytes / progress!.totalBytes) * 100)
     : 0
 
@@ -400,16 +336,8 @@ function LocalModelCard({
     setBusy(false)
   }
 
-  function cancel(e: React.MouseEvent) {
-    e.stopPropagation()
-    window.yappr.cancelLocalModel()
-  }
-
-  // The whole card is clickable when downloaded — pick this model.
-  // When not downloaded, clicking the card body is a no-op (the
-  // Download button does the work). We use a <div> with role/onClick
-  // rather than a <button> because a disabled <button> would swallow
-  // child click events too, blocking the Download Pill inside.
+  // A <div> rather than a <button>: a disabled button swallows clicks on
+  // the Download pill inside it.
   const canSelect = downloaded
   return (
     <div
@@ -418,150 +346,59 @@ function LocalModelCard({
       onClick={canSelect ? onSelect : undefined}
       onKeyDown={canSelect ? (e) => { if (e.key === 'Enter' || e.key === ' ') onSelect() } : undefined}
       className={[
-        'w-full text-left bg-card border rounded-[14px] px-4 py-3.5 transition-all duration-150',
+        'bg-card border rounded-card px-4 py-3.5 transition-all duration-150',
         selected
-          ? 'border-ink ring-1 ring-ink shadow-sm'
+          ? 'border-ink ring-1 ring-ink'
           : canSelect
-            ? 'border-ink-08 hover:border-ink-45 cursor-pointer'
-            : 'border-ink-08',
+            ? 'border-line hover:border-ink-45 cursor-pointer'
+            : 'border-line',
       ].join(' ')}
     >
       <div className="flex items-center gap-3.5">
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2 flex-wrap">
             <span className="text-[13.5px] font-semibold">{meta.name}</span>
-            <span className="text-[10.5px] font-mono text-ink-45">{meta.id}</span>
+            <span className="text-[10.5px] font-mono text-ink-45">
+              {meta.speed} · {meta.size}
+            </span>
             {meta.recommended && (
-              <span className="text-[9.5px] font-mono uppercase tracking-wider text-volt bg-volt-muted px-1.5 py-0.5 rounded">
+              <span className="text-[9px] font-mono uppercase tracking-[0.14em] text-accent bg-accent/10 px-1.5 py-0.5 rounded">
                 recommended
               </span>
             )}
           </div>
-          <div className="text-[11px] text-ink-60 mt-0.5">{meta.description}</div>
-          <div className="text-[10.5px] font-mono text-ink-45 mt-1.5">
-            {meta.speed} · {meta.size}
-          </div>
+          <div className="text-[11px] text-ink-60 mt-1 leading-snug">{meta.description}</div>
         </div>
-        <div className="shrink-0 flex flex-col items-end gap-1.5">
+
+        <div className="shrink-0 flex items-center gap-2">
           {downloading ? (
             <>
-              <div className="text-[10.5px] font-mono text-ink-45">{pct.toFixed(0)}%</div>
-              <Pill onClick={cancel}>Cancel</Pill>
-            </>
-          ) : downloaded ? (
-            <>
-              {selected && <span className="text-[10.5px] font-mono text-ok">✓ active</span>}
-              <Pill onClick={uninstall} disabled={busy}>
-                {busy ? '…' : 'Uninstall'}
+              <span className="text-[10.5px] font-mono text-ink-45 tabular-nums">
+                {pct.toFixed(0)}%
+              </span>
+              <Pill variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); window.yappr.cancelLocalModel() }}>
+                Cancel
               </Pill>
             </>
+          ) : downloaded ? (
+            <Pill variant="ghost" size="sm" onClick={uninstall} disabled={busy}>
+              {busy ? '…' : 'Remove'}
+            </Pill>
           ) : (
-            <Pill variant="primary" onClick={startDownload} disabled={busy}>
+            <Pill variant="primary" size="sm" onClick={startDownload} disabled={busy}>
               {busy ? '…' : 'Download'}
             </Pill>
           )}
+          {downloaded && <Radio on={selected} />}
         </div>
-        <span className={[
-          'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0',
-          selected ? 'bg-ink border-ink' : 'border-ink-08',
-        ].join(' ')}>
-          {selected && <span className="w-2 h-2 rounded-full bg-paper" />}
-        </span>
       </div>
+
       {downloading && (
-        <div className="h-1.5 bg-ink-08 rounded-full overflow-hidden mt-3">
-          <div className="h-full bg-volt transition-[width] duration-200" style={{ width: `${pct}%` }} />
+        <div className="h-1 bg-ink/[0.06] rounded-full overflow-hidden mt-3">
+          <div className="h-full bg-cobalt transition-[width] duration-200" style={{ width: `${pct}%` }} />
         </div>
       )}
-      {error && (
-        <p className="text-[11px] text-danger mt-2.5">✗ {error}</p>
-      )}
+      {error && <p className="text-[11px] text-danger mt-2.5">{error}</p>}
     </div>
   )
-}
-
-// Visual diagram in the hero — recording pill → key. Stylized to evoke
-// the data-flow story without rendering the actual indicator.
-function AudioFlowDiagram({ apiKeyMasked }: { apiKeyMasked: string }) {
-  return (
-    <div className="flex items-center gap-3 w-full max-w-[300px]">
-      <BrandPill />
-      <span className="text-ink-45">→</span>
-      <div className="flex-1 bg-[#0E1018] rounded-[8px] px-2.5 py-2 font-mono text-[10.5px] text-[#3D7E3D] truncate flex items-center gap-1.5">
-        <span className="text-ink-45">$</span>
-        <span className="truncate">{apiKeyMasked || 'sk-proj-aB3x••••••••sUgM'}</span>
-        <span className="text-[#3D7E3D] shrink-0">✓</span>
-      </div>
-    </div>
-  )
-}
-
-// The Yappr brand pill — same design as the tray-icon SVG
-// (scripts/generate-tray-icon.sh). Charcoal liquid-glass gradient,
-// red recording dot with halo, six cobalt waveform bars. No label.
-// Rendered as inline SVG so it crisp at any size.
-function BrandPill() {
-  return (
-    <svg viewBox="0 0 54 22" width="108" height="44" style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.25))' }}>
-      <defs>
-        <linearGradient id="bp-pill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor="#12141a"/>
-          <stop offset="100%" stopColor="#0e1016"/>
-        </linearGradient>
-        <linearGradient id="bp-hi" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor="#ffffff" stopOpacity="0.34"/>
-          <stop offset="100%" stopColor="#ffffff" stopOpacity="0"/>
-        </linearGradient>
-        <radialGradient id="bp-glow" cx="11" cy="11" r="7" gradientUnits="userSpaceOnUse">
-          <stop offset="0%"   stopColor="#e84a3a" stopOpacity="0.6"/>
-          <stop offset="100%" stopColor="#e84a3a" stopOpacity="0"/>
-        </radialGradient>
-        <clipPath id="bp-clip">
-          <rect x="0" y="0" width="54" height="22" rx="11"/>
-        </clipPath>
-      </defs>
-      <rect x="0" y="0" width="54" height="22" rx="11" fill="url(#bp-pill)"/>
-      <g clipPath="url(#bp-clip)">
-        <rect x="0" y="0" width="54" height="12" fill="url(#bp-hi)"/>
-      </g>
-      <rect x="0.3" y="0.3" width="53.4" height="21.4" rx="10.7" fill="none" stroke="#ffffff" strokeOpacity="0.18" strokeWidth="0.4"/>
-      <circle cx="11" cy="11" r="7" fill="url(#bp-glow)"/>
-      <circle cx="11" cy="11" r="3.0" fill="#e84a3a"/>
-      <rect x="22"   y="7"   width="1.8" height="8"  rx="0.9" fill="#5a8fe8"/>
-      <rect x="26.5" y="3"   width="1.8" height="16" rx="0.9" fill="#5a8fe8"/>
-      <rect x="31"   y="9"   width="1.8" height="4"  rx="0.9" fill="#5a8fe8"/>
-      <rect x="35.5" y="5"   width="1.8" height="12" rx="0.9" fill="#5a8fe8"/>
-      <rect x="40"   y="7"   width="1.8" height="8"  rx="0.9" fill="#5a8fe8"/>
-      <rect x="44.5" y="8.5" width="1.8" height="5"  rx="0.9" fill="#5a8fe8"/>
-    </svg>
-  )
-}
-
-function ProviderGlyph({ brand }: { brand: 'groq' | 'local' }) {
-  if (brand === 'local') {
-    return (
-      <div style={{ transform: 'scale(0.5)' }}>
-        <BrandPill />
-      </div>
-    )
-  }
-  return (
-    <img
-      src={groqLogo}
-      alt="Groq"
-      style={{ height: 14, width: 'auto' }}
-      draggable={false}
-    />
-  )
-}
-
-function brandTileColor(brand: 'groq' | 'local'): string {
-  if (brand === 'local') return '#0E1118' // matches the pill's charcoal
-  return '#F55036' // Groq orange
-}
-
-function maskKey(k: string): string {
-  if (!k) return ''
-  if (k.length <= 12) return k.replace(/./g, '•')
-  return `${k.slice(0, 8)}${'•'.repeat(8)}${k.slice(-4)}`
 }

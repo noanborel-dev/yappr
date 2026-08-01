@@ -1,79 +1,238 @@
 import { useEffect, useState } from 'react'
 import type { CategoryStrictness, Settings, Strictness } from '../../../shared/types'
-import { SectionHero } from '../../shared/ui/SectionHero'
+import { SectionHead, GroupLabel } from '../../shared/ui/SectionHead'
+import { Panel, SettingRow } from '../../shared/ui/Panel'
+import { Toggle } from '../../shared/ui/Toggle'
 import { BrandLogo, type BrandSlug } from '../../shared/ui/BrandLogo'
 
-function TerminalIcon({ size = 22, className = 'text-ink-60' }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="2.5" y="4.5" width="19" height="15" rx="3" />
-      <path d="M7 10l3 2-3 2" />
-      <line x1="13" y1="14" x2="17" y2="14" />
-    </svg>
-  )
-}
-
 type Bucket = keyof CategoryStrictness
-type HoverCtx = Bucket | 'code' | null
 
 const META: Record<Bucket, { title: string; sub: string; icon: BrandSlug }> = {
   personal: { title: 'Personal messaging', sub: 'iMessage · WhatsApp · Telegram', icon: 'imessage' },
-  work:     { title: 'Work messaging',     sub: 'Slack · Discord · Gmail · Outlook', icon: 'gmail' },
-  writing:  { title: 'Writing & AI',       sub: 'Notion · Google Docs · Claude · ChatGPT', icon: 'notion' },
+  work: { title: 'Work messaging', sub: 'Slack · Discord · Gmail · Outlook', icon: 'slack' },
+  writing: { title: 'Writing & AI', sub: 'Notion · Docs · Claude · ChatGPT', icon: 'claude' },
 }
 
 const LEVEL_LABEL: Record<Strictness, string> = { 1: 'Light', 2: 'Balanced', 3: 'Strict' }
-const LEVEL_REGISTER: Record<Strictness, string> = { 1: 'Very-casual', 2: 'Casual', 3: 'Formal' }
 const ORDER: Bucket[] = ['personal', 'work', 'writing']
 
-// Per-context example dictation + cleaned output at each level.
-// Topics intentionally NOT lunch — keep us differentiated from
-// Wispr Flow's example. Personal = picking up a package, Work =
-// proposal follow-up, Writing = product idea.
+// Per-context example dictation and what each level does to it.
+// Deliberately not lunch-themed — that's the other guys' example.
 const EXAMPLES: Record<Bucket, { raw: string; outputs: Record<Strictness, string> }> = {
   personal: {
-    raw: "yo um did you get the package i sent like the one with the book",
+    raw: 'yo um did you get the package i sent like the one with the book',
     outputs: {
-      1: "yo did you get the package i sent like the one with the book",
-      2: "did you get the package I sent? the one with the book",
-      3: "Did the package make it to you — the one with the book?",
+      1: 'yo did you get the package i sent like the one with the book',
+      2: 'did you get the package I sent? the one with the book',
+      3: 'Did the package make it to you — the one with the book?',
     },
   },
   work: {
-    raw: "hey just wanted to follow up on the proposal um can you let me know if you got a chance to look at it",
+    raw: 'hey just wanted to follow up on the proposal um can you let me know if you got a chance to look at it',
     outputs: {
-      1: "hey just wanted to follow up on the proposal can you let me know if you got a chance to look at it",
+      1: 'hey just wanted to follow up on the proposal can you let me know if you got a chance to look at it',
       2: "Just following up on the proposal — can you let me know if you've had a chance to look?",
       3: "Hi — following up on the proposal. Could you let me know once you've had a chance to review it?",
     },
   },
   writing: {
-    raw: "so the main idea is that um we want users to feel like the app is responding to them and like adapting",
+    raw: 'so the main idea is that um we want users to feel like the app is responding to them and like adapting',
     outputs: {
-      1: "so the main idea is that we want users to feel like the app is responding to them and like adapting",
-      2: "The main idea is that we want users to feel the app is responding to them and adapting.",
-      3: "The core idea: users should feel the app responds and adapts to them.",
+      1: 'so the main idea is that we want users to feel like the app is responding to them and like adapting',
+      2: 'The main idea is that we want users to feel the app is responding to them and adapting.',
+      3: 'The core idea: users should feel the app responds and adapts to them.',
     },
   },
 }
 
-// Code is FAITHFUL — single example, single output, never level-dependent.
+// Code is FAITHFUL — one example, one output, never level-dependent.
 const CODE_EXAMPLE = {
-  raw: "git commit dash m fix the um the bug in user auth",
-  output: "git commit -m \"fix the bug in user auth\"",
+  raw: 'git commit dash m fix the um the bug in user auth',
+  output: 'git commit -m "fix the bug in user auth"',
 }
 
-const BUBBLE_STYLES: Record<Strictness, { bg: string; fg: string }> = {
-  3: { bg: '#E5E1F0', fg: '#1F1B2E' },
-  2: { bg: '#F5DCDA', fg: '#2A1A18' },
-  1: { bg: '#3F2570', fg: '#F0E6FF' },
+export default function PolishTab() {
+  const [strictness, setStrictness] = useState<CategoryStrictness | null>(null)
+  // The row whose preview is open. Previews used to live in a hero above
+  // the table and appear on hover, which meant the example you were
+  // reading vanished the moment you moved the pointer toward the control
+  // that changes it. Now the preview is inside the row.
+  const [open, setOpen] = useState<Bucket | 'code'>('personal')
+
+  useEffect(() => {
+    window.yappr.getSettings().then((s: Settings) => setStrictness(s.strictness))
+  }, [])
+
+  if (!strictness) return <div className="text-ink-45 text-sm">Loading…</div>
+
+  function setLevel(bucket: Bucket, lvl: Strictness) {
+    if (!strictness) return
+    const next = { ...strictness, [bucket]: lvl }
+    setStrictness(next)
+    setOpen(bucket)
+    window.yappr.setSettings({ strictness: next })
+  }
+
+  return (
+    <div className="max-w-[720px]">
+      <SectionHead
+        ord="03"
+        label="Polish"
+        headline={<>One voice, three <em className="italic">registers</em>.</>}
+        body="Same content, calibrated to where it lands. Code and terminal stay faithful — words are never dropped there."
+      />
+
+      <Panel className="mb-6">
+        {ORDER.map((bucket) => {
+          const meta = META[bucket]
+          const level = strictness![bucket]
+          const isOpen = open === bucket
+          return (
+            // Every row keeps its divider: the locked Code row follows the
+            // last of these, so none of them is the panel's final row.
+            <div key={bucket} className="border-b border-line-soft">
+              <div
+                onClick={() => setOpen(bucket)}
+                className={[
+                  'grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 cursor-pointer transition-colors',
+                  isOpen ? 'bg-accent-soft' : 'hover:bg-paper/60',
+                ].join(' ')}
+              >
+                <div className="w-9 h-9 rounded-[10px] bg-ink/[0.03] flex items-center justify-center">
+                  <BrandLogo brand={meta.icon} size={20} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold leading-tight">{meta.title}</div>
+                  <div className="text-[11px] text-ink-45 mt-1">{meta.sub}</div>
+                </div>
+                <Segmented
+                  value={level}
+                  onChange={(lvl) => setLevel(bucket, lvl)}
+                />
+              </div>
+
+              {isOpen && (
+                <Preview
+                  raw={EXAMPLES[bucket].raw}
+                  cleaned={EXAMPLES[bucket].outputs[level]}
+                  levelLabel={LEVEL_LABEL[level]}
+                />
+              )}
+            </div>
+          )
+        })}
+
+        {/* Code & Terminal — not adjustable, but still openable, because
+            "what does faithful actually do" is the question the lock
+            raises. */}
+        <div>
+          <div
+            onClick={() => setOpen('code')}
+            className={[
+              'grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 cursor-pointer transition-colors',
+              open === 'code' ? 'bg-accent-soft' : 'bg-paper/40 hover:bg-paper/70',
+            ].join(' ')}
+          >
+            <div className="w-9 h-9 rounded-[10px] bg-ink/[0.03] flex items-center justify-center">
+              <BrandLogo brand="terminal" size={20} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[13px] font-semibold leading-tight text-ink-60">Code &amp; Terminal</div>
+              <div className="text-[11px] text-ink-45 mt-1">Cursor · VS Code · iTerm — faithful, always.</div>
+            </div>
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-45 px-3">
+              locked
+            </span>
+          </div>
+          {open === 'code' && (
+            <Preview raw={CODE_EXAMPLE.raw} cleaned={CODE_EXAMPLE.output} levelLabel="Faithful" mono />
+          )}
+        </div>
+      </Panel>
+
+      <GroupLabel>Behaviour</GroupLabel>
+      <Panel>
+        <EmojiRow />
+        <PauseRow />
+      </Panel>
+    </div>
+  )
 }
 
-// Char-by-char typewriter for cleaned-output renders inside mocks.
-function useTypewriter(text: string, msPerChar = 14): string {
+function Segmented({
+  value,
+  onChange,
+}: {
+  value: Strictness
+  onChange: (v: Strictness) => void
+}) {
+  return (
+    <div className="flex items-center gap-0.5 bg-ink/[0.05] rounded-pill p-0.5" onClick={(e) => e.stopPropagation()}>
+      {([1, 2, 3] as Strictness[]).map((lvl) => {
+        const on = value === lvl
+        return (
+          <button
+            key={lvl}
+            onClick={() => onChange(lvl)}
+            className={[
+              'px-3 py-1 rounded-pill text-[11.5px] font-medium transition-all duration-150',
+              on ? 'bg-ink text-paper shadow-sm' : 'text-ink-60 hover:text-ink',
+            ].join(' ')}
+          >
+            {LEVEL_LABEL[lvl]}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// Raw in, polished out. The cleaned line types itself so the difference
+// registers as a change rather than as two blocks of text.
+function Preview({
+  raw,
+  cleaned,
+  levelLabel,
+  mono,
+}: {
+  raw: string
+  cleaned: string
+  levelLabel: string
+  mono?: boolean
+}) {
+  const typed = useTypewriter(cleaned)
+  return (
+    <div className="px-5 pb-4 pt-1 bg-accent-soft border-t border-line-soft/60">
+      <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-3 items-start">
+        <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-ink-45 pt-1">
+          you said
+        </div>
+        <div className="text-[12px] text-ink-45 italic leading-snug">“{raw}”</div>
+
+        <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-accent pt-1.5">
+          {levelLabel}
+        </div>
+        <div
+          className={[
+            'leading-snug text-ink pt-1',
+            mono ? 'font-mono text-[12px]' : 'text-[13px] font-medium',
+          ].join(' ')}
+        >
+          {typed}
+          <span className="inline-block w-[2px] h-[13px] bg-ink/70 ml-0.5 align-text-bottom animate-pulse" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function useTypewriter(text: string, msPerChar = 12): string {
   const [shown, setShown] = useState('')
   useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setShown(text)
+      return
+    }
     setShown('')
     let i = 0
     const id = window.setInterval(() => {
@@ -86,403 +245,62 @@ function useTypewriter(text: string, msPerChar = 14): string {
   return shown
 }
 
-export default function PolishTab() {
-  const [strictness, setStrictness] = useState<CategoryStrictness | null>(null)
-  // hoverCtx is the row the pointer is over right now; activeBucket is
-  // the row whose level pills you most recently touched. When the pointer
-  // leaves all rows, the hero falls back to the abstract register-bubble
-  // view tied to activeBucket.
-  const [hoverCtx, setHoverCtx] = useState<HoverCtx>(null)
-  const [activeBucket, setActiveBucket] = useState<Bucket>('personal')
-
-  useEffect(() => {
-    window.yappr.getSettings().then((s: Settings) => setStrictness(s.strictness))
-  }, [])
-
-  function setLevel(bucket: Bucket, lvl: Strictness) {
-    if (!strictness) return
-    const next = { ...strictness, [bucket]: lvl }
-    setStrictness(next)
-    setActiveBucket(bucket)
-    window.yappr.setSettings({ strictness: next })
-  }
-
-  if (!strictness) return <div className="text-ink-45 text-sm">Loading…</div>
-
-  // Decide what the hero shows. Hover wins; otherwise fall back to the
-  // resting register-bubble view for activeBucket.
-  const showMock = hoverCtx !== null
-  const heroBucketForBody = hoverCtx === 'code' ? null : (hoverCtx ?? activeBucket)
-
-  return (
-    <div className="max-w-[760px]">
-      <SectionHero
-        label="POLISH"
-        accent="violet"
-        headline={<>One voice, <em className="font-display italic">three</em> registers.</>}
-        body={
-          heroBucketForBody
-            ? <>Same content, calibrated to context. Hovering a row shows what {META[heroBucketForBody].title.toLowerCase()} looks like inside the actual app — at the level you've picked.</>
-            : <>Same content, calibrated to context. Code &amp; Terminal stay faithful — words are never dropped there. Hover a row below to preview.</>
-        }
-        visual={
-          <HeroVisual
-            mode={showMock ? (hoverCtx === 'code' ? 'code' : 'mock') : 'resting'}
-            bucket={heroBucketForBody}
-            level={heroBucketForBody ? strictness[heroBucketForBody] : strictness[activeBucket]}
-          />
-        }
-      />
-
-      {/* Per-context rows. mouseEnter sets hoverCtx; mouseLeave clears
-          it. The level pills below update the saved strictness AND
-          mark this bucket as the resting-state default. */}
-      <div
-        className="bg-card border border-ink-08 rounded-[14px] overflow-hidden"
-        onMouseLeave={() => setHoverCtx(null)}
-      >
-        {ORDER.map((bucket, i) => {
-          const meta = META[bucket]
-          const current = strictness[bucket]
-          const isLast = i === ORDER.length - 1
-          const isHovered = hoverCtx === bucket
-          return (
-            <div
-              key={bucket}
-              onMouseEnter={() => setHoverCtx(bucket)}
-              className={[
-                'grid grid-cols-[40px_1fr_auto] items-center gap-4 px-5 py-4 transition-colors',
-                isLast ? '' : 'border-b border-ink-08',
-                isHovered ? 'bg-paper/60' : '',
-              ].join(' ')}
-            >
-              <div className="w-9 h-9 rounded-[10px] flex items-center justify-center"
-                   style={{ background: 'rgba(0,0,0,0.03)' }}>
-                <BrandLogo brand={meta.icon} size={22} />
-              </div>
-              <div className="min-w-0">
-                <div className="text-[13.5px] font-semibold leading-tight">{meta.title}</div>
-                <div className="text-[11px] text-ink-45 mt-0.5">{meta.sub}</div>
-              </div>
-              <div className="flex items-center gap-1">
-                {([1, 2, 3] as Strictness[]).map((lvl) => {
-                  const selected = current === lvl
-                  return (
-                    <button
-                      key={lvl}
-                      onClick={() => setLevel(bucket, lvl)}
-                      className={[
-                        'px-3.5 py-1.5 rounded-pill text-[11.5px] font-medium transition-all duration-150',
-                        selected
-                          ? 'bg-ink text-paper'
-                          : 'text-ink-60 hover:text-ink',
-                      ].join(' ')}
-                    >
-                      {LEVEL_LABEL[lvl]}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
-
-        {/* Code & Terminal — locked but still hoverable so users can see
-            what Faithful mode produces in a Terminal canvas. */}
-        <div
-          onMouseEnter={() => setHoverCtx('code')}
-          className={[
-            'grid grid-cols-[40px_1fr_auto] items-center gap-4 px-5 py-4 border-t border-ink-08 transition-colors',
-            hoverCtx === 'code' ? 'bg-paper/60' : 'bg-paper/40',
-          ].join(' ')}
-        >
-          <div className="w-9 h-9 rounded-[10px] flex items-center justify-center bg-ink/[0.04]">
-            <TerminalIcon />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[13.5px] font-semibold leading-tight text-ink-60">Code & Terminal</div>
-            <div className="text-[11px] text-ink-45 mt-0.5">VS Code · Terminal · iTerm — faithful, always.</div>
-          </div>
-          <span className="text-[11px] font-mono text-ink-45 px-3 py-1.5">Locked</span>
-        </div>
-      </div>
-
-      <PauseCleanupRow />
-      <EmojiToggleRow />
-    </div>
-  )
-}
-
-// Pause toggle. When on, the LLM cleanup pass is skipped entirely and
-// the pasted text is the raw Whisper transcript (after the
-// deterministic regex passes — brand-name fixes, user dictionary,
-// self-correction, spelled-name collapse, question marks). Use this
-// for maximum speed (no Groq round-trip) or when you specifically want
-// voice-faithful output without any LLM restyling.
-function PauseCleanupRow() {
-  const [paused, setPaused] = useState<boolean | null>(null)
-  useEffect(() => {
-    window.yappr.getSettings().then((s: Settings) => setPaused(s.pauseCleanup))
-  }, [])
-  function flip() {
-    if (paused === null) return
-    const next = !paused
-    setPaused(next)
-    window.yappr.setSettings({ pauseCleanup: next })
-  }
-  if (paused === null) return null
-  return (
-    <div className="bg-card border border-ink-08 rounded-[14px] mt-3 p-4 flex items-start gap-3">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <div className="text-[13.5px] font-semibold">Pause AI cleanup</div>
-          {paused && (
-            <span className="px-1.5 py-0.5 rounded text-[9.5px] font-mono uppercase tracking-[0.14em] bg-[#C94A2A]/12 text-[#C94A2A] border border-[#C94A2A]/25">
-              Active
-            </span>
-          )}
-        </div>
-        <p className="text-[11.5px] text-ink-60 mt-1 leading-relaxed">
-          Skip the LLM polish entirely and paste exactly what Whisper heard. Regex passes still run (brand names, your dictionary, self-correction, spelled-name collapse, question marks). Faster — no Groq round-trip — but no register adaptation, no flow, no Markdown structure. Best for when you want voice-faithful output.
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={flip}
-        aria-pressed={paused}
-        className={[
-          'shrink-0 mt-0.5 w-9 h-5 rounded-full transition-colors relative',
-          paused ? 'bg-ink' : 'bg-ink-08',
-        ].join(' ')}
-      >
-        <span
-          className={[
-            'absolute top-0.5 w-4 h-4 rounded-full bg-paper transition-all',
-            paused ? 'left-[18px]' : 'left-0.5',
-          ].join(' ')}
-        />
-      </button>
-    </div>
-  )
-}
-
-// HeroVisual: fixed-size canvas so the hero never resizes while the
-// user moves their pointer across rows. The actual mock is rendered
-// inside via React-key-based remount, so swapping contexts just
-// re-mounts the inner element with an opacity-only fade-in. No
-// height changes, no scale, no translate — kills the bounce/shake.
-function HeroVisual({
-  mode, bucket, level,
-}: {
-  mode: 'resting' | 'mock' | 'code'
-  bucket: Bucket | null
-  level: Strictness
-}) {
-  const key = `${mode}-${bucket ?? 'none'}-${level}`
-  return (
-    <div className="relative w-[300px] h-[280px] flex items-center justify-center">
-      <style>{`
-        @keyframes polishFadeIn {
-          0%   { opacity: 0; }
-          100% { opacity: 1; }
-        }
-        .polish-fade { animation: polishFadeIn 220ms ease-out both; }
-      `}</style>
-      <div key={key} className="polish-fade w-full">
-        {mode === 'resting' && <RegisterBubbles />}
-        {mode === 'code' && <TerminalMock />}
-        {mode === 'mock' && bucket === 'personal' && (
-          <IMessageMock raw={EXAMPLES.personal.raw} cleaned={EXAMPLES.personal.outputs[level]} />
-        )}
-        {mode === 'mock' && bucket === 'work' && (
-          <EmailMock raw={EXAMPLES.work.raw} cleaned={EXAMPLES.work.outputs[level]} />
-        )}
-        {mode === 'mock' && bucket === 'writing' && (
-          <NotionMock raw={EXAMPLES.writing.raw} cleaned={EXAMPLES.writing.outputs[level]} />
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── Resting state: abstract register-bubble showcase ───────────────
-
-function RegisterBubbles() {
-  const levels: Strictness[] = [3, 2, 1]
-  // Generic dictation tied to no specific bucket — intentionally NOT
-  // lunch-themed (that's Wispr Flow's example). A "send me the draft"
-  // ask reads natural across all three registers.
-  const examples: Record<Strictness, string> = {
-    3: "Hi — when you have a moment, could you take a look at the draft I shared?",
-    2: "Hey, when you get a sec, can you look at the draft I shared?",
-    1: "hey can you check out the draft i sent when you get a sec",
-  }
-  return (
-    <div className="flex flex-col gap-2 w-full max-w-[300px]">
-      {levels.map((lvl) => {
-        const style = BUBBLE_STYLES[lvl]
-        return (
-          <div key={lvl}>
-            <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-ink-45 mb-0.5 px-1">
-              {LEVEL_LABEL[lvl]} · {LEVEL_REGISTER[lvl]}
-            </div>
-            <div className="rounded-[16px] px-3.5 py-2 text-[12px] leading-snug"
-                 style={{ background: style.bg, color: style.fg }}>
-              {examples[lvl]}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// ─── App-specific mocks ─────────────────────────────────────────────
-
-function MockChrome({ brand, label, children }: { brand?: BrandSlug; label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-2 px-1">
-        {brand && <BrandLogo brand={brand} size={14} />}
-        <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-ink-45">{label}</div>
-      </div>
-      <div className="bg-card rounded-[12px] border border-ink-08 shadow-sm overflow-hidden">
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function IMessageMock({ raw, cleaned }: { raw: string; cleaned: string }) {
-  const typed = useTypewriter(cleaned)
-  return (
-    <MockChrome brand="imessage" label="iMessage">
-      <div className="px-3 py-3">
-        <div className="text-center text-[10px] text-ink-45 mb-2.5 font-mono">Today 2:14 PM</div>
-        <div className="flex justify-start mb-2">
-          <div className="bg-[#e9e9eb] text-ink text-[12.5px] px-3 py-1.5 rounded-[16px] rounded-bl-[4px] max-w-[78%] leading-snug">
-            {raw}
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <div className="bg-[#0b93f6] text-white text-[12.5px] px-3 py-1.5 rounded-[16px] rounded-br-[4px] max-w-[78%] leading-snug">
-            {typed}
-            <span className="inline-block w-[2px] h-[12px] bg-white/80 ml-0.5 align-text-bottom animate-pulse" />
-          </div>
-        </div>
-      </div>
-    </MockChrome>
-  )
-}
-
-function EmailMock({ raw, cleaned }: { raw: string; cleaned: string }) {
-  const typed = useTypewriter(cleaned)
-  return (
-    <MockChrome brand="gmail" label="Gmail · Compose">
-      <div className="px-4 py-2.5 border-b border-ink-08 bg-paper/40">
-        <div className="text-[11px] text-ink-45">To: <span className="text-ink">alex@company.com</span></div>
-        <div className="text-[11px] text-ink-45 mt-1">Subject: <span className="text-ink">Quick follow-up</span></div>
-      </div>
-      <div className="px-4 py-3 min-h-[120px]">
-        <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-ink-45 mb-1.5">You said</div>
-        <div className="text-[11.5px] text-ink-45 italic mb-3 leading-snug">"{raw}"</div>
-        <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-ink-45 mb-1.5">Yappr types</div>
-        <div className="text-[13px] text-ink leading-snug">
-          {typed}
-          <span className="inline-block w-[2px] h-[14px] bg-ink ml-0.5 align-text-bottom animate-pulse" />
-        </div>
-      </div>
-    </MockChrome>
-  )
-}
-
-function NotionMock({ raw, cleaned }: { raw: string; cleaned: string }) {
-  const typed = useTypewriter(cleaned)
-  return (
-    <MockChrome brand="notion" label="Notion · Page">
-      <div className="px-5 pt-4 pb-2 border-b border-ink-08">
-        <div className="text-[15px] font-semibold leading-tight">Untitled</div>
-      </div>
-      <div className="px-5 py-4 min-h-[120px]">
-        <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-ink-45 mb-1.5">You said</div>
-        <div className="text-[11.5px] text-ink-45 italic mb-3 leading-snug">"{raw}"</div>
-        <div className="text-[13px] text-ink leading-snug">
-          {typed}
-          <span className="inline-block w-[2px] h-[14px] bg-ink ml-0.5 align-text-bottom animate-pulse" />
-        </div>
-      </div>
-    </MockChrome>
-  )
-}
-
-function TerminalMock() {
-  const typed = useTypewriter(CODE_EXAMPLE.output)
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-2 px-1">
-        <TerminalIcon size={13} className="text-ink-45" />
-        <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-ink-45">Terminal · faithful</div>
-      </div>
-      <div className="bg-[#0E1018] rounded-[12px] border border-[#1F2330] shadow-sm overflow-hidden">
-        {/* Mac-style traffic light chrome */}
-        <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[#1F2330]">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]" />
-          <span className="w-2.5 h-2.5 rounded-full bg-[#FEBC2E]" />
-          <span className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
-          <span className="ml-2 text-[10px] font-mono text-[#7C8696]">zsh — 80×24</span>
-        </div>
-        <div className="px-3 py-3 font-mono text-[11.5px] leading-[1.6]">
-          <div className="text-[#7C8696] mb-1.5">you said: <span className="italic">"{CODE_EXAMPLE.raw}"</span></div>
-          <div className="text-[#9DDC4E]">
-            <span className="text-[#7C8696]">$ </span>
-            <span className="text-white">{typed}</span>
-            <span className="inline-block w-[6px] h-[12px] bg-[#9DDC4E] ml-0.5 align-text-bottom animate-pulse" />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Standalone toggle row below the strictness table. Lives in its own
-// component so the Settings load (which only seeds strictness from
-// the persisted store) doesn't have to grow more state.
-function EmojiToggleRow() {
+// Sprinkles one relevant emoji when there's a concrete moment to hang it
+// on. Casual chats only — never Slack, email, docs or code.
+function EmojiRow() {
   const [emoji, setEmoji] = useState<boolean | null>(null)
   useEffect(() => {
     window.yappr.getSettings().then((s: Settings) => setEmoji(s.emojiInMessages))
   }, [])
-  function flip() {
-    if (emoji === null) return
-    const next = !emoji
-    setEmoji(next)
-    window.yappr.setSettings({ emojiInMessages: next })
-  }
   if (emoji === null) return null
   return (
-    <div className="bg-card border border-ink-08 rounded-[14px] mt-3 p-4 flex items-start gap-3">
-      <div className="flex-1 min-w-0">
-        <div className="text-[13.5px] font-semibold">Emoji in messages</div>
-        <p className="text-[11.5px] text-ink-60 mt-1 leading-relaxed">
-          Sprinkle one relevant emoji when there's a concrete moment — "ramen at 5" → "ramen at 5 🍜". Only fires in casual chats (iMessage, WhatsApp, Telegram), never in Slack/email/docs/code.
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={flip}
-        aria-pressed={emoji}
-        className={[
-          'shrink-0 mt-0.5 w-9 h-5 rounded-full transition-colors relative',
-          emoji ? 'bg-ink' : 'bg-ink-08',
-        ].join(' ')}
-      >
-        <span
-          className={[
-            'absolute top-0.5 w-4 h-4 rounded-full bg-paper transition-all',
-            emoji ? 'left-[18px]' : 'left-0.5',
-          ].join(' ')}
-        />
-      </button>
-    </div>
+    <SettingRow
+      title="Emoji in messages"
+      desc={'One emoji when there’s something concrete to mark — “ramen at 5” → “ramen at 5 🍜”. Casual chats only.'}
+    >
+      <Toggle
+        on={emoji}
+        label="Emoji in messages"
+        onChange={(next) => {
+          setEmoji(next)
+          window.yappr.setSettings({ emojiInMessages: next })
+        }}
+      />
+    </SettingRow>
+  )
+}
+
+// Skips the LLM pass entirely. The deterministic passes still run, so this
+// is "no restyling", not "no cleanup".
+function PauseRow() {
+  const [paused, setPaused] = useState<boolean | null>(null)
+  useEffect(() => {
+    window.yappr.getSettings().then((s: Settings) => setPaused(s.pauseCleanup))
+  }, [])
+  if (paused === null) return null
+  return (
+    <SettingRow
+      title={
+        <span className="flex items-center gap-2">
+          Pause AI cleanup
+          {paused && (
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-[0.14em] bg-danger/10 text-danger border border-danger/25">
+              active
+            </span>
+          )}
+        </span>
+      }
+      desc="Paste exactly what Whisper heard. Brand names, your dictionary and self-corrections are still applied — but no register, no restructuring, no Markdown."
+      last
+    >
+      <Toggle
+        on={paused}
+        label="Pause AI cleanup"
+        onChange={(next) => {
+          setPaused(next)
+          window.yappr.setSettings({ pauseCleanup: next })
+        }}
+      />
+    </SettingRow>
   )
 }

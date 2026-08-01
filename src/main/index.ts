@@ -7,6 +7,7 @@ import {
   ipcMain,
   screen,
   shell,
+  clipboard,
 } from 'electron'
 
 // Chromium switches that affect on-device whisper inference. Set
@@ -54,6 +55,7 @@ import { prewarmModelId } from './providers/local'
 import { toUserError } from './errors'
 import { logError, logInfo, getLogPath } from './log'
 import { IPC } from '../shared/types'
+import { readNotchGeometry } from '../shared/notch-geometry'
 
 let indicatorWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
@@ -77,27 +79,36 @@ let sessionId = 0
 // start or stop without polling the renderer.
 let currentState: 'idle' | 'recording' | 'stopping' | 'processing' | 'done' | 'clipboard' | 'error' = 'idle'
 
+// Vertical room for the shape: a 36px wing row, the expanded panel
+// beneath it, and the drop shadow / ambient glow that bleed below both.
+const INDICATOR_WINDOW_HEIGHT = 260
+
+/**
+ * Minimum time the paste drawer stays open on a double-tap. A local paste
+ * can finish in under 200ms — faster than the drawer's own open
+ * animation — so without a floor the gesture produces a flicker instead
+ * of a readable result.
+ */
+const PASTING_MIN_MS = 1100
+
 function createIndicatorWindow(): BrowserWindow {
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize
-  // Initial bounds: bottom-center of the primary display. The window
-  // will be moved to whichever display the cursor is on by
-  // positionIndicatorOnActiveDisplay() at recording start. We
-  // deliberately ignore any persisted indicatorPosition — the pill
-  // is no longer draggable, so legacy saved positions are discarded.
-  const winW = 320
-  const winH = 200
-  const x = Math.round(width / 2 - winW / 2)
-  const y = Math.round(height - winH - 12)
+  const { x: dx, y: dy, width } = screen.getPrimaryDisplay().bounds
+  // Initial bounds: pinned to the top edge of the primary display,
+  // spanning its full width. positionIndicatorOnActiveDisplay() moves it
+  // to whichever display the cursor is on at recording start.
+  //
+  // Note this uses `bounds`, not `workArea`: the notch shape has to sit
+  // OVER the menu bar, so the window must start at the true top of the
+  // display rather than below the bar.
 
   const win = new BrowserWindow({
-    // Wider/taller than the pill itself so the renderer can paint a
-    // hover hit-zone around the idle pill and host a click menu above
-    // it without clipping. The pill itself stays small (~54×22 at idle
-    // / ~280×40 while recording) and is centered within this canvas.
-    width: winW,
-    height: winH,
-    x,
-    y,
+    // Full display width so the shape can be centred on the notch and
+    // its wings can extend toward the menu bar's edges without the
+    // window itself ever needing to resize.
+    width: width,
+    height: INDICATOR_WINDOW_HEIGHT,
+    x: dx,
+    y: dy,
     frame: false,
     transparent: true,
     // hasShadow: false eliminates the macOS native rectangular window
@@ -114,6 +125,13 @@ function createIndicatorWindow(): BrowserWindow {
     // surface is transparent and the cursor lands on a non-interactive
     // region — which is exactly what was making the pill drift.
     movable: false,
+    // THIS is what lets the window cover the menu bar. Without it macOS
+    // constrains window bounds to the display's visible frame — the work
+    // area — so a window asked for y = 0 is silently pushed down to
+    // y = menuBarHeight and the shape lands just under the notch instead
+    // of inside it. Nothing about the window level fixes that; the
+    // clamp happens before layering is considered.
+    enableLargerThanScreen: true,
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/indicator.js'),
@@ -123,6 +141,22 @@ function createIndicatorWindow(): BrowserWindow {
   })
 
   win.setIgnoreMouseEvents(true, { forward: true })
+
+  // Re-assert the bounds after construction. The constructor's x/y are
+  // advisory on macOS — setBounds on a window that already exists is what
+  // reliably lands it over the menu bar.
+  win.setBounds({ x: dx, y: dy, width, height: INDICATOR_WINDOW_HEIGHT })
+  logInfo('Indicator window bounds', {
+    requested: { x: dx, y: dy, width, height: INDICATOR_WINDOW_HEIGHT },
+    actual: win.getBounds(),
+  })
+
+  // Keep the overlay out of screen shares and screenshots. Without this
+  // the notch shape appears in every recording the user makes, which
+  // reads as a rendering artifact to anyone watching.
+  if (process.platform === 'darwin') {
+    win.setContentProtection(true)
+  }
 
   // Show the indicator on every macOS Space — including fullscreen apps.
   // Without this the window is pinned to the Space it was created on, so
@@ -142,22 +176,32 @@ function createIndicatorWindow(): BrowserWindow {
   return win
 }
 
-// Move the indicator to the display the cursor is currently on, centered
-// near the bottom. Called each time recording starts so the pill follows
-// the user across monitors/spaces.
+// Move the indicator to the display the cursor is currently on, pinned to
+// its top edge. Called each time recording starts so the shape follows the
+// user across monitors/spaces.
 function positionIndicatorOnActiveDisplay(): void {
   if (!indicatorWindow) return
   const cursor = screen.getCursorScreenPoint()
   const display = screen.getDisplayNearestPoint(cursor)
-  const { x: dx, y: dy, width, height } = display.workArea
-  const [winW, winH] = indicatorWindow.getSize()
-  const x = Math.round(dx + width / 2 - winW / 2)
-  // The pill is anchored to the bottom of the canvas. Place the
-  // window so its bottom edge sits ~12px above the work-area bottom —
-  // pill ends up visually near the bottom of the screen, and the
-  // empty canvas above the pill (~160px) hosts the popover menu.
-  const y = Math.round(dy + height - winH - 12)
-  indicatorWindow.setBounds({ x, y, width: winW, height: winH })
+  // `bounds`, not `workArea` — the shape sits over the menu bar, so the
+  // window has to start at the true top of the display. Spanning the full
+  // width keeps the window's centre aligned with the display's, which is
+  // what the renderer centres the notch band on.
+  const { x, y, width } = display.bounds
+  indicatorWindow.setBounds({ x, y, width, height: INDICATOR_WINDOW_HEIGHT })
+
+  // Verify the clamp didn't win. If actual.y is below the requested y the
+  // window got pushed under the menu bar and the shape will render below
+  // the notch rather than inside it — the single failure mode that makes
+  // this whole feature look broken, so it is worth a log line.
+  const actual = indicatorWindow.getBounds()
+  if (actual.y > y) {
+    logError('Indicator window clamped below the menu bar', {
+      requestedY: y,
+      actualY: actual.y,
+      display: display.id,
+    })
+  }
 
   // Re-assert visibility-on-all-spaces every show. macOS occasionally
   // loses the collectionBehavior flag after a window has been hidden,
@@ -190,7 +234,7 @@ function createSettingsWindow(): BrowserWindow {
     // strip — without this they collide with the Yappr wordmark in
     // the sidebar.
     trafficLightPosition: { x: 14, y: 14 },
-    backgroundColor: '#FAFAF5',
+    backgroundColor: '#F6F2E7',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -223,7 +267,7 @@ function createOnboardingWindow(): BrowserWindow {
     show: false,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 14, y: 14 },
-    backgroundColor: '#FAFAF5',
+    backgroundColor: '#F6F2E7',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -304,19 +348,21 @@ function createPasteFallbackWindow(): BrowserWindow {
   return win
 }
 
+// Paste fell back to the clipboard. The notch carries this now: the
+// pipeline already broadcasts the `clipboard` state, which shows
+// "copied — ⌘V" and offers Insert, so we only need to hold the text for
+// the retry handler.
+//
+// The bottom-right popup is deliberately not opened. One event should
+// produce one notification, and having it appear in the opposite corner
+// from the indicator meant the user's attention was split between two
+// places for the same outcome. Keeping it in the notch also avoids the
+// popup's focus problem — the indicator window is focusable: false, so
+// clicking Insert never takes focus off the user's text field, which is
+// what the retry handler's AX gate and focus-restore delay existed to
+// work around.
 function showPasteFallback(text: string): void {
   lastUnpastedText = text
-  const win = createPasteFallbackWindow()
-  const hotkey = getSettings().hotkeys.pushToTalk
-  // The renderer subscribes to 'show' events; we always push a fresh
-  // payload so a subsequent paste-failure reuses the same window.
-  const send = () => win.webContents.send(IPC.PASTE_FALLBACK_SHOW, { text, hotkey })
-  if (win.webContents.isLoading()) {
-    win.webContents.once('did-finish-load', send)
-  } else {
-    send()
-  }
-  if (!win.isVisible()) win.showInactive()
 }
 
 function dismissPasteFallback(): void {
@@ -423,13 +469,28 @@ function actionPasteLast(): void {
   // route to the clipboard fallback. The keystroke fires against
   // whatever the OS considers focused when it actually runs, which
   // settles back on the user's target.
+  // Drop the notch's drawer immediately, before the paste resolves, so
+  // the double-tap has a visible result showing WHAT is going in. Held a
+  // minimum time because the paste itself is often faster than the
+  // animation — without the floor the drawer opens and shuts in one
+  // frame, which reads as a glitch rather than as feedback.
+  positionIndicatorOnActiveDisplay()
+  broadcastState('pasting')
+  const shownAt = Date.now()
+
   pasteText(last.cleaned, { skipAxGate: true })
     .then(({ method }) => {
-      positionIndicatorOnActiveDisplay()
-      broadcastState(method === 'clipboard' ? 'clipboard' : 'done')
-      setTimeout(() => broadcastState('idle'), method === 'clipboard' ? 6000 : 1500)
+      const remaining = Math.max(0, PASTING_MIN_MS - (Date.now() - shownAt))
+      setTimeout(() => {
+        positionIndicatorOnActiveDisplay()
+        broadcastState(method === 'clipboard' ? 'clipboard' : 'done')
+        setTimeout(() => broadcastState('idle'), method === 'clipboard' ? 6000 : 1500)
+      }, remaining)
     })
-    .catch(err => logError('Paste-last failed', err))
+    .catch(err => {
+      logError('Paste-last failed', err)
+      broadcastState('idle')
+    })
 }
 
 function setupHotkeys(): void {
@@ -823,6 +884,61 @@ function setupIpcListeners(): void {
       indicatorWindow.setIgnoreMouseEvents(true, { forward: true })
     }
   })
+
+  // Notch dimensions for whichever display the indicator currently sits
+  // on. Read per call rather than cached: the window follows the cursor
+  // across displays, and notch width and menu bar height differ between
+  // an internal panel and an external monitor.
+  ipcMain.handle(IPC.INDICATOR_NOTCH_GEOMETRY, () => {
+    const target = indicatorWindow && !indicatorWindow.isDestroyed()
+      ? screen.getDisplayNearestPoint(indicatorWindow.getBounds())
+      : screen.getPrimaryDisplay()
+    const geometry = readNotchGeometry({
+      widthPt: target.bounds.width,
+      boundsY: target.bounds.y,
+      workAreaY: target.workArea.y,
+    }, getSettings().notchWidthOverride ?? null)
+    // The width is the one value we estimate rather than read, so log
+    // what we resolved. If the centre band doesn't line up with the
+    // physical notch, this line says whether the estimate or the
+    // override produced it.
+    logInfo('Notch geometry resolved', {
+      hasNotch: geometry.hasNotch,
+      width: geometry.width,
+      height: geometry.height,
+      displayWidth: target.bounds.width,
+      source: geometry.widthIsOverride ? 'override' : 'estimate',
+    })
+    return {
+      hasNotch: geometry.hasNotch,
+      width: geometry.width,
+      height: geometry.height,
+      displayWidth: target.bounds.width,
+    }
+  })
+
+  // The most recent dictation, surfaced as the peek state's clickable
+  // transcript and in the expanded panel.
+  ipcMain.handle(IPC.INDICATOR_RECENT, () => {
+    const [latest] = getHistory()
+    if (!latest) return null
+    const text = latest.cleaned || latest.transcript
+    if (!text) return null
+    return {
+      text,
+      target: latest.appName || null,
+      wordCount: text.trim().split(/\s+/).filter(Boolean).length,
+      // DictationResult carries no recording length, so the panel
+      // caption drops the duration rather than inventing one.
+      durationSec: null,
+    }
+  })
+
+  ipcMain.on(IPC.INDICATOR_COPY_RECENT, () => {
+    const [latest] = getHistory()
+    const text = latest?.cleaned || latest?.transcript
+    if (text) clipboard.writeText(text)
+  })
 }
 
 app.whenReady().then(() => {
@@ -852,7 +968,11 @@ app.whenReady().then(() => {
   // Must precede setupAudioIpc — the first AUDIO_DONE writes through it.
   initRecordingStore(join(app.getPath('userData'), 'recordings'))
 
-  registerIpcHandlers()
+  registerIpcHandlers({
+    onNotchGeometryChanged: () => {
+      indicatorWindow?.webContents.send(IPC.INDICATOR_GEOMETRY_CHANGED)
+    },
+  })
   setupAudioIpc()
   setupIpcListeners()
 
@@ -901,6 +1021,9 @@ app.whenReady().then(() => {
   if (settings.firstRun) {
     createOnboardingWindow()
   }
+
+  // TEMP-SCREENSHOT
+  createSettingsWindow()
 
   // Sweep retention and replay anything a crash left behind. Deliberately
   // last and un-awaited: it transcribes, so it must not delay the tray,

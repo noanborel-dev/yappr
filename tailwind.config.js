@@ -1,20 +1,38 @@
+// Palette is the landing page's, verbatim — see
+// OpenFlowLanding/design-system/openflow-landing/MASTER.md § Color tokens.
+// The app used to run a cool near-white surface with a "volt" blue that
+// exists nowhere in the brand; cream IS the brand, so the two now share
+// one set of tokens.
 const COLORS = {
-  paper: '#FAFAF5',
-  ink: '#0A0A0A',
-  'ink-60': 'rgba(10,10,10,0.6)',
-  'ink-45': 'rgba(10,10,10,0.45)',
-  'ink-08': 'rgba(10,10,10,0.08)',
-  card: '#FFFFFF',
-  volt: '#2B7FFF',
-  'volt-muted': 'rgba(43,127,255,0.25)',
-  'volt-glow': 'rgba(43,127,255,0.6)',
+  paper: '#F6F2E7',   // page surface (--cream). Also the inset/field fill.
+  cream2: '#EFE9D8',  // sidebar + recessed rows (--cream-2)
+  card: '#FBF9F1',    // card fill (--paper). Lighter than the page, not white.
+  ink: '#15161A',
+  'ink-60': 'rgba(21,22,26,0.6)',
+  'ink-45': 'rgba(21,22,26,0.45)',
+  'ink-08': 'rgba(21,22,26,0.08)',
+  line: '#D9D2BD',       // hairline borders
+  'line-soft': '#E9E2CB',
+  accent: '#C8553D',     // eyebrows, active section marks
+  'accent-soft': '#FFF7F3',
+  cobalt: '#5A8FE8',     // the indicator's accent — waveform, done, focus
+  'cobalt-soft': 'rgba(90,143,232,0.18)',
   danger: '#E84A3A',
-  ok: '#16A34A',
+  ok: '#3D7E3D',
+  // Retired. Kept as aliases so surfaces not yet reskinned (onboarding,
+  // paste-fallback) stay on-palette instead of rendering the old blue.
+  volt: '#5A8FE8',
+  'volt-muted': 'rgba(90,143,232,0.25)',
+  'volt-glow': 'rgba(90,143,232,0.6)',
 }
-const RADIUS = { input: '10px', card: '14px', pill: '999px' }
+const RADIUS = { input: '10px', card: '14px', hero: '18px', pill: '999px' }
 const FONT = {
   sans: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
-  display: '"Cormorant Garamond", "Playfair Display", Georgia, serif',
+  // Instrument Serif is the landing's display face and the one the notch
+  // label already uses. It's loaded in each renderer's index.html; the
+  // stack previously led with Cormorant, which nothing loads — so every
+  // headline in Settings was silently rendering as Georgia.
+  display: '"Instrument Serif", "Cormorant Garamond", Georgia, serif',
   mono: '"SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace',
 }
 
@@ -25,11 +43,18 @@ module.exports = {
     extend: {
       colors: {
         paper: COLORS.paper,
+        cream2: COLORS.cream2,
         ink: COLORS.ink,
         'ink-60': COLORS['ink-60'],
         'ink-45': COLORS['ink-45'],
         'ink-08': COLORS['ink-08'],
         card: COLORS.card,
+        line: COLORS.line,
+        'line-soft': COLORS['line-soft'],
+        accent: COLORS.accent,
+        'accent-soft': COLORS['accent-soft'],
+        cobalt: COLORS.cobalt,
+        'cobalt-soft': COLORS['cobalt-soft'],
         volt: COLORS.volt,
         'volt-muted': COLORS['volt-muted'],
         'volt-glow': COLORS['volt-glow'],
@@ -39,6 +64,7 @@ module.exports = {
       borderRadius: {
         input: RADIUS.input,
         card: RADIUS.card,
+        hero: RADIUS.hero,
         pill: RADIUS.pill,
       },
       fontFamily: {

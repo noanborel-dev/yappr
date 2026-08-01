@@ -21,6 +21,14 @@ export interface LocalModelStatus {
   downloaded: Record<LocalModelId, boolean>
 }
 
+/** Notch dimensions for the display the indicator currently sits on. */
+export interface NotchGeometry {
+  hasNotch: boolean
+  width: number
+  height: number
+  displayWidth: number
+}
+
 declare global {
   interface Window {
     yappr: {
@@ -44,6 +52,7 @@ declare global {
       openAccessibilitySettings: () => Promise<void>
       isAccessibilityTrusted: () => Promise<boolean>
       revealLog: () => Promise<void>
+      getNotchGeometry: () => Promise<NotchGeometry>
       reloadHotkeys: () => void
       openOnboarding: () => void
       getLaunchAtLogin: () => Promise<boolean>

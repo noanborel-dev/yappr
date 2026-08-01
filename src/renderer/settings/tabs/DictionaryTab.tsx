@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Settings } from '../../../shared/types'
 import { Pill } from '../../shared/ui/Pill'
-import { SectionHero } from '../../shared/ui/SectionHero'
+import { SectionHead, GroupLabel } from '../../shared/ui/SectionHead'
 
 export default function DictionaryTab() {
   const [settings, setSettings] = useState<Settings | null>(null)
@@ -32,195 +32,150 @@ export default function DictionaryTab() {
     setDraft('')
   }
 
-  function remove(idx: number) {
-    persist(terms.filter((_, i) => i !== idx))
-  }
-
   return (
-    <div className="max-w-[760px]">
-      <SectionHero
-        label="DICTIONARY"
-        accent="cobalt"
-        headline={<>Names &amp; <em className="font-display italic">jargon</em>, recognized.</>}
-        body="Add words Yappr should always get right. Built-in terms (Claude, GitHub, OAuth, etc.) are already covered — add the names, products, or jargon Whisper keeps mishearing."
-        visual={<DictionaryExample />}
+    <div className="max-w-[720px]">
+      <SectionHead
+        ord="05"
+        label="Dictionary"
+        headline={<>Names &amp; <em className="italic">jargon</em>, recognized.</>}
+        body="Add what Whisper keeps mishearing. Common terms — Claude, GitHub, OAuth, kubectl — are already built in."
       />
 
-      <div className="bg-card border border-ink-08 rounded-[14px] px-4 py-4 mb-4">
-        <div className="flex items-stretch gap-2">
-          <input
-            type="text"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
-            placeholder="Add a word…"
-            className="flex-1 bg-paper border border-ink-08 rounded-[10px] px-3.5 py-2.5 text-[12.5px] focus:outline-none focus:border-volt focus:ring-2 focus:ring-volt-muted"
-          />
-          <Pill variant="primary" onClick={add} disabled={!draft.trim()}>
-            + Add word
-          </Pill>
-        </div>
+      <MishearingStrip />
+
+      <div className="flex items-stretch gap-2 mb-5">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+          placeholder="A name, a product, a piece of jargon…"
+          className="flex-1 bg-card border border-line rounded-input px-3.5 py-2.5 text-[12.5px] placeholder:text-ink-45 focus:outline-none focus:border-cobalt focus:ring-2 focus:ring-cobalt-soft"
+        />
+        <Pill variant="primary" size="sm" onClick={add} disabled={!draft.trim()}>
+          Add word
+        </Pill>
+      </div>
+
+      <div className="flex items-baseline justify-between mb-2.5">
+        <GroupLabel className="mb-0">Your terms</GroupLabel>
+        <span className={`text-[10px] font-mono ${terms.length > 40 ? 'text-accent' : 'text-ink-45'}`}>
+          {terms.length} / ~40
+        </span>
       </div>
 
       {terms.length === 0 ? (
-        <div className="text-[11.5px] text-ink-45 px-2">
-          No custom terms yet. Built-ins still apply.
+        <div className="bg-card border border-line rounded-card px-5 py-8 text-center text-[11.5px] text-ink-45">
+          Nothing added yet. The built-in list still applies.
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2.5">
+        // Chips, not a two-column grid of cards. A dictionary entry is one
+        // word — giving each its own bordered card made 12 terms look like
+        // a settings screen of their own.
+        <div className="flex flex-wrap gap-2">
           {terms.map((t, i) => (
-            <div
+            <span
               key={`${t}-${i}`}
-              className="bg-card border border-ink-08 rounded-[12px] px-4 py-3 flex items-center gap-3"
+              className="group inline-flex items-center gap-1.5 bg-card border border-line rounded-pill pl-3.5 pr-1.5 py-1.5 text-[12px]"
             >
-              <div className="flex-1 min-w-0">
-                <div className="text-[12.5px] font-semibold truncate">{t}</div>
-              </div>
+              {t}
               <button
-                onClick={() => remove(i)}
+                onClick={() => persist(terms.filter((_, j) => j !== i))}
                 aria-label={`Remove ${t}`}
-                className="w-6 h-6 inline-flex items-center justify-center text-ink-45 hover:text-ink hover:bg-ink-08 rounded-full transition-colors leading-none"
+                className="w-5 h-5 inline-flex items-center justify-center rounded-full text-ink-45 hover:text-ink hover:bg-ink/[0.07] transition-colors leading-none text-[13px]"
               >
                 ×
               </button>
-            </div>
+            </span>
           ))}
         </div>
       )}
 
       <p className="text-[10.5px] text-ink-45 mt-5 leading-relaxed">
-        Limit ~30–50 terms — Whisper caps the prompt at 224 tokens.
+        Whisper caps its prompt at 224 tokens, so past roughly 40 terms the oldest
+        stop being biased. Keep the list to words it actually gets wrong.
       </p>
     </div>
   )
 }
 
-// Hero visual — a live-transcription mock showing how Yappr correctly
-// recognizes dictionary terms. Cycles through three transcripts every
-// 4.5s. Within each transcript, the "without" version (left side, with
-// red-strikethrough mistranscriptions) cross-fades into the "with"
-// version (clean text with cobalt-underlined dictionary hits).
-import { MiniPill } from '../../shared/ui/MiniPill'
+// ─── Proof strip ────────────────────────────────────────────────────
+//
+// Was a 300×200 fake macOS window — traffic lights, a floating pill in the
+// title bar, a pagination rail. All of that framing to show one sentence
+// changing. This is the sentence, changing.
 
-interface TranscriptSample {
-  /** What Whisper might output without dictionary biasing — common
-   *  mishearings of brand names. */
-  without: Array<{ text: string; wrong?: boolean }>
-  /** Cleaned with dictionary — the wrong segments map to the right
-   *  ones, dictionary hits get a cobalt underline. */
-  with: Array<{ text: string; hit?: boolean }>
+interface Sample {
+  wrong: Array<{ text: string; bad?: boolean }>
+  right: Array<{ text: string; hit?: boolean }>
 }
 
-const TRANSCRIPTS: TranscriptSample[] = [
+const SAMPLES: Sample[] = [
   {
-    without: [
-      { text: 'send to ' },
-      { text: 'Anthrope', wrong: true },
-      { text: ' about ' },
-      { text: 'Cloud', wrong: true },
-      { text: ' Sonnet' },
-    ],
-    with: [
-      { text: 'Send to ' },
-      { text: 'Anthropic', hit: true },
-      { text: ' about ' },
-      { text: 'Claude', hit: true },
-      { text: ' Sonnet.' },
-    ],
+    wrong: [{ text: 'push to ' }, { text: 'Get Hub', bad: true }, { text: ' and run ' }, { text: 'koob control', bad: true }],
+    right: [{ text: 'Push to ' }, { text: 'GitHub', hit: true }, { text: ' and run ' }, { text: 'kubectl', hit: true }, { text: '.' }],
   },
   {
-    without: [
-      { text: 'push to ' },
-      { text: 'Get Hub', wrong: true },
-      { text: ' and run ' },
-      { text: 'koob control', wrong: true },
-    ],
-    with: [
-      { text: 'Push to ' },
-      { text: 'GitHub', hit: true },
-      { text: ' and run ' },
-      { text: 'kubectl', hit: true },
-      { text: '.' },
-    ],
+    wrong: [{ text: 'send to ' }, { text: 'Anthrope', bad: true }, { text: ' about ' }, { text: 'Cloud', bad: true }, { text: ' Sonnet' }],
+    right: [{ text: 'Send to ' }, { text: 'Anthropic', hit: true }, { text: ' about ' }, { text: 'Claude', hit: true }, { text: ' Sonnet.' }],
   },
   {
-    without: [
-      { text: 'update the ' },
-      { text: 'OH-auth', wrong: true },
-      { text: ' flow in ' },
-      { text: 'next JS', wrong: true },
-    ],
-    with: [
-      { text: 'Update the ' },
-      { text: 'OAuth', hit: true },
-      { text: ' flow in ' },
-      { text: 'Next.js', hit: true },
-      { text: '.' },
-    ],
+    wrong: [{ text: 'update the ' }, { text: 'OH-auth', bad: true }, { text: ' flow in ' }, { text: 'next JS', bad: true }],
+    right: [{ text: 'Update the ' }, { text: 'OAuth', hit: true }, { text: ' flow in ' }, { text: 'Next.js', hit: true }, { text: '.' }],
   },
 ]
 
-function DictionaryExample() {
+const CYCLE_MS = 4800
+
+function MishearingStrip() {
   const [idx, setIdx] = useState(0)
   useEffect(() => {
-    const id = window.setInterval(() => setIdx((i) => (i + 1) % TRANSCRIPTS.length), 4500)
+    const id = window.setInterval(() => setIdx((i) => (i + 1) % SAMPLES.length), CYCLE_MS)
     return () => window.clearInterval(id)
   }, [])
-  const t = TRANSCRIPTS[idx]
+  const s = SAMPLES[idx]
+
   return (
-    <div className="relative w-[300px] h-[200px] rounded-[14px] overflow-hidden bg-white border border-ink-08 flex flex-col">
+    <div className="bg-card border border-line rounded-card px-5 py-4 mb-5 overflow-hidden">
       <style>{`
-        @keyframes dict-without { 0%, 38% { opacity: 1; } 48%, 100% { opacity: 0; } }
-        @keyframes dict-with    { 0%, 44% { opacity: 0; } 56%, 100% { opacity: 1; } }
-        @keyframes dict-hit     { 0%, 56% { background-color: rgba(43,127,255,0); } 62%, 80% { background-color: rgba(43,127,255,0.18); } 92%, 100% { background-color: rgba(43,127,255,0); } }
-        .dict-without { animation: dict-without 4.5s ease-in-out infinite; }
-        .dict-with    { animation: dict-with    4.5s ease-in-out infinite; }
-        .dict-hit     { animation: dict-hit     4.5s ease-in-out infinite; }
+        @keyframes dict-out { 0%, 36% { opacity: 1; } 46%, 100% { opacity: 0; } }
+        @keyframes dict-in  { 0%, 42% { opacity: 0; } 54%, 100% { opacity: 1; } }
+        .dict-out { animation: dict-out ${CYCLE_MS}ms ease-in-out infinite; }
+        .dict-in  { animation: dict-in  ${CYCLE_MS}ms ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .dict-out { animation: none; opacity: 0; }
+          .dict-in  { animation: none; opacity: 1; }
+        }
       `}</style>
 
-      {/* Window chrome with mini pill */}
-      <div className="px-3 py-2 border-b border-ink-08 bg-card flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <span className="w-[8px] h-[8px] rounded-full bg-[#FF5F57]" />
-          <span className="w-[8px] h-[8px] rounded-full bg-[#FEBC2E]" />
-          <span className="w-[8px] h-[8px] rounded-full bg-[#28C840]" />
+      <div className="grid grid-cols-[86px_minmax(0,1fr)] gap-4 items-center">
+        <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-ink-45 leading-relaxed">
+          heard<br />→ written
         </div>
-        <MiniPill state="listening" />
-      </div>
-
-      <div key={idx} className="flex-1 px-4 py-4 relative animate-stepIn">
-        {/* "Without dictionary" — red strikethroughs on misheard parts */}
-        <div className="dict-without text-[12.5px] leading-relaxed text-ink-60">
-          {t.without.map((seg, i) => (
-            <span key={i} className={seg.wrong ? 'line-through decoration-[#C94A2A] text-[#C94A2A]/85' : ''}>
-              {seg.text}
-            </span>
-          ))}
+        {/* Fixed height so the two layers can stack without the card
+            resizing as they cross-fade. */}
+        <div key={idx} className="relative h-[42px] flex items-center">
+          <div className="dict-out absolute inset-0 flex items-center text-[13px] text-ink-60">
+            {s.wrong.map((seg, i) => (
+              <span
+                key={i}
+                className={seg.bad ? 'line-through decoration-danger/70 text-danger/80' : ''}
+              >
+                {seg.text}
+              </span>
+            ))}
+          </div>
+          <div className="dict-in absolute inset-0 flex items-center text-[13px] text-ink font-medium">
+            {s.right.map((seg, i) => (
+              <span
+                key={i}
+                className={seg.hit ? 'underline decoration-cobalt decoration-2 underline-offset-[3px]' : ''}
+              >
+                {seg.text}
+              </span>
+            ))}
+          </div>
         </div>
-
-        {/* "With dictionary" — dictionary hits get a cobalt highlight pulse */}
-        <div className="dict-with absolute inset-0 px-4 py-4 text-[12.5px] leading-relaxed text-ink font-medium">
-          {t.with.map((seg, i) => (
-            <span
-              key={i}
-              className={seg.hit ? 'dict-hit rounded-[2px] px-0.5 underline decoration-[#2B7FFF] decoration-2 underline-offset-2' : ''}
-            >
-              {seg.text}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="px-3 py-1.5 border-t border-ink-08 bg-paper/40 flex items-center gap-1.5">
-        {TRANSCRIPTS.map((_, i) => (
-          <span
-            key={i}
-            className={[
-              'h-1 rounded-full transition-all duration-300',
-              i === idx ? 'w-4 bg-ink' : 'w-1 bg-ink-08',
-            ].join(' ')}
-          />
-        ))}
       </div>
     </div>
   )

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
+import type { NotchGeometry } from '../../global'
 import { Toggle } from '../../shared/ui/Toggle'
 import { Pill } from '../../shared/ui/Pill'
-import { SectionHero } from '../../shared/ui/SectionHero'
+import { Panel, SettingRow, StackRow } from '../../shared/ui/Panel'
+import { SectionHead, GroupLabel } from '../../shared/ui/SectionHead'
+import { MenuBar, NotchMark } from '../../shared/ui/NotchMark'
 
 export default function GeneralTab() {
   const [launchAtLogin, setLaunchAtLogin] = useState<boolean | null>(null)
-  const [resetting, setResetting] = useState(false)
   const [mics, setMics] = useState<MediaDeviceInfo[]>([])
   const [inputDeviceId, setInputDeviceId] = useState<string | null>(null)
   const [audioCues, setAudioCues] = useState<boolean>(true)
@@ -43,37 +45,22 @@ export default function GeneralTab() {
     await window.yappr.setLaunchAtLogin(next)
   }
 
-  async function resetIndicatorPosition() {
-    setResetting(true)
-    await window.yappr.setSettings({ indicatorPosition: null })
-    setTimeout(() => setResetting(false), 1200)
-  }
-
-  function reopenOnboarding() {
-    window.yappr.openOnboarding()
-  }
-
   return (
-    <div className="max-w-[760px]">
-      <SectionHero
-        label="INDICATOR"
-        accent="cobalt"
-        headline={<>The <em className="font-display italic">floating</em> pill.</>}
-        body="Drag it anywhere on screen — it remembers. Hides while you type, reveals when you speak."
-        visual={<IndicatorPreview />}
+    <div className="max-w-[720px]">
+      <SectionHead
+        ord="07"
+        label="General"
+        headline={<>The <em className="italic">quiet</em> settings.</>}
+        body="Which mic, what happens at login, and how the indicator sits in your notch."
       />
 
-      <div className="bg-card border border-ink-08 rounded-[14px] overflow-hidden">
-        {/* Microphone row */}
-        <div className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 border-b border-ink-08">
-          <div>
-            <div className="text-[13px] font-semibold leading-tight">Microphone</div>
-            <div className="text-[11px] text-ink-45 mt-0.5">Which input device Yappr records from.</div>
-          </div>
+      <GroupLabel>Input</GroupLabel>
+      <Panel className="mb-6">
+        <SettingRow title="Microphone" desc="Which input device Yappr records from.">
           <select
             value={inputDeviceId ?? ''}
             onChange={(e) => handleSelectMic(e.target.value || null)}
-            className="bg-paper border border-ink-08 rounded-[10px] px-3 py-1.5 text-[12px] focus:outline-none focus:border-volt max-w-[260px]"
+            className="bg-paper border border-line rounded-input px-3 py-1.5 text-[12px] focus:outline-none focus:border-cobalt max-w-[240px]"
           >
             <option value="">Default — system microphone</option>
             {mics.map((d) => (
@@ -82,97 +69,153 @@ export default function GeneralTab() {
               </option>
             ))}
           </select>
-        </div>
+        </SettingRow>
+        <SettingRow
+          title="Audio cues"
+          desc="A subtle blip when recording starts and ends."
+          last
+        >
+          <Toggle on={audioCues} onChange={toggleAudioCues} label="Audio cues" />
+        </SettingRow>
+      </Panel>
 
-        {/* Audio cues row */}
-        <div className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 border-b border-ink-08">
-          <div>
-            <div className="text-[13px] font-semibold leading-tight">Audio cues</div>
-            <div className="text-[11px] text-ink-45 mt-0.5">Subtle blip when recording starts and ends.</div>
-          </div>
-          <Toggle on={audioCues} onChange={toggleAudioCues} />
-        </div>
-
-        {/* Launch at login */}
-        <div className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 border-b border-ink-08">
-          <div>
-            <div className="text-[13px] font-semibold leading-tight">Launch at login</div>
-            <div className="text-[11px] text-ink-45 mt-0.5">Yappr starts in the background when you log in.</div>
-          </div>
+      <GroupLabel>Startup</GroupLabel>
+      <Panel className="mb-6">
+        <SettingRow
+          title="Launch at login"
+          desc="Yappr starts in the background when you log in."
+        >
           {launchAtLogin === null ? (
             <span className="text-[11px] text-ink-45">Loading…</span>
           ) : (
-            <Toggle on={launchAtLogin} onChange={toggleLaunchAtLogin} />
+            <Toggle on={launchAtLogin} onChange={toggleLaunchAtLogin} label="Launch at login" />
           )}
+        </SettingRow>
+        <SettingRow
+          title="Onboarding"
+          desc="Walk through the welcome flow again. Your settings are kept."
+          last
+        >
+          <Pill variant="secondary" size="sm" onClick={() => window.yappr.openOnboarding()}>
+            Reopen
+          </Pill>
+        </SettingRow>
+      </Panel>
+
+      <GroupLabel>Indicator</GroupLabel>
+      <NotchCalibration />
+    </div>
+  )
+}
+
+// Notch calibration.
+//
+// This replaces an "Indicator position → Reset" row that wrote
+// `indicatorPosition: null`. Nothing has read that value since the
+// indicator moved into the notch — the shape is anchored to the housing
+// and cannot be dragged — so the button was a control for a setting that
+// no longer exists.
+//
+// What IS worth exposing is the one number the app genuinely cannot read.
+// Electron exposes neither NSScreen.safeAreaInsets nor
+// auxiliaryTopLeftArea, so notch WIDTH is estimated from display metrics
+// and calibrated against one machine. When the estimate is off, the wings
+// either tuck under the housing or float away from it — visible, annoying,
+// and until now unfixable without editing the settings file by hand.
+function NotchCalibration() {
+  const [geometry, setGeometry] = useState<NotchGeometry | null>(null)
+  const [override, setOverride] = useState<number | null>(null)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    Promise.all([window.yappr.getNotchGeometry(), window.yappr.getSettings()]).then(
+      ([g, s]) => {
+        setGeometry(g)
+        setOverride(s.notchWidthOverride)
+        setLoaded(true)
+      },
+    )
+  }, [])
+
+  // Writing on every drag frame is fine: setSettings is an in-process
+  // invoke and the indicator repaints from the broadcast, which is what
+  // makes this a live preview rather than a number you set blind.
+  function commit(next: number | null) {
+    setOverride(next)
+    window.yappr.setSettings({ notchWidthOverride: next })
+    window.yappr.getNotchGeometry().then(setGeometry)
+  }
+
+  if (!loaded) {
+    return (
+      <Panel>
+        <div className="px-5 py-4 text-[11.5px] text-ink-45">Reading display…</div>
+      </Panel>
+    )
+  }
+
+  if (geometry && !geometry.hasNotch) {
+    return (
+      <Panel>
+        <SettingRow
+          title="No notch on this display"
+          desc="Yappr shows the indicator hanging from the top edge of the screen instead. Nothing to calibrate."
+          muted
+          last
+        />
+      </Panel>
+    )
+  }
+
+  const width = override ?? geometry?.width ?? 200
+
+  return (
+    <Panel>
+      <StackRow
+        title="Notch width"
+        desc="macOS doesn't tell apps how wide the notch is, so Yappr estimates it. If the wings tuck under the housing or float away from it, nudge this until the shape's edges meet the black."
+        aside={
+          <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-45 shrink-0">
+            {override === null ? 'estimated' : 'calibrated'}
+          </span>
+        }
+        last
+      >
+        {/* Live preview. The real indicator on screen moves with the
+            slider too — this is here so you can see the fit without
+            looking up at the menu bar mid-drag. */}
+        <div className="rounded-[12px] overflow-hidden border border-line mb-4">
+          <div className="bg-[linear-gradient(135deg,#6E83A8_0%,#5A7196_55%,#4F6585_100%)] pt-0 pb-8">
+            <MenuBar>
+              <NotchMark state="recording" notchWidth={Math.round(width * 0.42)} />
+            </MenuBar>
+          </div>
         </div>
 
-        {/* Indicator position */}
-        <div className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 border-b border-ink-08">
-          <div>
-            <div className="text-[13px] font-semibold leading-tight">Indicator position</div>
-            <div className="text-[11px] text-ink-45 mt-0.5">Reset the floating pill to its default screen position.</div>
-          </div>
-          <Pill variant="secondary" onClick={resetIndicatorPosition}>
-            {resetting ? 'Reset ✓' : 'Reset'}
+        <div className="flex items-center gap-4">
+          <input
+            type="range"
+            min={120}
+            max={260}
+            step={1}
+            value={width}
+            onChange={(e) => commit(Number(e.target.value))}
+            aria-label="Notch width in points"
+            className="flex-1 accent-ink h-1 cursor-pointer"
+          />
+          <span className="text-[12px] font-mono text-ink w-[62px] text-right tabular-nums">
+            {Math.round(width)} pt
+          </span>
+          <Pill
+            variant="secondary"
+            size="sm"
+            onClick={() => commit(null)}
+            disabled={override === null}
+          >
+            Use estimate
           </Pill>
         </div>
-
-        {/* Reopen onboarding */}
-        <div className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4">
-          <div>
-            <div className="text-[13px] font-semibold leading-tight">Onboarding</div>
-            <div className="text-[11px] text-ink-45 mt-0.5">Walk through the welcome flow again. Your settings are kept.</div>
-          </div>
-          <Pill variant="secondary" onClick={reopenOnboarding}>Reopen</Pill>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Wallpaper-tinted preview surface with a small replica of the recording
-// indicator pill — gives users a one-glance sense of what the floating
-// pill looks and feels like in real use.
-function IndicatorPreview() {
-  return (
-    <div
-      className="relative w-full max-w-[280px] aspect-[4/2.6] rounded-[14px] overflow-hidden border border-ink-08"
-      style={{
-        background:
-          'linear-gradient(135deg, #6E83A8 0%, #5A7196 50%, #4F6585 100%)',
-      }}
-    >
-      <div className="absolute top-2.5 left-3 text-[9px] font-mono uppercase tracking-[0.18em] text-white/65">
-        Preview
-      </div>
-      <div className="absolute inset-x-0 bottom-5 flex justify-center">
-        <PillReplica />
-      </div>
-    </div>
-  )
-}
-
-function PillReplica() {
-  return (
-    <div
-      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-pill"
-      style={{
-        background: 'linear-gradient(180deg, rgba(18,20,26,0.84) 0%, rgba(14,16,22,0.78) 100%)',
-        border: '1px solid rgba(255,255,255,0.14)',
-        boxShadow:
-          'inset 0 1px 0 rgba(255,255,255,0.42), inset 0 -1px 0 rgba(0,0,0,0.45), 0 6px 14px -6px rgba(0,0,0,0.5)',
-      }}
-    >
-      <span className="w-[6px] h-[6px] rounded-full bg-[#E84A3A] shrink-0" />
-      <div className="flex items-end gap-[2px] h-[10px]">
-        <span className="w-[2px] h-2 rounded-[1px] bg-[#5A8FE8]" />
-        <span className="w-[2px] h-3 rounded-[1px] bg-[#5A8FE8]" />
-        <span className="w-[2px] h-[7px] rounded-[1px] bg-[#5A8FE8]" />
-        <span className="w-[2px] h-[9px] rounded-[1px] bg-[#5A8FE8]" />
-        <span className="w-[2px] h-[5px] rounded-[1px] bg-[#5A8FE8]" />
-        <span className="w-[2px] h-[8px] rounded-[1px] bg-[#5A8FE8]" />
-      </div>
-      <span className="text-[10.5px] font-mono text-white/85 tabular-nums ml-0.5">0:14</span>
-    </div>
+      </StackRow>
+    </Panel>
   )
 }

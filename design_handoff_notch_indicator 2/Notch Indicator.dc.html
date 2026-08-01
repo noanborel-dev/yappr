@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#EFEFE9; }
+  a { color:#2B7FFF; text-decoration:none; }
+  a:hover { color:#0A0A0A; }
+  @keyframes w1{0%,100%{height:4px}50%{height:13px}} @keyframes w2{0%,100%{height:11px}50%{height:3px}}
+  @keyframes w3{0%,100%{height:7px}50%{height:14px}} @keyframes w4{0%,100%{height:13px}50%{height:5px}}
+  @keyframes w5{0%,100%{height:3px}50%{height:10px}} @keyframes w6{0%,100%{height:8px}50%{height:3px}}
+  @keyframes w7{0%,100%{height:6px}50%{height:12px}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes pulseDot{50%{opacity:.45}}
+  @keyframes contentIn{from{opacity:0;transform:scale(.9);filter:blur(3px)}to{opacity:1;transform:none;filter:blur(0)}}
+  @keyframes panelIn{from{opacity:0;transform:translateY(-8px);filter:blur(3px)}to{opacity:1;transform:none;filter:blur(0)}}
+</style>
+</helmet>
+
+<section style="display:flex;flex-direction:column;gap:26px;padding:44px 48px 64px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;color:#0A0A0A">
+
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:70ch">
+    <div style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:10px;text-transform:uppercase;letter-spacing:.18em;color:#2B7FFF">Turn 1 · notch indicator · wings</div>
+    <h1 style="font-family:'Cormorant Garamond',Georgia,serif;font-size:40px;font-weight:400;letter-spacing:-.01em;margin:0;line-height:1.05">The notch grows <span style="font-style:italic">wings</span></h1>
+    <p style="font-size:13.5px;line-height:1.6;color:rgba(10,10,10,.6);margin:6px 0 0;text-wrap:pretty">Asymmetric by rule: the left wing is always <em>input</em> — what Yappr is hearing. The right wing is always <em>outcome</em> — what Yappr did with it. The camera bar between them never moves, and menu bar items collapse inward from the notch as the wings grow. Click a state chip, or hit Play to watch a full dictation run. Hover the notch itself for the peek state.</p>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start">
+
+    <div id="1a" style="display:flex;flex-direction:column;gap:14px;width:720px">
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <span style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.14em;background:#0A0A0A;color:#FAFAF5;padding:4px 7px;border-radius:999px">1A</span>
+        <span style="font-family:'Cormorant Garamond',Georgia,serif;font-size:22px">Wings</span>
+        <span style="font-size:11.5px;color:rgba(10,10,10,.45)">Both edges grow. One italic word. The camera bar never moves.</span>
+      </div>
+
+      <div ref="{{ a.rScreen }}" style="position:relative;width:720px;height:300px;border-radius:12px;overflow:hidden;background:linear-gradient(165deg,#2FBFC0 0%,#1E9AA8 46%,#0E5F72 100%);box-shadow:0 12px 34px rgba(10,10,10,.18)">
+        <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 78% 96%, rgba(6,40,44,.55), transparent 60%)"></div>
+        <div style="position:absolute;top:0;left:0;right:0;height:30px;background:rgba(8,26,30,.42);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)"></div>
+        <div style="position:absolute;top:0;left:14px;height:30px;display:flex;align-items:center;font-size:11px;color:rgba(255,255,255,.92);white-space:nowrap">
+          <span style="font-weight:600;padding-right:13px"></span>
+          <span ref="{{ a.rYappr }}" style="font-weight:600;padding-right:13px">Yappr</span>
+          <span ref="{{ a.rFile }}" style="display:inline-block;overflow:hidden;transition:max-width 520ms cubic-bezier(.22,1.08,.3,1),opacity 300ms cubic-bezier(.4,0,.2,1);max-width:{{ a.mFile }};opacity:{{ a.oFile }}"><span style="padding-right:13px">File</span></span>
+          <span ref="{{ a.rEdit }}" style="display:inline-block;overflow:hidden;transition:max-width 520ms cubic-bezier(.22,1.08,.3,1),opacity 300ms cubic-bezier(.4,0,.2,1);max-width:{{ a.mEdit }};opacity:{{ a.oEdit }}"><span style="padding-right:13px">Edit</span></span>
+          <span ref="{{ a.rView }}" style="display:inline-block;overflow:hidden;transition:max-width 520ms cubic-bezier(.22,1.08,.3,1),opacity 300ms cubic-bezier(.4,0,.2,1);max-width:{{ a.mView }};opacity:{{ a.oView }}"><span style="padding-right:13px">View</span></span>
+          <span ref="{{ a.rWindow }}" style="display:inline-block;overflow:hidden;transition:max-width 520ms cubic-bezier(.22,1.08,.3,1),opacity 300ms cubic-bezier(.4,0,.2,1);max-width:{{ a.mWindow }};opacity:{{ a.oWindow }}"><span style="padding-right:13px">Window</span></span>
+          <span ref="{{ a.rHelp }}" style="display:inline-block;overflow:hidden;transition:max-width 520ms cubic-bezier(.22,1.08,.3,1),opacity 300ms cubic-bezier(.4,0,.2,1);max-width:{{ a.mHelp }};opacity:{{ a.oHelp }}"><span>Help</span></span>
+        </div>
+        <div style="position:absolute;top:0;right:14px;height:30px;display:flex;align-items:center;font-size:11px;color:rgba(255,255,255,.92);white-space:nowrap">
+          <span ref="{{ a.rWifi }}" style="display:inline-flex;align-items:center;overflow:hidden;transition:max-width 520ms cubic-bezier(.22,1.08,.3,1),opacity 300ms cubic-bezier(.4,0,.2,1);max-width:{{ a.mWifi }};opacity:{{ a.oWifi }}"><span style="display:inline-flex;padding-right:13px"><svg width="14" height="11" viewBox="0 0 14 11" fill="none"><path d="M1 3.6a9 9 0 0 1 12 0M3.4 6.2a5.6 5.6 0 0 1 7.2 0" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/><circle cx="7" cy="9" r="1.1" fill="#fff"/></svg></span></span>
+          <span ref="{{ a.rBat }}" style="display:inline-flex;align-items:center;overflow:hidden;transition:max-width 520ms cubic-bezier(.22,1.08,.3,1),opacity 300ms cubic-bezier(.4,0,.2,1);max-width:{{ a.mBat }};opacity:{{ a.oBat }}"><span style="display:inline-flex;padding-right:13px"><svg width="20" height="11" viewBox="0 0 20 11" fill="none"><rect x=".6" y=".6" width="16" height="9.8" rx="3" stroke="#fff" stroke-opacity=".7" stroke-width="1.1"/><rect x="2.2" y="2.2" width="10" height="6.6" rx="1.8" fill="#fff"/><path d="M18.4 4v3" stroke="#fff" stroke-opacity=".7" stroke-width="1.4" stroke-linecap="round"/></svg></span></span>
+          <span ref="{{ a.rClock }}" style="display:inline-flex;overflow:hidden;transition:max-width 520ms cubic-bezier(.22,1.08,.3,1),opacity 300ms cubic-bezier(.4,0,.2,1);max-width:{{ a.mClock }};opacity:{{ a.oClock }}"><span style="font-variant-numeric:tabular-nums">Wed 9:41</span></span>
+        </div>
+
+        <div onMouseEnter="{{ a.peekIn }}" onMouseLeave="{{ a.peekOut }}" style="position:absolute;top:0;left:50%;z-index:3;will-change:width,margin-left;transition:width {{ a.trans }},margin-left {{ a.trans }};width:{{ a.w }};margin-left:{{ a.off }}">
+          <span style="position:absolute;left:8%;right:8%;top:14px;height:44px;border-radius:999px;pointer-events:none;filter:blur(26px);transition:opacity 420ms ease,background 420ms ease;opacity:{{ a.glowO }};background:{{ a.glow }}"></span>
+          <span style="position:absolute;top:0;left:-13px;width:13px;height:13px;pointer-events:none;background:radial-gradient(circle at 0% 100%, transparent 0 13px, #000 13.5px);transition:opacity 360ms cubic-bezier(.4,0,.2,1);opacity:{{ a.fillet }}"></span>
+          <span style="position:absolute;top:0;right:-13px;width:13px;height:13px;pointer-events:none;background:radial-gradient(circle at 100% 100%, transparent 0 13px, #000 13.5px);transition:opacity 360ms cubic-bezier(.4,0,.2,1);opacity:{{ a.fillet }}"></span>
+          <div style="display:flex;flex-direction:column;background:linear-gradient(180deg,#0B0C11 0%,#000 55%);overflow:hidden;will-change:height;box-shadow:0 16px 40px rgba(0,0,0,.55),inset 0 -1px 0 rgba(255,255,255,.07),inset 0 0 0 1px rgba(255,255,255,.035);transition:height {{ a.trans }},border-radius {{ a.trans }};height:{{ a.h }};border-bottom-left-radius:{{ a.radius }};border-bottom-right-radius:{{ a.radius }}">
+          <div style="display:flex;align-items:center;flex:none;height:{{ a.rowH }}">
+            <div style="display:flex;justify-content:flex-end;align-items:center;gap:7px;box-sizing:border-box;overflow:hidden;will-change:width;transition:width {{ a.trans }},padding {{ a.trans }};padding-right:{{ a.lpad }};width:{{ a.lwPx }}">
+              <sc-if value="{{ a.rec }}" hint-placeholder-val="{{ false }}">
+                <span style="width:6px;height:6px;border-radius:999px;background:#E84A3A;flex:none;box-shadow:0 0 8px rgba(232,74,58,.85);animation:pulseDot 2s cubic-bezier(.4,0,.6,1) infinite"></span>
+              </sc-if>
+              <sc-if value="{{ a.wave }}" hint-placeholder-val="{{ false }}">
+                <span style="display:flex;align-items:center;gap:2.5px;height:16px;flex:none;filter:drop-shadow(0 0 5px rgba(90,143,232,.55));-webkit-mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent)"><span style="width:2px;border-radius:1px;background:#5A8FE8;animation:w1 .52s ease-in-out infinite;animation-delay:-.0s"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;animation:w2 .58s ease-in-out infinite;animation-delay:-.1s"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;animation:w3 .64s ease-in-out infinite;animation-delay:-.2s"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;animation:w4 .70s ease-in-out infinite;animation-delay:-.3s"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;animation:w5 .76s ease-in-out infinite;animation-delay:-.4s"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;animation:w6 .52s ease-in-out infinite;animation-delay:-.5s"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;animation:w7 .58s ease-in-out infinite;animation-delay:-.6s"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;animation:w1 .64s ease-in-out infinite;animation-delay:-.7s"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;animation:w2 .70s ease-in-out infinite;animation-delay:-.8s"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;animation:w3 .76s ease-in-out infinite;animation-delay:-.9s"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;animation:w4 .52s ease-in-out infinite;animation-delay:-.10s"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;animation:w5 .58s ease-in-out infinite;animation-delay:-.11s"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;animation:w6 .64s ease-in-out infinite;animation-delay:-.12s"></span></span>
+                </span>
+              </sc-if>
+              <sc-if value="{{ a.showMic }}" hint-placeholder-val="{{ false }}">
+                <svg width="11" height="15" viewBox="0 0 11 15" fill="none" style="animation:contentIn 420ms cubic-bezier(.22,1,.36,1) 90ms both"><rect x="3.6" y="1" width="4" height="7.4" rx="2" fill="rgba(255,255,255,.85)"/><path d="M1.6 7.2a4 4 0 0 0 8 0M5.6 11.2V14" stroke="rgba(255,255,255,.85)" stroke-width="1.2" stroke-linecap="round"/></svg>
+              </sc-if>
+              <sc-if value="{{ a.showKey }}" hint-placeholder-val="{{ false }}">
+                <span style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.1em;color:rgba(255,255,255,.5);white-space:nowrap;animation:contentIn 420ms cubic-bezier(.22,1,.36,1) 90ms both">⌥ SPACE</span>
+              </sc-if>
+
+            </div>
+
+            <div style="width:190px;flex:none;display:flex;align-items:center;justify-content:center;gap:44px">
+              <span style="width:5px;height:5px;border-radius:999px;background:#12161c;box-shadow:inset 0 0 2px rgba(120,160,200,.5)"></span>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:8px;box-sizing:border-box;overflow:hidden;will-change:width;transition:width {{ a.trans }},padding {{ a.trans }};padding-left:{{ a.rpad }};width:{{ a.rwPx }}">
+              <sc-if value="{{ a.spin }}" hint-placeholder-val="{{ false }}">
+                <span style="width:12px;height:12px;border-radius:999px;flex:none;border:1.5px solid rgba(255,255,255,.18);border-top-color:#5A8FE8;animation:spin .8s linear infinite"></span>
+              </sc-if>
+              <sc-if value="{{ a.check }}" hint-placeholder-val="{{ false }}">
+                <svg width="13" height="13" viewBox="0 0 11 11" fill="none" style="flex:none;animation:contentIn 420ms cubic-bezier(.22,1,.36,1) 90ms both"><path d="M2 5.5 L4.5 8 L9 3" stroke="#5A8FE8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </sc-if>
+              <sc-if value="{{ a.err }}" hint-placeholder-val="{{ false }}">
+                <span style="width:6px;height:6px;border-radius:999px;background:#E84A3A;flex:none;box-shadow:0 0 8px rgba(232,74,58,.85)"></span>
+              </sc-if>
+              <sc-if value="{{ a.recent }}" hint-placeholder-val="{{ false }}">
+                <span onClick="{{ a.copy }}" style="display:flex;align-items:center;gap:9px;flex:1;min-width:0;padding:5px 8px 5px 10px;margin-right:3px;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);cursor:pointer;transition:background 200ms ease,border-color 200ms ease;animation:contentIn 420ms cubic-bezier(.22,1,.36,1) 90ms both" style-hover="background:rgba(90,143,232,.22);border-color:rgba(90,143,232,.4)">
+                  <span style="font-size:11.5px;color:rgba(255,255,255,.88);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">Ship the notch build to TestFlight before Friday</span>
+                  <svg width="12" height="12" viewBox="0 0 15 15" fill="none" style="flex:none"><rect x="4.6" y="1.4" width="8.4" height="9.4" rx="2.2" stroke="rgba(255,255,255,.6)" stroke-width="1.4"/><path d="M10.4 13.6H3.6a2 2 0 0 1-2-2V4.6" stroke="rgba(255,255,255,.6)" stroke-width="1.4" stroke-linecap="round"/></svg>
+                </span>
+              </sc-if>
+              <sc-if value="{{ a.label }}" hint-placeholder-val="{{ false }}">
+                <span style="font-family:'Instrument Serif','Cormorant Garamond',Georgia,serif;font-style:italic;font-size:15px;line-height:1;white-space:nowrap;letter-spacing:.005em;animation:contentIn 420ms cubic-bezier(.22,1,.36,1) 90ms both;color:{{ a.lc }}">{{ a.label }}</span>
+              </sc-if>
+            </div>
+          </div>
+
+          <sc-if value="{{ a.panel }}" hint-placeholder-val="{{ false }}">
+            <div ref="{{ panelRef }}" style="flex:none;box-sizing:border-box;padding:0 14px 14px;display:flex;align-items:stretch;gap:14px;animation:panelIn 460ms cubic-bezier(.22,1,.36,1) 120ms both">
+              <div style="width:150px;flex:none;display:flex;flex-direction:column;justify-content:center;gap:9px;padding-top:2px">
+                <span style="display:flex;align-items:center;gap:2.5px;height:18px"><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:5px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:9px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:14px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:7px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:12px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:17px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:10px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:6px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:13px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:16px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:8px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:11px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:15px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:9px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:6px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:12px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:18px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:11px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:7px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:14px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:10px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:16px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:8px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:12px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:6px"></span><span style="width:2px;border-radius:1px;background:#5A8FE8;opacity:.55;height:9px"></span></span>
+                <span style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.13em;color:rgba(255,255,255,.4)">0:06 · 42 WORDS</span>
+              </div>
+              <div style="width:1px;flex:none;background:linear-gradient(180deg,transparent,rgba(255,255,255,.13) 25%,rgba(255,255,255,.13) 75%,transparent)"></div>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:7px">
+                <span style="font-size:12.5px;line-height:1.45;color:rgba(255,255,255,.9);text-wrap:pretty">Ship the notch build to TestFlight before Friday, and tell Priya the Swift helper is worth it.</span>
+                <span style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.3)">Pasted into Linear</span>
+              </div>
+              <div style="width:1px;flex:none;background:linear-gradient(180deg,transparent,rgba(255,255,255,.13) 25%,rgba(255,255,255,.13) 75%,transparent)"></div>
+              <div style="width:74px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
+                <span style="width:44px;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 120% at 50% 0%,rgba(255,255,255,.14),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.1);cursor:pointer" style-hover="background:radial-gradient(120% 120% at 50% 0%,rgba(90,143,232,.4),rgba(90,143,232,.14))">
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="4.6" y="1.4" width="8.4" height="9.4" rx="2.2" stroke="rgba(255,255,255,.85)" stroke-width="1.3"/><path d="M10.4 13.6H3.6a2 2 0 0 1-2-2V4.6" stroke="rgba(255,255,255,.85)" stroke-width="1.3" stroke-linecap="round"/></svg>
+                </span>
+                <span style="font-size:10px;color:rgba(255,255,255,.6)">Copy</span>
+              </div>
+            </div>
+          </sc-if>
+          </div>
+        </div>
+
+        <div style="position:absolute;left:26px;bottom:22px;width:150px;height:96px;border-radius:9px;background:rgba(250,250,245,.9);box-shadow:0 8px 20px rgba(0,0,0,.22)"></div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+        <button onClick="{{ a.play }}" style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;padding:6px 12px;border-radius:999px;border:none;background:#2B7FFF;color:#fff;cursor:pointer" style-hover="background:#0A0A0A">▸ Play run</button>
+        <button onClick="{{ a.setIdle }}" style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 11px;border-radius:999px;border:1px solid rgba(10,10,10,.14);background:#fff;color:rgba(10,10,10,.7);cursor:pointer" style-hover="border-color:#0A0A0A;color:#0A0A0A">idle</button>
+        <button onClick="{{ a.setPeek }}" style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 11px;border-radius:999px;border:1px solid rgba(10,10,10,.14);background:#fff;color:rgba(10,10,10,.7);cursor:pointer" style-hover="border-color:#0A0A0A;color:#0A0A0A">peek</button>
+        <button onClick="{{ a.setRecording }}" style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 11px;border-radius:999px;border:1px solid rgba(10,10,10,.14);background:#fff;color:rgba(10,10,10,.7);cursor:pointer" style-hover="border-color:#0A0A0A;color:#0A0A0A">recording</button>
+        <button onClick="{{ a.setProcessing }}" style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 11px;border-radius:999px;border:1px solid rgba(10,10,10,.14);background:#fff;color:rgba(10,10,10,.7);cursor:pointer" style-hover="border-color:#0A0A0A;color:#0A0A0A">processing</button>
+        <button onClick="{{ a.setDone }}" style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 11px;border-radius:999px;border:1px solid rgba(10,10,10,.14);background:#fff;color:rgba(10,10,10,.7);cursor:pointer" style-hover="border-color:#0A0A0A;color:#0A0A0A">pasted</button>
+        <button onClick="{{ a.setClipboard }}" style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 11px;border-radius:999px;border:1px solid rgba(10,10,10,.14);background:#fff;color:rgba(10,10,10,.7);cursor:pointer" style-hover="border-color:#0A0A0A;color:#0A0A0A">clipboard</button>
+        <button onClick="{{ a.setCopied }}" style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 11px;border-radius:999px;border:1px solid rgba(10,10,10,.14);background:#fff;color:rgba(10,10,10,.7);cursor:pointer" style-hover="border-color:#0A0A0A;color:#0A0A0A">copied</button>
+        <button onClick="{{ a.setError }}" style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 11px;border-radius:999px;border:1px solid rgba(10,10,10,.14);background:#fff;color:rgba(10,10,10,.7);cursor:pointer" style-hover="border-color:#0A0A0A;color:#0A0A0A">error</button>
+        <button onClick="{{ a.setExpanded }}" style="font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 11px;border-radius:999px;border:1px solid rgba(10,10,10,.14);background:#fff;color:rgba(10,10,10,.7);cursor:pointer" style-hover="border-color:#0A0A0A;color:#0A0A0A">recent</button>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1560,&quot;height&quot;:1180}}">
+const NOTCH = 190;
+const ROW = 36;
+const PANEL_FALLBACK = 113;
+const SCREEN = 720, CENTER = 360, HALF = NOTCH / 2, CLEAR = 8;
+
+const A = {
+  idle:      { lw:0,  rw:0 },
+  peek:      { lw:84, rw:238, showMic:1, showKey:1, recent:1 },
+  copied:    { lw:40, rw:160, showMic:1, check:1, label:'copied — ⌘V', lc:'#5A8FE8', glow:'rgba(90,143,232,.35)' },
+  recording: { lw:104,rw:118, rec:1, wave:1, label:'listening', glow:'rgba(90,143,232,.5)' },
+  processing:{ lw:44, rw:124, showMic:1, spin:1, label:'polishing…', glow:'rgba(90,143,232,.35)' },
+  done:      { lw:40, rw:96,  showMic:1, check:1, label:'pasted', lc:'#5A8FE8' },
+  clipboard: { lw:40, rw:184, showMic:1, check:1, label:'copied — ⌘V', lc:'#5A8FE8' },
+  error:     { lw:40, rw:176, showMic:1, err:1, label:'didn’t catch that', glow:'rgba(232,74,58,.42)' },
+  expanded:  { lw:150,rw:214, glow:'rgba(90,143,232,.3)', showMic:1, check:1, label:'pasted', lc:'#5A8FE8', panel:1 }
+};
+
+
+const RUN = [
+  ['peek', 900], ['recording', 2600], ['processing', 1500],
+  ['done', 1600], ['clipboard', 1800], ['idle', 0]
+];
+
+class Component extends DCLogic {
+  state = { a:'idle', panelH: 0, edges: null };
+  timers = { a:[] };
+  panelRef = React.createRef();
+  refs = ['Screen','Yappr','File','Edit','View','Window','Help','Wifi','Bat','Clock']
+    .reduce((o, k) => (o[k] = React.createRef(), o), {});
+
+  componentDidMount() {
+    requestAnimationFrame(() => this.measure());
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => this.measure());
+  }
+
+  // Collapse thresholds are read off the live menu bar, never hand-picked, so
+  // changing a wing width or a menu label can't silently re-break clearance.
+  measure() {
+    const s = this.refs.Screen.current;
+    if (!s) return;
+    const sr = s.getBoundingClientRect();
+    if (!sr.width) return;
+    const k = SCREEN / sr.width;
+    const rel = (key) => {
+      const el = this.refs[key].current;
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { left: (r.left - sr.left) * k, right: (r.right - sr.left) * k, w: el.scrollWidth };
+    };
+    const e = {};
+    for (const key of ['Yappr','File','Edit','View','Window','Help','Wifi','Bat','Clock']) {
+      const v = rel(key);
+      if (!v) return;
+      e[key] = v;
+    }
+    const prev = this.state.edges;
+    if (prev && Math.abs(prev.Help.right - e.Help.right) < 0.5) return;
+    this.setState({ edges: e });
+  }
+
+  // the shape is a fixed-height animated column, so its expanded height is measured
+  // from the panel rather than hand-summed — add a Recent row and it still fits.
+  componentDidUpdate() {
+    const el = this.panelRef.current;
+    const h = el ? el.offsetHeight : 0;
+    if (h && Math.abs(h - this.state.panelH) > 0.5) this.setState({ panelH: h });
+  }
+
+  componentWillUnmount() { this.clear('a'); clearTimeout(this.copyT); }
+
+  clear(key) { this.timers[key].forEach(clearTimeout); this.timers[key] = []; }
+
+  set(key, s) { this.clear(key); this.setState({ [key]: s }); }
+
+  play(key) {
+    this.clear(key);
+    this.setState({ [key]: 'idle' });
+    let t = 260;
+    RUN.forEach(([s, hold]) => {
+      this.timers[key].push(setTimeout(() => this.setState({ [key]: s }), t));
+      t += hold;
+    });
+  }
+
+  hover(key, on) {
+    if (this.timers[key].length) return;
+    const cur = this.state[key];
+    if (on && cur === 'idle') this.setState({ [key]: 'peek' });
+    else if (!on && (cur === 'peek' || cur === 'copied')) {
+      clearTimeout(this.copyT);
+      this.setState({ [key]: 'idle' });
+    }
+  }
+
+  copy(key, ev) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    clearTimeout(this.copyT);
+    this.setState({ [key]: 'copied' });
+    this.copyT = setTimeout(() => this.setState(s => (s[key] === 'copied' ? { [key]: 'peek' } : null)), 1600);
+  }
+
+  controls(key) {
+    const o = { play: () => this.play(key), peekIn: () => this.hover(key, true), peekOut: () => this.hover(key, false), copy: (ev) => this.copy(key, ev) };
+    ['idle','peek','recording','processing','done','clipboard','copied','error','expanded'].forEach(s => {
+      o['set' + s[0].toUpperCase() + s.slice(1)] = () => this.set(key, s);
+    });
+    return o;
+  }
+
+  menubar(lw, rw) {
+    const e = this.state.edges;
+    const shapeL = CENTER - HALF - lw - CLEAR;
+    const shapeR = CENTER + HALF + rw + CLEAR;
+    const o = {};
+    const put = (key, open) => {
+      const w = e ? e[key].w : 60;
+      o['m' + key] = open ? w + 'px' : '0px';
+      o['o' + key] = open ? (key === 'Wifi' || key === 'Bat' ? 1 : 0.86) : 0;
+      o['r' + key] = this.refs[key];
+    };
+    ['File','Edit','View','Window','Help'].forEach(key => put(key, !e || shapeL >= e[key].right));
+    ['Wifi','Bat','Clock'].forEach(key => put(key, !e || shapeR <= e[key].left));
+    o.rYappr = this.refs.Yappr;
+    o.rScreen = this.refs.Screen;
+    return o;
+  }
+
+  // hard geometric clamp: the shape may never reach the app name or the clock
+  fit(lw, rw) {
+    const e = this.state.edges;
+    if (!e) return [lw, rw];
+    return [
+      Math.min(lw, Math.max(0, CENTER - HALF - CLEAR - e.Yappr.right)),
+      Math.min(rw, Math.max(0, SCREEN - 14 - CLEAR - CENTER - HALF))
+    ];
+  }
+
+
+  wing(map, key) {
+    const c0 = map[this.state[key]] || map.idle;
+    const fitted = this.fit(c0.lw, c0.rw);
+    const c = Object.assign({}, c0, { lw: fitted[0], rw: fitted[1] });
+    const h = c.panel ? ROW + (this.state.panelH || PANEL_FALLBACK) : (c.lw || c.rw ? ROW : 30);
+    const total = NOTCH + c.lw + c.rw;
+    const grow = total >= (this._lastW || NOTCH);
+    this._lastW = total;
+    const trans = grow ? '560ms cubic-bezier(.22,1.08,.3,1)' : '440ms cubic-bezier(.36,0,.18,1)';
+    return Object.assign({}, c, this.controls(key), this.menubar(c.lw, c.rw), {
+      w: (NOTCH + c.lw + c.rw) + 'px',
+      h: h + 'px',
+      rowH: Math.min(h, 36) + 'px',
+      trans: trans,
+      radius: (c.panel ? 24 : (c.lw || c.rw ? 19 : 15)) + 'px',
+      fillet: (c.lw || c.rw) ? 1 : 0,
+      glow: c.glow || 'transparent',
+      glowO: c.glow ? 1 : 0,
+      label: c.label,
+      lpad: c.lw ? '11px' : '0px',
+      rpad: c.rw ? '11px' : '0px',
+      off: -(NOTCH / 2 + c.lw) + 'px',
+      lwPx: c.lw + 'px',
+      rwPx: c.rw + 'px',
+      lc: c.lc || 'rgba(255,255,255,.95)'
+    });
+  }
+
+  renderVals() {
+    return {
+      a: this.wing(A, 'a'),
+      panelRef: this.panelRef,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

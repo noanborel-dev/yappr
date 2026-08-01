@@ -1,192 +1,137 @@
 import { useEffect, useState } from 'react'
 import type { Settings } from '../../../shared/types'
-import { SectionHero } from '../../shared/ui/SectionHero'
-import { BrandLogo } from '../../shared/ui/BrandLogo'
-import { MiniPill } from '../../shared/ui/MiniPill'
+import { SectionHead, GroupLabel } from '../../shared/ui/SectionHead'
+import { Panel, StackRow, SettingRow } from '../../shared/ui/Panel'
+import { BrandLogo, type BrandSlug } from '../../shared/ui/BrandLogo'
+import { Pill } from '../../shared/ui/Pill'
+import { Toggle } from '../../shared/ui/Toggle'
 
-// AI tab — two visual mocks.
+// What this tab used to be: a hero chat mock, then ~450 lines of
+// pixel-recreated iMessage / Gmail / Notion windows — invented contact
+// names, emoji standing in for UI icons, a cursor sprite dragging a
+// selection — cycling on a 6.4s loop. Three simultaneous animations, zero
+// controls. It was the landing page pasted into a settings pane.
 //
-//   HERO: chat-input morph for AI-context prompt engineering.
-//
-//   BODY: cycles through realistic app mockups (iMessage / Gmail /
-//   Notion). Each shows the full screen-recording moment:
-//     1. cursor drags across text → native blue selection appears
-//     2. Yappr indicator pill fades in at the bottom in
-//        "listening" state with a live-style waveform
-//     3. spoken instruction bubble appears
-//     4. selected text fades to the rewritten version
-//     5. pill fades out
+// What survives is the one thing that shows the feature honestly (a raw
+// dictation becoming a prompt) and the only real setting on the tab
+// (background context).
 
 export default function AITab() {
   return (
-    <div className="max-w-[760px]">
-      <SectionHero
+    <div className="max-w-[720px]">
+      <SectionHead
+        ord="04"
         label="AI"
-        accent="violet"
-        headline={<>Prompts engineered from your <em className="font-display italic">voice.</em></>}
-        body="When you're typing into Claude, ChatGPT, or Cursor, Yappr rewrites your speech as a clean prompt — not a transcript."
-        visual={<ChatPromptMock />}
+        headline={<>Prompts, not <em className="italic">transcripts</em>.</>}
+        body="In Claude Code, Cursor, ChatGPT and the terminal, Yappr shapes what you said into what you meant to ask."
       />
 
-      <div className="text-[10.5px] font-mono uppercase tracking-[0.16em] text-ink-45 mb-3 px-1 mt-2">
-        Or — highlight, speak, rewrite. Anywhere.
-      </div>
-      <AppMockCycle />
+      <PromptShaping />
 
+      <GroupLabel className="mt-7">Anywhere else</GroupLabel>
+      <Panel className="mb-7">
+        <SettingRow
+          title="Select and rewrite"
+          desc="Highlight text in any app, hold your key and say what to change — “make this formal”, “turn into bullets”. The selection is replaced in place."
+          last
+        >
+          <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-45">
+            always on
+          </span>
+        </SettingRow>
+      </Panel>
+
+      <GroupLabel>Memory</GroupLabel>
       <ContextMemoryCard />
     </div>
   )
 }
 
-// ─── Hero: chat-input morph cycling through three AI surfaces ─────
+// ─── Prompt shaping proof ───────────────────────────────────────────
 
-type ChatProvider = 'claude' | 'chatgpt' | 'cursor'
-const PROVIDER_ORDER: ChatProvider[] = ['claude', 'chatgpt', 'cursor']
+type Surface = 'claudecode' | 'cursor' | 'chatgpt'
 
-const PROVIDER_SCRIPTS: Record<ChatProvider, { raw: string; clean: string }> = {
-  claude: {
-    raw: "hey um can you uh write me a function that handles you know negative numbers",
-    clean: "Write a function that handles negative numbers.",
-  },
-  chatgpt: {
-    raw: "so like help me draft a quick email saying i'm gonna be late to the meeting tomorrow",
-    clean: "Draft a brief email noting I'll be late to tomorrow's meeting.",
+const SCRIPTS: Record<Surface, { app: string; raw: string; shaped: string }> = {
+  claudecode: {
+    app: 'Claude Code',
+    raw: 'okay so um the login thing is broken when you use google and i think it might be the redirect uh can you look at it and like fix it',
+    shaped: 'Google OAuth login is failing — I suspect the redirect URI. Investigate and fix.',
   },
   cursor: {
-    raw: "okay can you refactor this so that it uses async await instead of all the promise chaining",
-    clean: "Refactor to use async/await instead of promise chaining.",
+    app: 'Cursor',
+    raw: 'can you refactor this so that it uses async await instead of all the promise chaining stuff',
+    shaped: 'Refactor to use async/await instead of promise chaining.',
+  },
+  chatgpt: {
+    app: 'ChatGPT',
+    raw: "so like help me draft a quick email saying i'm gonna be late to the meeting tomorrow",
+    shaped: "Draft a brief email noting I'll be late to tomorrow's meeting.",
   },
 }
 
-function ChatPromptMock() {
-  // Each provider mock holds for 5s. The internal morph (raw → clean)
-  // runs once per provider, then the cycle advances. Same 300×200 outer
-  // frame so the hero footprint never changes.
+const SURFACES: Surface[] = ['claudecode', 'cursor', 'chatgpt']
+const HOLD_MS = 6000
+
+function PromptShaping() {
   const [idx, setIdx] = useState(0)
   useEffect(() => {
-    const id = window.setInterval(() => setIdx((i) => (i + 1) % PROVIDER_ORDER.length), 5000)
+    const id = window.setInterval(() => setIdx((i) => (i + 1) % SURFACES.length), HOLD_MS)
     return () => window.clearInterval(id)
   }, [])
-  const p = PROVIDER_ORDER[idx]
+
+  const surface = SURFACES[idx]
+  const script = SCRIPTS[surface]
+
   return (
-    <div className="relative w-[300px] h-[200px] rounded-[14px] overflow-hidden">
+    <div className="bg-card border border-line rounded-card overflow-hidden">
       <style>{`
-        @keyframes chat-raw-fade  { 0%, 32% { opacity: 1; } 42%, 100% { opacity: 0; } }
-        @keyframes chat-clean-fade { 0%, 38% { opacity: 0; transform: translateY(3px); } 50%, 100% { opacity: 1; transform: translateY(0); } }
-        @keyframes chat-caret { 0%, 49%, 100% { opacity: 1; } 50%, 99% { opacity: 0; } }
-        .chat-raw   { animation: chat-raw-fade   5s ease-in-out infinite; }
-        .chat-clean { animation: chat-clean-fade 5s ease-in-out infinite; }
-        .chat-caret { animation: chat-caret      1s steps(2)      infinite; }
+        @keyframes ps-raw   { 0%, 34% { opacity: .55; } 44%, 100% { opacity: .18; } }
+        @keyframes ps-clean { 0%, 40% { opacity: 0; transform: translateY(4px); }
+                              52%, 100% { opacity: 1; transform: translateY(0); } }
+        @keyframes ps-caret { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+        .ps-raw   { animation: ps-raw   ${HOLD_MS}ms ease-in-out infinite; }
+        .ps-clean { animation: ps-clean ${HOLD_MS}ms ease-in-out infinite; }
+        .ps-caret { animation: ps-caret 1s steps(2) infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .ps-raw   { animation: none; opacity: .25; }
+          .ps-clean { animation: none; opacity: 1; transform: none; }
+          .ps-caret { animation: none; }
+        }
       `}</style>
-      <div key={p} className="w-full h-full animate-stepIn">
-        {p === 'claude'  && <ClaudeMock  {...PROVIDER_SCRIPTS.claude}  />}
-        {p === 'chatgpt' && <ChatGPTMock {...PROVIDER_SCRIPTS.chatgpt} />}
-        {p === 'cursor'  && <CursorMock  {...PROVIDER_SCRIPTS.cursor}  />}
-      </div>
-    </div>
-  )
-}
 
-// Claude — warm cream background, rust-orange Send button, serif vibe.
-function ClaudeMock({ raw, clean }: { raw: string; clean: string }) {
-  return (
-    <div className="w-full h-full bg-[#F2EEE5] border border-[#E5DDD0] flex flex-col rounded-[14px] overflow-hidden">
-      <div className="px-3 py-2 border-b border-[#E5DDD0] bg-[#F8F5EE] flex items-center gap-2">
-        <BrandLogo brand="claude" size={16} />
-        <span className="text-[11px] font-medium text-[#3D3929] tracking-tight">Claude</span>
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-line-soft">
+        <BrandLogo brand={surface as BrandSlug} size={14} />
+        <span className="text-[11px] font-medium text-ink-60">{script.app}</span>
+        <span className="ml-auto text-[9.5px] font-mono uppercase tracking-[0.16em] text-ink-45">
+          you said → what lands
+        </span>
       </div>
-      <div className="flex-1 px-3 py-3 flex items-end">
-        <div className="w-full bg-white border border-[#E5DDD0] rounded-[12px] px-3 py-2.5 min-h-[80px] relative shadow-sm">
-          <div className="chat-raw text-[11.5px] leading-snug text-[#8A8576]">{raw}</div>
-          <div className="chat-clean absolute inset-0 px-3 py-2.5 text-[12px] leading-snug text-[#1F1B11] font-medium">
-            {clean}<span className="chat-caret inline-block w-[2px] h-[12px] bg-[#1F1B11] ml-0.5 align-text-bottom" />
+
+      {/* Fixed height: the raw line and the shaped line are different
+          lengths, and a box that resizes as they cross-fade makes the
+          whole tab jump every six seconds. */}
+      <div key={surface} className="relative px-5 py-5 h-[132px]">
+        <div className="ps-raw text-[12px] leading-relaxed text-ink-60 italic">
+          “{script.raw}”
+        </div>
+        <div className="ps-clean absolute left-5 right-5 bottom-5">
+          <div className="bg-paper border border-line rounded-[10px] px-3.5 py-3 text-[13px] leading-snug text-ink font-medium">
+            {script.shaped}
+            <span className="ps-caret inline-block w-[2px] h-[13px] bg-ink ml-1 align-text-bottom" />
           </div>
-          <div className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-full bg-[#C96442] text-white text-[10px] flex items-center justify-center font-bold">↑</div>
         </div>
       </div>
-    </div>
-  )
-}
 
-// ChatGPT — clean white with a soft gray composer, round black send button.
-function ChatGPTMock({ raw, clean }: { raw: string; clean: string }) {
-  return (
-    <div className="w-full h-full bg-white border border-ink-08 flex flex-col rounded-[14px] overflow-hidden">
-      <div className="px-3 py-2 border-b border-ink-08 bg-white flex items-center gap-2">
-        <BrandLogo brand="chatgpt" size={16} />
-        <span className="text-[11px] font-semibold text-ink tracking-tight">ChatGPT</span>
-      </div>
-      <div className="flex-1 px-3 py-3 flex items-end">
-        <div className="w-full bg-[#F4F4F4] rounded-[18px] px-3 py-2.5 min-h-[80px] relative">
-          <div className="chat-raw text-[11.5px] leading-snug text-[#888]">{raw}</div>
-          <div className="chat-clean absolute inset-0 px-3 py-2.5 text-[12px] leading-snug text-[#0D0D0D] font-medium">
-            {clean}<span className="chat-caret inline-block w-[2px] h-[12px] bg-[#0D0D0D] ml-0.5 align-text-bottom" />
-          </div>
-          <div className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-full bg-[#0D0D0D] text-white text-[10px] flex items-center justify-center font-bold">↑</div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Cursor — dark IDE theme, mono-leaning chat panel sliding in from the right.
-function CursorMock({ raw, clean }: { raw: string; clean: string }) {
-  return (
-    <div className="w-full h-full bg-[#1E1E1E] border border-[#2D2D2D] flex flex-col rounded-[14px] overflow-hidden">
-      <div className="px-3 py-2 border-b border-[#2D2D2D] bg-[#252526] flex items-center gap-2">
-        <BrandLogo brand="cursor" size={14} />
-        <span className="text-[11px] font-medium text-[#CCCCCC] tracking-tight">Cursor</span>
-        <span className="ml-auto text-[9px] font-mono text-[#7A7A7A]">chat</span>
-      </div>
-      <div className="flex-1 px-3 py-3 flex items-end">
-        <div className="w-full bg-[#2A2A2A] border border-[#3A3A3A] rounded-[10px] px-3 py-2.5 min-h-[80px] relative font-mono">
-          <div className="chat-raw text-[11px] leading-snug text-[#7A7A7A]">{raw}</div>
-          <div className="chat-clean absolute inset-0 px-3 py-2.5 text-[11.5px] leading-snug text-[#E4E4E4] font-medium">
-            {clean}<span className="chat-caret inline-block w-[2px] h-[12px] bg-[#E4E4E4] ml-0.5 align-text-bottom" />
-          </div>
-          <div className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-full bg-[#4A9EFF] text-white text-[10px] flex items-center justify-center font-bold">↑</div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Body: cycling realistic app mockups ──────────────────────────
-
-type Scenario = 'imessage' | 'gmail' | 'notion'
-const ORDER: Scenario[] = ['imessage', 'gmail', 'notion']
-const INSTRUCTIONS: Record<Scenario, string> = {
-  imessage: "make this casual",
-  gmail:    "make it more formal",
-  notion:   "turn into bullets",
-}
-
-function AppMockCycle() {
-  const [idx, setIdx] = useState(0)
-  useEffect(() => {
-    const id = window.setInterval(() => setIdx((i) => (i + 1) % ORDER.length), 6400)
-    return () => window.clearInterval(id)
-  }, [])
-  const s = ORDER[idx]
-
-  return (
-    <div className="bg-card border border-ink-08 rounded-[14px] overflow-hidden">
-      <div key={s} className="animate-stepIn">
-        {s === 'imessage' && <IMessageMock instruction={INSTRUCTIONS.imessage} />}
-        {s === 'gmail'    && <GmailMock    instruction={INSTRUCTIONS.gmail} />}
-        {s === 'notion'   && <NotionMock   instruction={INSTRUCTIONS.notion} />}
-      </div>
-
-      <div className="flex items-center justify-center gap-1.5 pb-3 pt-2 border-t border-ink-08 bg-paper/40">
-        {ORDER.map((_, i) => (
+      <div className="flex items-center justify-center gap-1.5 pb-3">
+        {SURFACES.map((s, i) => (
           <button
-            key={i}
+            key={s}
             onClick={() => setIdx(i)}
+            aria-label={`Show ${SCRIPTS[s].app} example`}
             className={[
               'h-1 rounded-full transition-all duration-300',
-              i === idx ? 'w-5 bg-ink' : 'w-1.5 bg-ink-08 hover:bg-ink-45',
+              i === idx ? 'w-5 bg-ink' : 'w-1.5 bg-ink/15 hover:bg-ink-45',
             ].join(' ')}
-            aria-label={`Show ${ORDER[i]} example`}
           />
         ))}
       </div>
@@ -194,469 +139,15 @@ function AppMockCycle() {
   )
 }
 
-// ─── Shared bits ───────────────────────────────────────────────────
-
-// macOS-style window controls. Order: close / minimize / zoom.
-function TrafficLights() {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className="w-[10px] h-[10px] rounded-full bg-[#FF5F57]" />
-      <span className="w-[10px] h-[10px] rounded-full bg-[#FEBC2E]" />
-      <span className="w-[10px] h-[10px] rounded-full bg-[#28C840]" />
-    </div>
-  )
-}
-
-// macOS pointer-arrow cursor sprite. Positioned absolutely by the
-// parent mock and animated via the shared keyframes below.
-function MacCursor() {
-  return (
-    <svg width="14" height="20" viewBox="0 0 14 20" className="drop-shadow-md pointer-events-none">
-      <path
-        d="M1.5,1 L1.5,15.2 L5,12.2 L7,17 L9,16.2 L7,11.4 L12.2,11.4 Z"
-        fill="white"
-        stroke="black"
-        strokeWidth="1.2"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-// MiniPill is now exported from shared/ui/MiniPill for reuse across tabs.
-
-// All app mocks share this animation timeline so they read as the same
-// flow at different surfaces:
-//
-//   0–15%   app at rest
-//   15–30%  cursor drags across text, native-blue selection grows
-//   30–55%  cursor fades, Yappr pill enters listening, instruction
-//           bubble pops in, raw text starts to fade
-//   55–75%  cleaned text fades in
-//   75–95%  pill switches to polishing → fades out, instruction fades
-//   95–100% hold final
-//
-// 6.4s total per cycle.
-const TIMELINE_STYLES = `
-  @keyframes mock-cursor {
-    0%, 8%      { opacity: 0; transform: translate(0%, 0); }
-    13%         { opacity: 1; transform: translate(0%, 0); }
-    27%         { opacity: 1; transform: translate(100%, 0); }
-    32%, 100%   { opacity: 0; transform: translate(100%, 0); }
-  }
-  @keyframes mock-selection {
-    0%, 12%     { transform: scaleX(0); }
-    27%         { transform: scaleX(1); }
-    62%         { transform: scaleX(1); opacity: 1; }
-    68%, 100%   { transform: scaleX(1); opacity: 0; }
-  }
-  @keyframes mock-before {
-    0%, 50%     { opacity: 1; }
-    62%, 100%   { opacity: 0; }
-  }
-  @keyframes mock-after  {
-    0%, 58%     { opacity: 0; }
-    70%, 100%   { opacity: 1; }
-  }
-  @keyframes mock-pill {
-    0%, 28%     { opacity: 0; transform: translateY(8px); }
-    35%, 78%    { opacity: 1; transform: translateY(0); }
-    85%, 100%   { opacity: 0; transform: translateY(4px); }
-  }
-  @keyframes mock-instr {
-    0%, 32%     { opacity: 0; transform: translateY(6px); }
-    40%, 70%    { opacity: 1; transform: translateY(0); }
-    78%, 100%   { opacity: 0; transform: translateY(4px); }
-  }
-  @keyframes mock-bar1 { 0%,100% { height: 4px; } 50% { height: 9px; } }
-  @keyframes mock-bar2 { 0%,100% { height: 7px; } 50% { height: 2px; } }
-  @keyframes mock-bar3 { 0%,100% { height: 9px; } 50% { height: 5px; } }
-  @keyframes mock-bar4 { 0%,100% { height: 3px; } 50% { height: 8px; } }
-  @keyframes mock-bar5 { 0%,100% { height: 6px; } 50% { height: 2px; } }
-
-  .mock-cursor    { animation: mock-cursor 6.4s ease-in-out infinite; }
-  .mock-selection { animation: mock-selection 6.4s ease-in-out infinite; transform-origin: left center; }
-  .mock-before    { animation: mock-before 6.4s ease-in-out infinite; }
-  .mock-after     { animation: mock-after 6.4s ease-in-out infinite; }
-  .mock-pill      { animation: mock-pill 6.4s ease-in-out infinite; }
-  .mock-instr     { animation: mock-instr 6.4s ease-in-out infinite; }
-  .mini-bar-1 { animation: mock-bar1 0.7s ease-in-out infinite; }
-  .mini-bar-2 { animation: mock-bar2 0.6s ease-in-out infinite; }
-  .mini-bar-3 { animation: mock-bar3 0.55s ease-in-out infinite; }
-  .mini-bar-4 { animation: mock-bar4 0.65s ease-in-out infinite; }
-  .mini-bar-5 { animation: mock-bar5 0.5s ease-in-out infinite; }
-`
-
-// ─── iMessage mock ─────────────────────────────────────────────────
-
-function IMessageMock({ instruction }: { instruction: string }) {
-  return (
-    <div className="relative bg-[#f2f2f7] h-[320px] overflow-hidden">
-      <style>{TIMELINE_STYLES}</style>
-
-      {/* macOS window chrome */}
-      <div className="px-3 py-2 bg-[#ececec] border-b border-ink-08/60 flex items-center gap-3">
-        <TrafficLights />
-      </div>
-
-      <div className="grid grid-cols-[170px_1fr] h-[calc(100%-80px)]">
-        {/* Sidebar */}
-        <div className="border-r border-ink-08/60 bg-[#f6f6f6] flex flex-col">
-          <div className="px-2.5 pt-2 pb-1.5">
-            <div className="bg-white rounded-[6px] h-[20px] flex items-center px-2 text-[9px] text-ink-45 shadow-[0_0_0_0.5px_rgba(0,0,0,0.1)]">
-              <span className="text-[9px]">🔍</span>
-              <span className="ml-1.5">Search</span>
-            </div>
-          </div>
-          <Conv name="Trev Smith" preview="Gotcha covered!" time="Yesterday" color="#f59e0b" />
-          <Conv name="Antonio Manriquez" preview="Is your mind blown?" time="Sunday" color="#94a3b8" />
-          <Conv name="Hiker Neighbors" preview="Reacted ❤️ to 'Guess who…'" time="Sunday" color="#a78bfa" />
-          <Conv name="Orkun" preview="Looking forward to Friday!" time="Sunday" color="#fb923c" selected />
-          <Conv name="Xiaomeng Zhong" preview="Got me thinking about…" time="Sunday" color="#3b82f6" />
-          <Conv name="Aileen & Rich" preview="Hope the little ones…" time="Saturday" color="#64748b" />
-        </div>
-
-        {/* Thread */}
-        <div className="relative flex flex-col bg-white">
-          <div className="px-3 py-1.5 border-b border-ink-08/40 flex flex-col items-center bg-white/85 backdrop-blur-sm">
-            <div className="w-6 h-6 rounded-full bg-[#fb923c] mb-0.5" />
-            <div className="text-[10px] font-medium leading-none flex items-center gap-0.5">Orkun <span className="text-ink-45">›</span></div>
-          </div>
-
-          <div className="flex-1 px-3 py-2.5 space-y-1.5 overflow-hidden">
-            <div className="flex justify-end">
-              <div className="bg-[#34c759] text-white text-[11px] px-2.5 py-1.5 rounded-[15px] rounded-br-[4px] max-w-[80%] leading-snug shadow-sm">
-                Like a jigsaw puzzle?
-              </div>
-            </div>
-            <div className="flex justify-start">
-              <div className="bg-[#e9e9eb] text-ink text-[11px] px-2.5 py-1.5 rounded-[15px] rounded-bl-[4px] max-w-[80%] leading-snug">
-                Oh! I forgot you collect puzzles 🧩
-              </div>
-            </div>
-            {/* The bubble being rewritten */}
-            <div className="flex justify-end">
-              <div className="relative max-w-[80%]">
-                <div className="bg-[#34c759] text-white text-[11px] px-2.5 py-1.5 rounded-[15px] rounded-br-[4px] leading-snug shadow-sm">
-                  <span className="mock-before">
-                    {/* Native-blue selection layer behind the text */}
-                    <span
-                      className="mock-selection absolute inset-x-2.5 inset-y-1.5 rounded-[2px]"
-                      style={{ background: 'rgba(0,122,255,0.42)' }}
-                    />
-                    <span className="relative">I regret to inform you that I will be unable to attend tonight</span>
-                  </span>
-                  <span className="mock-after absolute inset-0 px-2.5 py-1.5">yo can't make it tonight — rain check?</span>
-                </div>
-                {/* Cursor parked at the end of the selection during the drag */}
-                <div className="mock-cursor absolute left-2 top-1.5">
-                  <MacCursor />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="px-3 py-1.5 border-t border-ink-08/40 bg-white flex items-center gap-2">
-            <span className="text-[#007aff] text-[14px] leading-none">+</span>
-            <div className="flex-1 bg-white border border-ink-08/80 rounded-pill h-5 flex items-center px-2 text-[9.5px] text-ink-45">iMessage</div>
-            <span className="text-ink-45 text-[12px]">🎙</span>
-          </div>
-
-        </div>
-      </div>
-
-      {/* Yappr pill — always pinned to bottom-center of the mock,
-          regardless of which app is showing. Instruction floats above. */}
-      <div className="mock-pill absolute left-1/2 -translate-x-1/2 bottom-4 pointer-events-none">
-        <MiniPill />
-      </div>
-      <div className="mock-instr absolute left-1/2 -translate-x-1/2 bottom-[52px] pointer-events-none">
-        <div className="bg-[#1c1c1e]/90 text-white text-[10px] px-2.5 py-1 rounded-pill whitespace-nowrap shadow-lg">
-          "{instruction}"
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function Conv({ name, preview, time, color, selected }: {
-  name: string; preview: string; time: string; color: string; selected?: boolean
-}) {
-  return (
-    <div className={[
-      'px-2 py-1.5 flex items-start gap-2',
-      selected ? 'bg-[#0a84ff] text-white rounded-[6px] mx-1' : '',
-    ].join(' ')}>
-      <div className="w-6 h-6 rounded-full shrink-0" style={{ background: color }} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline justify-between gap-1">
-          <span className={['text-[10px] font-semibold truncate', selected ? 'text-white' : 'text-ink'].join(' ')}>{name}</span>
-          <span className={['text-[8.5px] shrink-0', selected ? 'text-white/75' : 'text-ink-45'].join(' ')}>{time}</span>
-        </div>
-        <div className={['text-[9px] truncate', selected ? 'text-white/85' : 'text-ink-60'].join(' ')}>{preview}</div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Gmail mock ────────────────────────────────────────────────────
-
-function GmailMock({ instruction }: { instruction: string }) {
-  return (
-    <div className="relative h-[320px] bg-[#f6f8fc] overflow-hidden">
-      <style>{TIMELINE_STYLES}</style>
-
-      {/* Browser window chrome */}
-      <div className="px-3 py-2 bg-[#ececec] border-b border-ink-08/60 flex items-center gap-3">
-        <TrafficLights />
-        <div className="flex-1 bg-white border border-ink-08 rounded-[6px] h-5 max-w-[320px] flex items-center px-2.5 text-[9.5px] text-ink-45">
-          🔒 mail.google.com/mail/u/0/#inbox
-        </div>
-      </div>
-
-      {/* Gmail top bar */}
-      <div className="px-3 py-1.5 border-b border-ink-08/60 bg-white flex items-center gap-3">
-        <div className="flex items-center gap-1.5">
-          <BrandLogo brand="gmail" size={16} />
-          <span className="text-[12px] font-medium text-ink-60 tracking-tight">Gmail</span>
-        </div>
-        <div className="flex-1 max-w-[260px] bg-[#eaf1fb] rounded-[6px] h-5 flex items-center px-2 text-[9px] text-ink-45">
-          🔍  Search mail
-        </div>
-        <div className="w-5 h-5 rounded-full bg-[#1a73e8]" />
-      </div>
-
-      <div className="grid grid-cols-[110px_1fr] h-[calc(100%-72px)]">
-        {/* Sidebar */}
-        <div className="bg-white border-r border-ink-08/40 py-2 px-1.5 space-y-0.5 text-[10px]">
-          <div className="bg-[#c2e7ff] text-[#001d35] font-medium rounded-pill px-2.5 py-1 inline-flex items-center gap-1 text-[10.5px] shadow-sm">
-            <span>✏️</span> Compose
-          </div>
-          <SideRow label="Inbox" count="21,333" active />
-          <SideRow label="Starred" />
-          <SideRow label="Snoozed" />
-          <SideRow label="Important" />
-          <SideRow label="Sent" />
-          <SideRow label="Drafts" count="146" />
-        </div>
-
-        {/* Mail list with the floating compose composer over it */}
-        <div className="relative px-2 py-1.5 bg-[#f6f8fc]">
-          <EmailRow sender="Seeking Alpha" preview="Top income ideas. One day…" time="9:56 AM" />
-          <EmailRow sender="Ideabrowser" preview="Idea of the Day: Lego brick scanner…" time="9:52 AM" />
-          <EmailRow sender="Daniel 5" preview="Fwd: IMPORT JEEPCJ7" time="8:25 AM" />
-          <EmailRow sender="Marriott Bonvoy" preview="Earn double points this summer" time="Mon" />
-
-          {/* Floating compose */}
-          <div className="absolute bottom-2 right-2 w-[280px] bg-white rounded-t-[8px] shadow-[0_-2px_12px_rgba(0,0,0,0.16)] border border-ink-08 overflow-hidden">
-            <div className="bg-[#404040] text-white text-[10px] px-2.5 py-1 flex items-center justify-between">
-              <span className="font-medium">New Message</span>
-              <span className="text-white/60 text-[10px] flex gap-1.5">— ⛶ ✕</span>
-            </div>
-            <div className="px-2.5 py-1 border-b border-ink-08/40 text-[10px] flex items-center gap-1">
-              <span className="text-ink-45">To</span>
-              <span className="text-ink">alex@company.com</span>
-            </div>
-            <div className="px-2.5 py-1 border-b border-ink-08/40 text-[10px] flex items-center gap-1">
-              <span className="text-ink-45">Subject</span>
-              <span className="text-ink">Meeting move</span>
-            </div>
-            <div className="px-2.5 py-2 min-h-[70px] relative">
-              <div className="mock-before relative text-[10.5px] leading-snug text-ink">
-                <span
-                  className="mock-selection absolute top-[1px] bottom-[1px] left-0 right-0 rounded-[2px]"
-                  style={{ background: 'rgba(0,122,255,0.32)' }}
-                />
-                <span className="relative">yo so basically the meeting got moved to like 3pm tomorrow lmk if that works</span>
-              </div>
-              <div className="mock-after absolute inset-0 px-2.5 py-2 text-[10.5px] leading-snug text-ink">
-                Heads up — the meeting is now at 3 PM tomorrow. Please let me know if that works.
-              </div>
-
-              <div className="mock-cursor absolute left-1 top-1">
-                <MacCursor />
-              </div>
-            </div>
-            <div className="px-2.5 py-1.5 border-t border-ink-08/40 flex items-center gap-1.5">
-              <div className="bg-[#0b57d0] text-white text-[10px] font-medium px-2.5 py-0.5 rounded">Send</div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* Pill + instruction pinned to bottom-center of the mock. */}
-      <div className="mock-pill absolute left-1/2 -translate-x-1/2 bottom-4 pointer-events-none">
-        <MiniPill />
-      </div>
-      <div className="mock-instr absolute left-1/2 -translate-x-1/2 bottom-[52px] pointer-events-none">
-        <div className="bg-[#1c1c1e]/90 text-white text-[10px] px-2.5 py-1 rounded-pill whitespace-nowrap shadow-lg">
-          "{instruction}"
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function SideRow({ label, count, active }: { label: string; count?: string; active?: boolean }) {
-  return (
-    <div className={[
-      'flex items-center justify-between px-2 py-0.5 rounded-pill',
-      active ? 'bg-[#fce7f3] text-[#a8204e] font-medium' : 'text-ink-60',
-    ].join(' ')}>
-      <span>{label}</span>
-      {count && <span className="text-[9px]">{count}</span>}
-    </div>
-  )
-}
-
-function EmailRow({ sender, preview, time }: { sender: string; preview: string; time: string }) {
-  return (
-    <div className="flex items-center gap-1.5 py-1 border-b border-ink-08/30 bg-white px-1.5 text-[9.5px]">
-      <div className="w-3 h-3 rounded border border-ink-08" />
-      <span className="text-yellow-500 text-[10px]">☆</span>
-      <span className="font-semibold text-ink truncate w-[60px] shrink-0">{sender}</span>
-      <span className="text-ink-60 truncate flex-1">{preview}</span>
-      <span className="text-ink-45 shrink-0">{time}</span>
-    </div>
-  )
-}
-
-// ─── Notion mock ───────────────────────────────────────────────────
-
-function NotionMock({ instruction }: { instruction: string }) {
-  return (
-    <div className="relative h-[320px] bg-white overflow-hidden">
-      <style>{TIMELINE_STYLES}</style>
-
-      {/* Browser-style chrome with the notion.so address */}
-      <div className="px-3 py-2 bg-[#ececec] border-b border-ink-08/60 flex items-center gap-3">
-        <TrafficLights />
-        <div className="flex-1 bg-white border border-ink-08 rounded-[6px] h-5 max-w-[260px] flex items-center px-2.5 text-[9.5px] text-ink-45">
-          🔒 notion.so
-        </div>
-        <div className="bg-white border border-ink-08 rounded text-[9.5px] px-2 py-0.5 flex items-center gap-1">
-          <span className="text-[10px]">N</span>
-          <span>🏠 Acme Home</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-[155px_1fr] h-[calc(100%-32px)]">
-        {/* Sidebar */}
-        <div className="border-r border-ink-08/60 bg-[#f7f6f3] py-2 px-1.5 text-[10px] flex flex-col gap-0.5">
-          <div className="flex items-center gap-1.5 px-1.5 py-1 text-ink-60">
-            <div className="w-3.5 h-3.5 bg-ink rounded text-paper text-[8px] flex items-center justify-center font-bold">A</div>
-            <span className="font-medium text-[10.5px]">Acme Inc.</span>
-            <span className="text-[8px] ml-auto">⇅</span>
-          </div>
-          <NotionRow icon="🔍" label="Quick Find" />
-          <NotionRow icon="⏱" label="All Updates" />
-          <NotionRow icon="⚙" label="Settings & Members" />
-          <div className="text-[8px] text-ink-45 font-semibold uppercase tracking-wider px-1.5 mt-2 mb-0.5">Workspace</div>
-          <NotionRow icon="🏠" label="Acme Home" active />
-          <NotionRow icon="📋" label="Applicant Tracker" />
-          <NotionRow icon="🚗" label="Roadmap" />
-          <NotionRow icon="📝" label="Meeting Notes" />
-          <NotionRow icon="📘" label="Task List" />
-          <div className="text-[8px] text-ink-45 font-semibold uppercase tracking-wider px-1.5 mt-2 mb-0.5">Shared</div>
-          <div className="text-[8px] text-ink-45 font-semibold uppercase tracking-wider px-1.5 mt-1 mb-0.5">Private</div>
-        </div>
-
-        {/* Page */}
-        <div className="relative px-5 py-3 overflow-hidden">
-          <div className="text-[10px] text-ink-45 mb-1 flex items-center gap-1">
-            <span>🏠</span><span>Acme Home / Engineering</span>
-          </div>
-          <div className="text-[22px] font-bold leading-tight mb-3">Project blockers</div>
-
-          <div className="relative">
-            <div className="mock-before relative text-[11px] leading-relaxed text-ink">
-              <span
-                className="mock-selection absolute top-[1px] bottom-[1px] left-0 right-0 rounded-[2px]"
-                style={{ background: 'rgba(0,122,255,0.32)' }}
-              />
-              <span className="relative">the project has three blockers right now design review pricing approval and the api migration</span>
-            </div>
-            <div className="mock-after absolute inset-0 text-[11px] leading-relaxed text-ink">
-              <div className="mb-1.5">The project has three blockers:</div>
-              <div className="pl-2 space-y-0.5 text-ink-60">
-                <div>•&nbsp; Design review</div>
-                <div>•&nbsp; Pricing approval</div>
-                <div>•&nbsp; API migration</div>
-              </div>
-            </div>
-
-            <div className="mock-cursor absolute left-1 top-0.5">
-              <MacCursor />
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* Pill + instruction pinned to bottom-center of the mock. */}
-      <div className="mock-pill absolute left-1/2 -translate-x-1/2 bottom-4 pointer-events-none">
-        <MiniPill />
-      </div>
-      <div className="mock-instr absolute left-1/2 -translate-x-1/2 bottom-[52px] pointer-events-none">
-        <div className="bg-[#1c1c1e]/90 text-white text-[10px] px-2.5 py-1 rounded-pill whitespace-nowrap shadow-lg">
-          "{instruction}"
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function NotionRow({ icon, label, active }: { icon: string; label: string; active?: boolean }) {
-  return (
-    <div className={[
-      'flex items-center gap-1.5 px-1.5 py-1 rounded text-[10px]',
-      active ? 'bg-[#e7e5e0] text-ink font-medium' : 'text-ink-60',
-    ].join(' ')}>
-      <span className="text-[10px]">{icon}</span>
-      <span className="truncate">{label}</span>
-    </div>
-  )
-}
-
-// ─── Context memory card (Feature 4 Phase 1) ──────────────────────
-//
-// Lets the user write a short "Who you are" paragraph that gets
-// injected as background context into the cleanup LLM prompt. The
-// overview lives in userData/context.db (not the Settings store) so
-// Phase 3's auto-compaction can refresh it independently. The toggle
-// itself lives in Settings.
-//
-// UX shape:
-//   1. Description + opt-in framing — context memory is OFF by default.
-//   2. Toggle row: "Use background context in cleanup."
-//   3. Textarea for the overview paragraph, ~150 words max.
-//   4. Save button + saved-just-now flash.
-//   5. Plain "background only — never sent without your Groq key" footer.
+// ─── Context memory ─────────────────────────────────────────────────
 
 const OVERVIEW_MAX_CHARS = 1000  // mirrors src/main/context/store.ts
-// Target word count for the "Copy prompt" helper. ~150 words at
-// ~6 chars/word ≈ 900 chars, comfortably under the 1000-char store
-// cap. We tell the AI to stay under 150 words so even a slightly-over
-// response still fits.
 const OVERVIEW_TARGET_WORDS = 150
 
-// The prompt template the "Copy prompt" button drops into the user's
-// clipboard. Designed for ChatGPT / Claude / any general AI chat. The
-// user pastes it, optionally edits the bracketed sections, sends it,
-// then pastes the response back into the textarea above.
-//
-// Why this shape:
-//   - Tells the AI exactly what the paragraph is FOR (background
-//     context to a dictation-cleanup model), so the response stays
-//     on-topic and useful.
-//   - Hard-caps the word count so the response fits the 1000-char
-//     storage limit without trimming.
-//   - "Output ONLY the paragraph" is the same OUTPUT_GUARD discipline
-//     we use elsewhere — the user shouldn't have to strip preamble
-//     before pasting.
-//   - Bracketed placeholders the user fills in are visually distinct
-//     so it's obvious what needs editing before sending.
+// The prompt the "Copy prompt" button drops into the clipboard: paste it
+// into any AI chat, fill in the bracketed lines, paste the answer back.
+// Hard-capped in words so the response fits the store's character limit,
+// and told to output only the paragraph so nothing has to be stripped.
 function buildContextPromptTemplate(): string {
   return `I'm setting up "background context" for a voice-dictation app called Yappr. Yappr cleans up my dictations using a small LLM, and this paragraph will be passed to that LLM as background so its polish sounds more like me.
 
@@ -710,9 +201,8 @@ function ContextMemoryCard() {
     return () => { alive = false }
   }, [])
 
-  // Poll status every 4s while the card is mounted — cheap, IPC is in-
-  // process, and surfaces the counter incrementing live as the user
-  // dictates without needing a push channel.
+  // Poll status every 4s while mounted — IPC is in-process and cheap, and
+  // it surfaces the counter incrementing live as you dictate.
   useEffect(() => {
     const id = window.setInterval(() => {
       window.yappr.getContextStatus().then(setStatus).catch(() => undefined)
@@ -724,17 +214,18 @@ function ContextMemoryCard() {
 
   const dirty = overview.trim() !== persisted.trim()
   const enabled = settings.useContextMemory
+  const hasGroqKey = settings.provider.groqKey.trim().length > 0
+  const charCount = overview.length
+  const overLimit = charCount > OVERVIEW_MAX_CHARS
 
-  async function toggleEnabled() {
+  async function toggleEnabled(next: boolean) {
     if (!settings) return
-    const next = !settings.useContextMemory
     setSettings({ ...settings, useContextMemory: next })
     await window.yappr.setSettings({ useContextMemory: next })
   }
 
-  async function toggleAutoUpdate() {
+  async function toggleAutoUpdate(next: boolean) {
     if (!settings) return
-    const next = !settings.autoContextUpdate
     setSettings({ ...settings, autoContextUpdate: next })
     await window.yappr.setSettings({ autoContextUpdate: next })
   }
@@ -772,229 +263,115 @@ function ContextMemoryCard() {
     window.setTimeout(() => setSavedFlash(false), 1500)
   }
 
-  async function clear() {
-    setOverview('')
-    setPersisted('')
-    await window.yappr.setContextOverview('')
-  }
-
-  // Drop the ready-to-paste prompt template into the clipboard. The
-  // user pastes it into ChatGPT / Claude, edits the bracketed
-  // sections, sends, and pastes the response into the textarea above.
   async function copyPrompt() {
     try {
       await navigator.clipboard.writeText(buildContextPromptTemplate())
       setCopiedFlash(true)
       window.setTimeout(() => setCopiedFlash(false), 1500)
     } catch {
-      // Clipboard write can fail on some platforms / focus states.
-      // Silently no-op; the user can re-click.
+      // Clipboard writes can fail on some focus states. The user can retry.
     }
   }
 
-  const charCount = overview.length
-  const overLimit = charCount > OVERVIEW_MAX_CHARS
-
-  return (
-    <div className="mt-8 bg-card border border-ink-08 rounded-[16px] px-6 py-6">
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <div className="text-[13px] font-semibold leading-tight">Background context</div>
-          <p className="text-[11.5px] text-ink-60 mt-1 leading-relaxed max-w-[480px]">
-            Write a short paragraph about yourself — what you do, names you mention often, tools you use, voice. Yappr passes it to the cleanup LLM as background so polish sounds more like you. Never sent without your Groq key. Stays on this Mac.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={toggleEnabled}
-          aria-pressed={enabled}
-          className={[
-            'shrink-0 mt-0.5 w-9 h-5 rounded-full transition-colors relative ml-4',
-            enabled ? 'bg-ink' : 'bg-ink-08',
-          ].join(' ')}
-          title={enabled ? 'Click to disable' : 'Click to enable'}
-        >
-          <span
-            className={[
-              'absolute top-0.5 w-4 h-4 rounded-full bg-paper transition-all',
-              enabled ? 'left-[18px]' : 'left-0.5',
-            ].join(' ')}
-          />
-        </button>
-      </div>
-
-      <textarea
-        value={overview}
-        onChange={(e) => setOverview(e.target.value)}
-        placeholder="e.g. I'm Noan, building Yappr — a Mac dictation app. I work in TypeScript and Electron, talk a lot about prompts, Claude, and Groq. My team is small. Voice should stay casual when I'm texting friends, but professional in email."
-        rows={5}
-        className="w-full bg-paper border border-ink-08 rounded-[10px] px-3 py-2.5 text-[12.5px] leading-relaxed mt-3 focus:outline-none focus:border-volt focus:ring-2 focus:ring-volt-muted resize-none"
-        spellCheck
-      />
-
-      <div className="flex items-center justify-between mt-2">
-        <div className={[
-          'text-[10.5px] font-mono',
-          overLimit ? 'text-[#C94A2A]' : 'text-ink-45',
-        ].join(' ')}>
-          {charCount} / {OVERVIEW_MAX_CHARS}
-          {overLimit && ' — trimmed on save'}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={copyPrompt}
-            title="Copies a ready-to-paste prompt to your clipboard. Paste into ChatGPT or Claude, fill in the bracketed sections, then paste the response back here."
-            className={[
-              'text-[11.5px] font-medium rounded-[10px] px-3 py-1.5 transition-colors border',
-              copiedFlash
-                ? 'bg-ok/15 text-ok border-ok/30'
-                : 'bg-paper text-ink-60 hover:text-ink hover:bg-ink-08 border-ink-08',
-            ].join(' ')}
-          >
-            {copiedFlash ? 'Copied — paste into ChatGPT / Claude' : 'Copy prompt'}
-          </button>
-          {persisted.length > 0 && (
-            <button
-              type="button"
-              onClick={clear}
-              className="text-[11.5px] text-ink-60 hover:text-ink hover:bg-ink-08 border border-ink-08 rounded-[10px] px-3 py-1.5 transition-colors"
-            >
-              Clear
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={save}
-            disabled={!dirty || saving}
-            className={[
-              'text-[11.5px] font-medium rounded-[10px] px-4 py-1.5 transition-colors',
-              savedFlash
-                ? 'bg-ok/15 text-ok border border-ok/30'
-                : 'bg-ink text-paper hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed',
-            ].join(' ')}
-          >
-            {savedFlash ? 'Saved' : saving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
-      </div>
-
-      <p className="text-[10.5px] text-ink-45 mt-2 leading-relaxed">
-        Don&rsquo;t want to write it yourself? Click <span className="font-mono">Copy prompt</span>, paste into ChatGPT or Claude with your details, then paste the answer back here.
-      </p>
-
-      {!enabled && persisted.length > 0 && (
-        <p className="text-[10.5px] text-ink-45 mt-3 font-mono leading-relaxed">
-          Saved but not in use. Flip the toggle to enable.
-        </p>
-      )}
-
-      <AutoUpdateRow
-        settings={settings}
-        status={status}
-        refreshing={refreshing}
-        refreshError={refreshError}
-        refreshedFlash={refreshedFlash}
-        onToggleAuto={toggleAutoUpdate}
-        onRefreshNow={refreshNow}
-      />
-    </div>
-  )
-}
-
-interface AutoUpdateRowProps {
-  settings: Settings
-  status: ContextStatus | null
-  refreshing: boolean
-  refreshError: string | null
-  refreshedFlash: boolean
-  onToggleAuto: () => void
-  onRefreshNow: () => void
-}
-
-function AutoUpdateRow({
-  settings,
-  status,
-  refreshing,
-  refreshError,
-  refreshedFlash,
-  onToggleAuto,
-  onRefreshNow,
-}: AutoUpdateRowProps) {
-  const autoOn = settings.autoContextUpdate
-  const hasGroqKey = settings.provider.groqKey.trim().length > 0
   const count = status?.count ?? 0
   const threshold = status?.threshold ?? 50
   const lastAt = status?.lastCompactionAt ?? 0
-  const compacting = status?.compacting ?? false
-
-  const lastLabel = lastAt > 0 ? formatRelativeTime(lastAt) : null
 
   return (
-    <div className="mt-5 pt-5 border-t border-ink-08">
-      <div className="flex items-center justify-between">
-        <div className="min-w-0">
-          <div className="text-[12px] font-semibold leading-tight">Auto-update context</div>
-          <p className="text-[11px] text-ink-60 mt-1 leading-relaxed max-w-[480px]">
-            Every {threshold} dictations, Yappr refreshes the paragraph above from your recent transcripts. Runs in the background only when you&rsquo;re not dictating. Requires a Groq key.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onToggleAuto}
-          aria-pressed={autoOn}
-          disabled={!hasGroqKey}
-          className={[
-            'shrink-0 mt-0.5 w-9 h-5 rounded-full transition-colors relative ml-4 disabled:opacity-40 disabled:cursor-not-allowed',
-            autoOn ? 'bg-ink' : 'bg-ink-08',
-          ].join(' ')}
-          title={!hasGroqKey ? 'Add a Groq key to enable auto-update' : (autoOn ? 'Click to disable' : 'Click to enable')}
-        >
-          <span
-            className={[
-              'absolute top-0.5 w-4 h-4 rounded-full bg-paper transition-all',
-              autoOn ? 'left-[18px]' : 'left-0.5',
-            ].join(' ')}
+    <Panel>
+      <StackRow
+        title="Background context"
+        desc="A short paragraph about you — what you work on, names you say often, how formal you are where. Yappr passes it to the cleanup model so the polish sounds like you. Stays on this Mac."
+        aside={
+          <Toggle
+            on={enabled}
+            onChange={toggleEnabled}
+            label="Use background context"
+            title={enabled ? 'Click to disable' : 'Click to enable'}
           />
-        </button>
-      </div>
+        }
+      >
+        <textarea
+          value={overview}
+          onChange={(e) => setOverview(e.target.value)}
+          placeholder="e.g. I'm Noan, building Yappr — a Mac dictation app. I work in TypeScript and Electron, talk a lot about prompts, Claude, and Groq. Casual when I'm texting, professional in email."
+          rows={5}
+          className="w-full bg-paper border border-line rounded-input px-3 py-2.5 text-[12.5px] leading-relaxed placeholder:text-ink-45 focus:outline-none focus:border-cobalt focus:ring-2 focus:ring-cobalt-soft resize-none"
+          spellCheck
+        />
 
-      <div className="flex items-center justify-between mt-3">
-        <div className="text-[10.5px] font-mono text-ink-45 leading-relaxed">
-          {compacting
-            ? 'Refreshing now…'
-            : lastLabel
-              ? <>Last updated {lastLabel} <span className="text-ink-30">·</span> {count}/{threshold} since last refresh</>
-              : <>Never refreshed automatically <span className="text-ink-30">·</span> {count}/{threshold} dictations</>}
+        <div className="flex items-center justify-between mt-2.5 gap-3">
+          <div className={`text-[10.5px] font-mono ${overLimit ? 'text-danger' : 'text-ink-45'}`}>
+            {charCount} / {OVERVIEW_MAX_CHARS}
+            {overLimit && ' — trimmed on save'}
+          </div>
+          <div className="flex items-center gap-2">
+            <Pill
+              variant={copiedFlash ? 'ok' : 'secondary'}
+              size="sm"
+              onClick={copyPrompt}
+              title="Copies a ready-to-paste prompt. Paste it into ChatGPT or Claude, fill in the brackets, then paste the answer back here."
+            >
+              {copiedFlash ? 'Copied — paste into any AI chat' : 'Write it for me'}
+            </Pill>
+            {persisted.length > 0 && (
+              <Pill variant="ghost" size="sm" onClick={() => { setOverview(''); setPersisted(''); window.yappr.setContextOverview('') }}>
+                Clear
+              </Pill>
+            )}
+            <Pill
+              variant={savedFlash ? 'ok' : 'primary'}
+              size="sm"
+              onClick={save}
+              disabled={!dirty || saving}
+            >
+              {savedFlash ? 'Saved' : saving ? 'Saving…' : 'Save'}
+            </Pill>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={onRefreshNow}
-          disabled={refreshing || !hasGroqKey}
-          className={[
-            'text-[11.5px] font-medium rounded-[10px] px-3 py-1.5 transition-colors border',
-            refreshedFlash
-              ? 'bg-ok/15 text-ok border-ok/30'
-              : 'bg-paper text-ink-60 hover:text-ink hover:bg-ink-08 border-ink-08 disabled:opacity-40 disabled:cursor-not-allowed',
-          ].join(' ')}
-          title={!hasGroqKey ? 'Add a Groq key to enable refresh' : 'Run a compaction now using your recent dictations'}
-        >
-          {refreshedFlash ? 'Refreshed' : refreshing ? 'Refreshing…' : 'Refresh now'}
-        </button>
-      </div>
 
-      {!hasGroqKey && (
-        <p className="text-[10.5px] text-ink-45 mt-2 leading-relaxed">
-          Auto-update requires a Groq key. Add one in the Provider tab to enable.
-        </p>
-      )}
+        {!enabled && persisted.length > 0 && (
+          <p className="text-[10.5px] font-mono text-ink-45 mt-3">
+            Saved but not in use — flip the toggle to enable.
+          </p>
+        )}
+      </StackRow>
 
-      {refreshError && (
-        <p className="text-[10.5px] text-[#C94A2A] mt-2 leading-relaxed">
-          {refreshError}
-        </p>
-      )}
-    </div>
+      <StackRow
+        title="Keep it current"
+        desc={`Every ${threshold} dictations, Yappr rewrites the paragraph above from your recent transcripts. Runs only while you're idle, and needs a Groq key.`}
+        aside={
+          <Toggle
+            on={settings.autoContextUpdate}
+            onChange={toggleAutoUpdate}
+            disabled={!hasGroqKey}
+            label="Auto-update context"
+            title={hasGroqKey ? undefined : 'Add a Groq key in Provider to enable'}
+          />
+        }
+        last
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-[10.5px] font-mono text-ink-45">
+            {status?.compacting
+              ? 'Refreshing now…'
+              : lastAt > 0
+                ? `Last updated ${formatRelativeTime(lastAt)} · ${count}/${threshold} since`
+                : `Never refreshed · ${count}/${threshold} dictations`}
+          </div>
+          <Pill
+            variant={refreshedFlash ? 'ok' : 'secondary'}
+            size="sm"
+            onClick={refreshNow}
+            disabled={refreshing || !hasGroqKey}
+            title={hasGroqKey ? 'Run a compaction now' : 'Add a Groq key in Provider to enable'}
+          >
+            {refreshedFlash ? 'Refreshed' : refreshing ? 'Refreshing…' : 'Refresh now'}
+          </Pill>
+        </div>
+        {refreshError && <p className="text-[10.5px] text-danger mt-2">{refreshError}</p>}
+      </StackRow>
+    </Panel>
   )
 }
 

@@ -10,6 +10,11 @@ const INDICATOR_TOGGLE_RECORD = 'indicator:toggle-record'
 const INDICATOR_PASTE_LAST = 'indicator:paste-last'
 const INDICATOR_POLISH_SELECTION = 'indicator:polish-selection'
 const INDICATOR_SET_INTERACTIVE = 'indicator:set-interactive'
+const INDICATOR_NOTCH_GEOMETRY = 'indicator:notch-geometry'
+const INDICATOR_GEOMETRY_CHANGED = 'indicator:geometry-changed'
+const INDICATOR_RECENT = 'indicator:recent'
+const INDICATOR_COPY_RECENT = 'indicator:copy-recent'
+const PASTE_FALLBACK_RETRY = 'paste-fallback:retry'
 
 contextBridge.exposeInMainWorld('indicator', {
   onStateChange: (cb: (state: string) => void) => {
@@ -28,6 +33,12 @@ contextBridge.exposeInMainWorld('indicator', {
     const settings = await ipcRenderer.invoke(SETTINGS_GET)
     return settings?.inputDeviceId ?? null
   },
+  // The user's actual push-to-talk key, so the notch can show the real
+  // binding rather than a hardcoded placeholder.
+  getHotkey: async (): Promise<string | null> => {
+    const settings = await ipcRenderer.invoke(SETTINGS_GET)
+    return settings?.hotkeys?.pushToTalk ?? null
+  },
   // Idle-pill click menu actions.
   toggleRecord: () => ipcRenderer.send(INDICATOR_TOGGLE_RECORD),
   pasteLast: () => ipcRenderer.send(INDICATOR_PASTE_LAST),
@@ -36,4 +47,23 @@ contextBridge.exposeInMainWorld('indicator', {
   // receive real clicks while the cursor is over the idle pill / menu.
   setInteractive: (interactive: boolean) =>
     ipcRenderer.send(INDICATOR_SET_INTERACTIVE, interactive),
+  // Notch dimensions for the display the indicator currently sits on.
+  // Re-read whenever the window moves between displays, since notch
+  // width and menu bar height are per-display.
+  getNotchGeometry: () => ipcRenderer.invoke(INDICATOR_NOTCH_GEOMETRY),
+  // Fired when notch calibration changes in Settings, so the shape can
+  // re-measure while the slider is still moving.
+  onGeometryChanged: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on(INDICATOR_GEOMETRY_CHANGED, handler)
+    return () => ipcRenderer.removeListener(INDICATOR_GEOMETRY_CHANGED, handler)
+  },
+  // Most recent dictation, surfaced in the peek state and the expanded
+  // panel. Null when history is empty.
+  getRecent: () => ipcRenderer.invoke(INDICATOR_RECENT),
+  copyRecent: () => ipcRenderer.send(INDICATOR_COPY_RECENT),
+  // Retry the paste that fell back to the clipboard. Backs the Insert
+  // action in the notch's `clipboard` state, which replaces the old
+  // bottom-right popup.
+  retryPaste: (): Promise<boolean> => ipcRenderer.invoke(PASTE_FALLBACK_RETRY),
 })

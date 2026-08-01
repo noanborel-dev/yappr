@@ -35,6 +35,15 @@ contextBridge.exposeInMainWorld('yappr', {
   isAccessibilityTrusted: (): Promise<boolean> =>
     ipcRenderer.invoke(IPC.ACCESSIBILITY_CHECK),
   revealLog: () => ipcRenderer.invoke(IPC.REVEAL_LOG),
+  // Notch dimensions as the app currently resolves them, so the
+  // calibration control in General can show what it's correcting and
+  // whether the value came from the estimate or an override.
+  getNotchGeometry: (): Promise<{
+    hasNotch: boolean
+    width: number
+    height: number
+    displayWidth: number
+  }> => ipcRenderer.invoke(IPC.INDICATOR_NOTCH_GEOMETRY),
   reloadHotkeys: () => ipcRenderer.send(IPC.HOTKEYS_RELOAD),
   openOnboarding: () => ipcRenderer.send(IPC.OPEN_ONBOARDING),
   getLaunchAtLogin: (): Promise<boolean> => ipcRenderer.invoke(IPC.LAUNCH_AT_LOGIN_GET),
