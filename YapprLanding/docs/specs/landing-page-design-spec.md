@@ -1,8 +1,8 @@
-# OpenFlow Landing — Design Spec
+# Yappr Landing — Design Spec
 
 > Status: **brainstorm-approved**, ready for implementation.
 > Source-of-truth prototypes live in `.superpowers/brainstorm/39530-1778596052/content/`.
-> Brand rules live in `design-system/openflow-landing/MASTER.md`.
+> Brand rules live in `design-system/yappr-landing/MASTER.md`.
 > Operating rules live in `CLAUDE.md`.
 
 This document consolidates every section decision from the brainstorm into one durable spec. When something contradicts: prototypes > this spec > MASTER.md > CLAUDE.md.
@@ -16,10 +16,10 @@ This document consolidates every section decision from the brainstorm into one d
 Primary goal: **macOS downloads.** Single dominant CTA. The page sells by showing the product working, not describing it.
 
 **Hard rules:**
-- Not open source. Never frame OpenFlow as OSS / MIT / auditable / forkable. Differentiation = creative + BYOK transparency.
+- Not open source. Never frame Yappr as OSS / MIT / auditable / forkable. Differentiation = creative + BYOK transparency.
 - Each section ≤ 1 sentence of body copy. If it grows bullets or paragraphs, rebuild as motion.
 - Cream is the brand. No dark mode.
-- The OpenFlow pill spec must match the real macOS app exactly (liquid-glass, 6 cobalt bars, italic serif label, no timer).
+- The Yappr pill spec must match the real macOS app exactly (liquid-glass, 6 cobalt bars, italic serif label, no timer).
 - No emojis as UI icons. SVGs or real brand logos.
 
 ---
@@ -65,7 +65,7 @@ Two things were explicitly cut from earlier drafts:
 ### Section 1 — Nav
 
 - Sticky bar, cream backdrop with `saturate(140%) blur(10px)` over `rgba(246,242,231,.78)`, 1px bottom border `--line-soft`
-- Left: OpenFlow pill logo (small variant, 18px)
+- Left: Yappr pill logo (small variant, 18px)
 - Middle: anchor links to `#hero`, `#demo`, `#hotkey`, `#privacy`, `#pricing`, `#faq`
 - Right: "Sign in" (ghost) + "Download macOS" (dark pill, 14.5px, with `⌘ ⇧ D` kbd hint)
 - Height 72px
@@ -199,7 +199,7 @@ Layout: full-width card divided into 3 equal panels. Auto-cycles Tap → Hold �
 - Big italic gesture name (Tap / Hold / Double-tap)
 - One-line description
 - Animated **physical keycap** (120×120, cream gradient with `0 6px 0 #b8af90` bottom shadow — looks like a real keyboard key) with the ⌃ glyph
-- Mini OpenFlow pill below the keycap showing the gesture's effect
+- Mini Yappr pill below the keycap showing the gesture's effect
 
 **Active panel** highlights cream (`--accent-soft`) with a 2px red progress bar racing across the bottom (4s linear).
 
@@ -246,9 +246,9 @@ Two-column card: 260px sidebar + dark canvas (`#2a2826`).
 
 **Terminal** — minimal zsh:
 - `noan@laptop — -zsh — 80×24` titlebar
-- `noan@laptop ~/dev/openflow ›` prompt with dictated `gh pr create` command typing in
+- `noan@laptop ~/dev/yappr ›` prompt with dictated `gh pr create` command typing in
 
-All 4 are clickable (`addEventListener('click', showApp)`). Auto-cycles every 8.5s. OpenFlow pill floats at `bottom: 28px` of canvas across all four.
+All 4 are clickable (`addEventListener('click', showApp)`). Auto-cycles every 8.5s. Yappr pill floats at `bottom: 28px` of canvas across all four.
 
 ### Section 6 — Dictionary
 
@@ -300,7 +300,7 @@ Nothing else. No "✕ not in path" box. No "0" callout block. No two-row return 
 Two-column card.
 
 **Left column — the price card** (cream gradient):
-- Name: "OpenFlow" italic
+- Name: "Yappr" italic
 - Tag: "Forever · no account" mono uppercase
 - Price: `$0` (currency 36px, number 96px serif)
 - Unit: "per month, per anything"
@@ -316,7 +316,7 @@ Two-column card.
 - Italic serif quote (30px): `You bring <accent>your own key</accent>. We never touch your card.`
 - Groq card: orange-gradient `G` logo + "Groq Whisper" / "Default provider. Recommended." + green "Free tier" pill
 
-No comparison table. No "$0.006/min OpenAI" rows. Just OpenFlow's price + Groq's free tier.
+No comparison table. No "$0.006/min OpenAI" rows. Just Yappr's price + Groq's free tier.
 
 ### Section 9 — FAQ
 
@@ -324,11 +324,11 @@ White card, accordion style. 5 items. Italic serif summaries (26px), red `+ / �
 
 | Q | A |
 |---|---|
-| Does OpenFlow ever hear my audio? | No. Audio uploads go from the client straight to your chosen provider, using your key, over TLS. OpenFlow servers are not in the path. The polished text comes back to your device and gets pasted locally. |
-| How is this different from *Wispr Flow*? | Wispr proxies your audio through their servers on their plan. OpenFlow doesn't proxy anything — your audio goes straight to the provider, using your own key. Polish is calibrated per destination app (iMessage stays lowercase, Gmail keeps its greeting). Cost, audio path, and tone are yours, not ours. |
+| Does Yappr ever hear my audio? | No. Audio uploads go from the client straight to your chosen provider, using your key, over TLS. Yappr servers are not in the path. The polished text comes back to your device and gets pasted locally. |
+| How is this different from *Wispr Flow*? | Wispr proxies your audio through their servers on their plan. Yappr doesn't proxy anything — your audio goes straight to the provider, using your own key. Polish is calibrated per destination app (iMessage stays lowercase, Gmail keeps its greeting). Cost, audio path, and tone are yours, not ours. |
 | Which providers work? | Today: Groq (free tier, recommended) for transcription, OpenAI Whisper as an alternative, and Anthropic Claude for the polish pass. Local Whisper via whisper.cpp is on the roadmap. |
 | What about Windows and Linux? | macOS is GA. Windows is in private beta. Linux (PipeWire) is coming. |
-| Can I run it fully offline? | Yes — point OpenFlow at a local whisper.cpp endpoint. The pill turns slate-grey to indicate local-only mode. |
+| Can I run it fully offline? | Yes — point Yappr at a local whisper.cpp endpoint. The pill turns slate-grey to indicate local-only mode. |
 
 First item open by default. Italic em inside summaries only on emphasis words. No weird spaces around em tags.
 
@@ -339,13 +339,13 @@ Cream gradient slab, centered.
 **Headline (120px serif):** `Stop typing.<br><em>Start talking.</em>`
 **Lede:** `Free forever. No account. Free Groq tier covers most users.`
 **CTA:** "Download for Mac" with `⌘ ⇧ D` kbd
-**Below CTA, 48px below:** the OpenFlow pill, full-size, just sitting there.
+**Below CTA, 48px below:** the Yappr pill, full-size, just sitting there.
 
 **Footer** (dark slab below the cream CTA):
 - 4-column grid
-- Left col: OpenFlow pill (small) + tagline "Voice dictation that respects your time and your typing."
+- Left col: Yappr pill (small) + tagline "Voice dictation that respects your time and your typing."
 - Cols 2–4: Product / Company / Legal link groups
-- Bottom row: `© 2026 OpenFlow Labs · made in San Francisco`
+- Bottom row: `© 2026 Yappr Labs · made in San Francisco`
 
 No "MIT" / "made in public" / "GitHub" anywhere.
 
@@ -368,7 +368,7 @@ Hero / Polish / Dictionary logos (Slack, iMessage, Gmail) all in place.
 Visual:
 - [ ] No emojis as icons (SVG/PNG only)
 - [ ] All app logos load from `assets/logos/`
-- [ ] Pill spec matches `/Users/noanborel/OpenFlow` source verbatim
+- [ ] Pill spec matches `/Users/noanborel/Yappr` source verbatim
 - [ ] No "open source" / "MIT" / "fork" / "GitHub stars" anywhere
 - [ ] Italic em used only on differentiator nouns
 - [ ] Cream is the only background — no dark mode

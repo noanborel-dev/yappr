@@ -1,12 +1,12 @@
-# OpenFlow Landing — Implementation Plan
+# Yappr Landing — Implementation Plan
 
 > Status: ready to execute.
 > Scope: turn the approved brainstorm prototypes into a shipped Next.js site on Vercel with a working live-demo endpoint.
-> Spec: `docs/specs/landing-page-design-spec.md`. Brand: `design-system/openflow-landing/MASTER.md`. Operations: `CLAUDE.md`.
+> Spec: `docs/specs/landing-page-design-spec.md`. Brand: `design-system/yappr-landing/MASTER.md`. Operations: `CLAUDE.md`.
 
 ## What we're building
 
-A Next.js 14 (App Router) site at `openflow.app` (TBD domain) with:
+A Next.js 14 (App Router) site at `yappr.app` (TBD domain) with:
 - 10 sections, all pixel-locked to the approved prototypes in `.superpowers/brainstorm/39530-1778596052/content/`
 - One Vercel Edge function powering the in-page dictation demo (Groq Whisper → Claude Haiku polish)
 - Upstash Redis for per-IP rate limiting
@@ -47,7 +47,7 @@ Order of work is risk-first: prove the backend works before building the prettie
 
 ### Phase 1 — The pill component (half a day)
 
-**Goal:** ship the OpenFlow pill as a reusable component matching the actual macOS app spec verbatim. Everything else in the site references it.
+**Goal:** ship the Yappr pill as a reusable component matching the actual macOS app spec verbatim. Everything else in the site references it.
 
 1. Create `components/Pill.tsx`. Props: `state: 'listening' | 'polishing' | 'done'`, optional `label?: string` override.
 2. Implement liquid-glass styling from MASTER.md: gradient bg, 34px backdrop-blur, inset highlights, breathing scale animation.
@@ -56,7 +56,7 @@ Order of work is risk-first: prove the backend works before building the prettie
    - `polishing`: 12px cobalt-top spinner + "polishing…"
    - `done`: 13px cobalt check SVG + "copied — ⌘V to paste" (or custom label)
 4. Size variants: `xs` (logo size, 13px), `default` (15px label), `large` (used in hero, slightly bigger).
-5. Create `components/PillLogo.tsx` — the static "OpenFlow" branded pill used in nav and footer (different from the recording pill).
+5. Create `components/PillLogo.tsx` — the static "Yappr" branded pill used in nav and footer (different from the recording pill).
 6. Honor `prefers-reduced-motion` — kill bars animation, kill breathing.
 7. Document in Storybook? No — single-file component, just render all states on a `/_dev/pill` page for visual QA.
 
@@ -164,7 +164,7 @@ Build the UI now, wire to a stub `mockDemo()` that returns hardcoded raw + polis
 ## File tree (target end state)
 
 ```
-OpenFlowLanding/
+YapprLanding/
 ├── app/
 │   ├── layout.tsx
 │   ├── page.tsx                # composes all 10 sections
@@ -213,7 +213,7 @@ OpenFlowLanding/
 ├── docs/
 │   ├── specs/landing-page-design-spec.md
 │   └── plans/landing-page-implementation.md
-├── design-system/openflow-landing/MASTER.md
+├── design-system/yappr-landing/MASTER.md
 └── CLAUDE.md
 ```
 
@@ -230,7 +230,7 @@ OpenFlowLanding/
 
 ## Decisions deferred to implementation time
 
-- Domain choice (openflow.app? openflow.so? user to pick)
+- Domain choice (yappr.app? yappr.so? user to pick)
 - Whether to put the demo behind a soft "what's your email?" gate for 6th+ use (currently no — user said no email capture)
 - Whether to ship a `/changelog` page in v1 (currently no)
 - Sentry / error tracking (currently no)

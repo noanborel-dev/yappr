@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /* ============================================================
-   OpenFlow Landing — Design Tokens
-   Source: design-system/openflow-landing/MASTER.md
+   Yappr Landing — Design Tokens
+   Source: design-system/yappr-landing/MASTER.md
    ============================================================ */
 
 :root {
@@ -80,7 +80,7 @@ body {
 }
 
 /* ============================================================
-   The OpenFlow Pill — pulled verbatim from real macOS app source
+   The Yappr Pill — pulled verbatim from real macOS app source
    ============================================================ */
 
 .pill {

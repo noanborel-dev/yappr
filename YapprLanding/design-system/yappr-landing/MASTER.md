@@ -1,4 +1,4 @@
-# OpenFlow Landing — Design System (MASTER)
+# Yappr Landing — Design System (MASTER)
 
 > Global Source of Truth. Page-specific overrides live in `pages/[page].md` and beat this file when present.
 > Auto-generated picks were overridden manually — the auto picker chose "Vibrant & Block-based" which is wrong for our editorial brand.
@@ -7,7 +7,7 @@
 
 ## Brand North Star
 
-OpenFlow is **editorial-meets-utility**. The site reads like a literary magazine that happens to be selling a developer tool. Big italic display serif, generous whitespace, cream paper, occasional motion that *captures* product behavior rather than decorating around it. **Show, don't explain.**
+Yappr is **editorial-meets-utility**. The site reads like a literary magazine that happens to be selling a developer tool. Big italic display serif, generous whitespace, cream paper, occasional motion that *captures* product behavior rather than decorating around it. **Show, don't explain.**
 
 Visual register (held across all sections):
 - Big italic serif headline (1–2 lines max)
@@ -21,7 +21,7 @@ If a section needs 3+ paragraphs of body copy, it's wrong — rebuild as motion.
 
 ## Pattern
 
-**Hero-Centric + Interactive Product Demo** with **Exaggerated Minimalism** typography over an **Editorial Grid / Magazine** layout. The OpenFlow recording pill uses **Liquid Glass** (and ONLY the pill — nowhere else).
+**Hero-Centric + Interactive Product Demo** with **Exaggerated Minimalism** typography over an **Editorial Grid / Magazine** layout. The Yappr recording pill uses **Liquid Glass** (and ONLY the pill — nowhere else).
 
 Section order:
 1. Nav
@@ -57,7 +57,7 @@ Section order:
 --cobalt:       #5A8FE8;  /* pill bars, done state, polish accent */
 --cobalt-soft:  rgba(90,143,232,.18);
 
-/* OpenFlow pill (Liquid Glass — DO NOT use elsewhere) */
+/* Yappr pill (Liquid Glass — DO NOT use elsewhere) */
 --pill-bg-1:    rgba(18,20,26,0.82);
 --pill-bg-2:    rgba(14,16,22,0.74);
 --pill-dot:     #E84A3A;
@@ -76,7 +76,7 @@ Light mode only. No dark mode — the cream IS the brand.
 | **Display** | Instrument Serif (with italic) | Big italic serif is the editorial signature |
 | **Body / UI** | Inter | Clean utility, neutral, contrasts with serif |
 | **Mono** | JetBrains Mono | Eyebrows, key captions, code, timestamps |
-| **Pill label** | Instrument Serif italic (15px) | Pulled from actual OpenFlow app source |
+| **Pill label** | Instrument Serif italic (15px) | Pulled from actual Yappr app source |
 
 Tailwind config:
 ```js
@@ -100,9 +100,9 @@ Headlines drop the period unless the sentence is the punchline. Italic is reserv
 
 ## Components
 
-### 1. The OpenFlow Pill (the brand mark, basically)
+### 1. The Yappr Pill (the brand mark, basically)
 
-Spec pulled directly from the real product source (`/Users/noanborel/OpenFlow` app):
+Spec pulled directly from the real product source (`/Users/noanborel/Yappr` app):
 
 ```css
 background: linear-gradient(180deg, rgba(18,20,26,0.82), rgba(14,16,22,0.74));
@@ -242,7 +242,7 @@ Still missing (parked): `terminal.png` (using `›_` placeholder is fine — it'
 | ❌ Big serif everywhere | Serif is reserved for headlines + the pill label. Body is Inter. |
 | ❌ Multiple animations on one screen | One animated proof per viewport. The rest is still. |
 | ❌ "Built with React" / "Powered by" badges | We're a product, not a tech stack |
-| ❌ "Open source" / "MIT" / "view source" / "fork" / "star on GitHub" | **OpenFlow is closed-source.** Differentiation = creative + BYOK, not OSS |
+| ❌ "Open source" / "MIT" / "view source" / "fork" / "star on GitHub" | **Yappr is closed-source.** Differentiation = creative + BYOK, not OSS |
 
 ---
 
@@ -262,6 +262,6 @@ Still missing (parked): `terminal.png` (using `›_` placeholder is fine — it'
 - [ ] `prefers-reduced-motion` honored — auto-cycles disabled, end states shown
 - [ ] Responsive at 375 / 768 / 1024 / 1440
 - [ ] No horizontal scroll
-- [ ] Pill spec exactly matches `/Users/noanborel/OpenFlow` source (liquid glass, 6 bars, italic label, no timer)
+- [ ] Pill spec exactly matches `/Users/noanborel/Yappr` source (liquid glass, 6 bars, italic label, no timer)
 - [ ] Each section ≤ 1 sentence of body copy
 - [ ] All app references use real SVGs/PNGs from `/assets/logos/`

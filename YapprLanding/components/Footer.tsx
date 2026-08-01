@@ -27,7 +27,7 @@ const COLUMNS: Array<{ title: string; links: Array<{ label: string; href: string
     links: [
       { label: "Privacy policy", href: "#" },
       { label: "Terms", href: "#" },
-      { label: "Contact", href: "mailto:hello@openflow.app" },
+      { label: "Contact", href: "mailto:hello@yappr.app" },
     ],
   },
 ];
