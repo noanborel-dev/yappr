@@ -228,18 +228,19 @@ function Radio({ on }: { on: boolean }) {
   )
 }
 
-// The brand mark, tile-sized: a red dot and the italic serif, on the same
-// charcoal the notch is drawn in.
+// The brand mark, sized to actually fit a 40px tile: a red dot and the
+// italic serif on the charcoal the notch is drawn in. At 13px the
+// wordmark overran the tile and the final "r" was clipped.
 function MarkGlyph() {
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="inline-flex items-center gap-1">
       <span
-        className="w-[5px] h-[5px] rounded-full"
-        style={{ background: '#E84A3A', boxShadow: '0 0 5px rgba(232,74,58,.6)' }}
+        className="w-1 h-1 rounded-full shrink-0"
+        style={{ background: '#E84A3A', boxShadow: '0 0 4px rgba(232,74,58,.6)' }}
       />
       <span
         className="text-white leading-none"
-        style={{ fontFamily: '"Instrument Serif", Georgia, serif', fontStyle: 'italic', fontSize: 13 }}
+        style={{ fontFamily: '"Instrument Serif", Georgia, serif', fontStyle: 'italic', fontSize: 10.5 }}
       >
         Yappr
       </span>

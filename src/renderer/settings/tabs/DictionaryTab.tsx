@@ -153,28 +153,37 @@ function MishearingStrip() {
           heard<br />→ written
         </div>
         {/* Fixed height so the two layers can stack without the card
-            resizing as they cross-fade. */}
-        <div key={idx} className="relative h-[42px] flex items-center">
-          <div className="dict-out absolute inset-0 flex items-center text-[13px] text-ink-60">
-            {s.wrong.map((seg, i) => (
-              <span
-                key={i}
-                className={seg.bad ? 'line-through decoration-danger/70 text-danger/80' : ''}
-              >
-                {seg.text}
-              </span>
-            ))}
-          </div>
-          <div className="dict-in absolute inset-0 flex items-center text-[13px] text-ink font-medium">
-            {s.right.map((seg, i) => (
-              <span
-                key={i}
-                className={seg.hit ? 'underline decoration-cobalt decoration-2 underline-offset-[3px]' : ''}
-              >
-                {seg.text}
-              </span>
-            ))}
-          </div>
+            resizing as they cross-fade.
+
+            The segments must stay INLINE inside one <p>. As flex children
+            they were flex items, and flex layout drops the leading and
+            trailing whitespace in each — the sentence rendered as
+            "push toGet Huband runkoob control". */}
+        <div key={idx} className="relative h-[42px]">
+          <p className="dict-out absolute inset-0 flex items-center text-[13px] text-ink-60">
+            <span>
+              {s.wrong.map((seg, i) => (
+                <span
+                  key={i}
+                  className={seg.bad ? 'line-through decoration-danger/70 text-danger/80' : ''}
+                >
+                  {seg.text}
+                </span>
+              ))}
+            </span>
+          </p>
+          <p className="dict-in absolute inset-0 flex items-center text-[13px] text-ink font-medium">
+            <span>
+              {s.right.map((seg, i) => (
+                <span
+                  key={i}
+                  className={seg.hit ? 'underline decoration-cobalt decoration-2 underline-offset-[3px]' : ''}
+                >
+                  {seg.text}
+                </span>
+              ))}
+            </span>
+          </p>
         </div>
       </div>
     </div>

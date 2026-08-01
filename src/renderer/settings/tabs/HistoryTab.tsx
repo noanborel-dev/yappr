@@ -104,10 +104,20 @@ function HistoryItem({
   copied: boolean
   onCopy: () => void
 }) {
+  const [expanded, setExpanded] = useState(false)
   return (
     <div className="bg-card border border-line rounded-[12px] px-4 py-3 flex items-start gap-3 group hover:border-ink-45 transition-colors">
       <div className="flex-1 min-w-0">
-        <div className="text-[12.5px] leading-relaxed whitespace-pre-wrap break-words">
+        {/* Clamped: a dictated Claude Code prompt can run 40 lines, and
+            unclamped entries turned the list into one entry per screen.
+            Click to expand the one you're looking for. */}
+        <div
+          onClick={() => setExpanded((v) => !v)}
+          className={[
+            'text-[12.5px] leading-relaxed whitespace-pre-wrap break-words cursor-pointer',
+            expanded ? '' : 'line-clamp-4',
+          ].join(' ')}
+        >
           {item.cleaned}
         </div>
         <div className="text-[10px] font-mono text-ink-45 mt-1.5 flex items-center gap-2 flex-wrap">

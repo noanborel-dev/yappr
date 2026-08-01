@@ -107,18 +107,17 @@ function PromptShaping() {
         </span>
       </div>
 
-      {/* Fixed height: the raw line and the shaped line are different
-          lengths, and a box that resizes as they cross-fade makes the
-          whole tab jump every six seconds. */}
-      <div key={surface} className="relative px-5 py-5 h-[132px]">
-        <div className="ps-raw text-[12px] leading-relaxed text-ink-60 italic">
+      {/* Both lines stay in flow and reserve their space — only opacity
+          animates. Floating the shaped line at the bottom of a fixed box
+          left a dead band in the middle for the half of the loop where it
+          hadn't faded in yet. */}
+      <div key={surface} className="px-5 py-4 flex flex-col gap-3">
+        <div className="ps-raw text-[12px] leading-relaxed text-ink-60 italic min-h-[36px]">
           “{script.raw}”
         </div>
-        <div className="ps-clean absolute left-5 right-5 bottom-5">
-          <div className="bg-paper border border-line rounded-[10px] px-3.5 py-3 text-[13px] leading-snug text-ink font-medium">
-            {script.shaped}
-            <span className="ps-caret inline-block w-[2px] h-[13px] bg-ink ml-1 align-text-bottom" />
-          </div>
+        <div className="ps-clean bg-paper border border-line rounded-[10px] px-3.5 py-3 text-[13px] leading-snug text-ink font-medium min-h-[44px]">
+          {script.shaped}
+          <span className="ps-caret inline-block w-[2px] h-[13px] bg-ink ml-1 align-text-bottom" />
         </div>
       </div>
 

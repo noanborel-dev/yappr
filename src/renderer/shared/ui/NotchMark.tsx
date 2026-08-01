@@ -165,14 +165,27 @@ export function MenuBar({
   tone?: 'desktop' | 'dark' | 'light'
   right?: ReactNode
 }) {
+  // Translucent by default rather than opaque: the caller paints the
+  // wallpaper, and the bar is a frosted strip over it. Painting the same
+  // gradient here made the strip invisible, so the shape appeared to hang
+  // off nothing — and "it hangs from the menu bar" is the whole point.
   const bg =
     tone === 'dark'
       ? 'rgba(10,11,15,.92)'
       : tone === 'light'
         ? 'rgba(255,255,255,.72)'
-        : 'linear-gradient(180deg, #6E83A8 0%, #62789C 100%)'
+        : 'rgba(255,255,255,.14)'
   return (
-    <div style={{ position: 'relative', height: 30, background: bg, flex: 'none' }}>
+    <div
+      style={{
+        position: 'relative',
+        height: 30,
+        background: bg,
+        borderBottom: '1px solid rgba(255,255,255,.16)',
+        backdropFilter: 'blur(8px)',
+        flex: 'none',
+      }}
+    >
       {right && (
         <div
           style={{
