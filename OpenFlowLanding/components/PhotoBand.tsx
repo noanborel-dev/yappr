@@ -37,17 +37,37 @@ export type Photo = {
 export function PhotoBand({
   photo,
   priority,
+  /**
+   * Open from an inset card to full-bleed as the band rises into view.
+   * Used on the first band, where it doubles as the page's first real
+   * piece of motion. Off elsewhere — every band doing it would be noise.
+   */
+  expand,
 }: {
   photo?: Photo;
   priority?: boolean;
+  expand?: boolean;
 }) {
-  const { ref, offset } = useParallax();
+  const { ref, offset, progress } = useParallax();
 
   // No asset yet → render nothing rather than a placeholder.
   if (!photo?.src) return null;
 
+  // 0 → inset card, 1 → full bleed. Clip-path, not width: the image and
+  // the headline stay put while the frame opens around them.
+  // Stays fully inset until the band is completely on screen, then opens
+  // over the back half of the travel. Expanding on entry meant it had
+  // already gone full-bleed before you'd seen the photograph.
+  const open = expand ? Math.min(1, Math.max(0, (progress - 0.62) / 0.3)) : 1;
+  const x = Math.round((1 - open) * 130);
+  const r = Math.round((1 - open) * 26);
+
   return (
-    <section className={`pb pb--${photo.align ?? "left"}`} ref={ref}>
+    <section
+      className={`pb pb--${photo.align ?? "left"} ${expand ? "pb--expand" : ""}`}
+      ref={ref}
+      style={expand ? { clipPath: `inset(0 ${x}px round ${r}px)` } : undefined}
+    >
       {/* The image is taller than the band and drifts against the scroll,
           so you appear to be looking through a window rather than at a
           picture stuck to the page. */}
@@ -89,6 +109,7 @@ const PARALLAX_RANGE = 46;
 function useParallax() {
   const ref = useRef<HTMLElement>(null);
   const [offset, setOffset] = useState(0);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -104,6 +125,8 @@ function useParallax() {
       // -1 fully below the fold → +1 fully above it.
       const p = 1 - (2 * (r.top + r.height / 2)) / (vh + r.height);
       setOffset(Math.round(p * PARALLAX_RANGE * 100) / 100);
+      // 0 as the top edge enters from below, 1 once it reaches mid-screen.
+      setProgress(Math.min(1, Math.max(0, (vh - r.top) / (vh * 0.9))));
     };
     const onScroll = () => {
       if (!frame) frame = requestAnimationFrame(update);
@@ -118,5 +141,5 @@ function useParallax() {
     };
   }, []);
 
-  return { ref, offset };
+  return { ref, offset, progress };
 }

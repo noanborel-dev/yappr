@@ -3982,6 +3982,9 @@ body {
 }
 .ni-wing--l { justify-content: flex-end; padding: 0 11px 0 14px; }
 .ni-wing--r { justify-content: flex-start; padding: 0 14px 0 11px; gap: 8px; }
+/* idle is lw:0 / rw:0 in the app — zero-width wings, no padding. At rest
+   the shape is EXACTLY the notch and paints nothing. */
+.ni--idle .ni-wing { padding: 0; }
 .ni-notch { flex: none; }
 
 .ni-dot {
@@ -4188,32 +4191,307 @@ body {
 .ws-win--browser { top: 22px; }
 
 /* ============================================================
-   Final CTA — opens to full screen on scroll
+   The interface, explained against a real Mac menu bar
    ============================================================ */
 
-.cta-section {
-  padding: 0 0 clamp(48px, 7vh, 88px);
-}
-/* The panel is always full-width; ScrollFullBleed clips it inward at rest
-   and releases as you arrive. Clipping rather than resizing keeps the type
-   perfectly still while the frame opens around it. */
-.sfb {
-  will-change: clip-path;
-  transition: clip-path 120ms linear;
-}
-.cta-panel {
+/* Its own background rather than .section--dark: that section's two
+   coloured radials fought the desktop and read as a smudge behind it.
+   One cool, even wash instead — it should feel like a dark room with a
+   screen in it. */
+.tn {
+  position: relative;
+  padding: clamp(96px, 14vh, 168px) 0 clamp(88px, 12vh, 148px);
+  /* Sits between a near-black section above and cream below, so it can't
+     be either. A graphite-slate with a cool cast: clearly a step up from
+     #15161a, still obviously dark against the cream that follows. */
   background:
-    radial-gradient(90% 70% at 50% 0%, rgba(255, 255, 255, 0.9), transparent 60%),
-    linear-gradient(170deg, #fbf9f1 0%, #efe9d8 100%);
-  border-top: 1px solid var(--line-soft);
-  border-bottom: 1px solid var(--line-soft);
+    radial-gradient(100% 70% at 50% 0%, #3a4050 0%, #2b303c 45%, #232732 100%);
+  color: var(--cream);
+  overflow: clip;
+}
+.tn .sec-title { color: var(--cream); }
+.tn .sec-lede { color: #b9b5a8; }
+.tn .sec-eyb { color: #f3a08f; }
+.tn .sec-num { color: #8a8779; border-right-color: rgba(255, 255, 255, 0.16); }
+
+/* --- the screen --- */
+.tn-mac {
+  position: relative;
+  border-radius: 14px 14px 18px 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 50px 90px -40px rgba(0, 0, 0, 0.85);
+  /* A plausible macOS wallpaper: warm horizon, cool sky. Nothing lifted. */
+  background:
+    radial-gradient(120% 90% at 50% 118%, rgba(200, 85, 61, 0.5), transparent 60%),
+    linear-gradient(175deg, #2f3a52 0%, #263047 42%, #1b2233 100%);
+}
+
+/* --- menu bar --- */
+.tn-bar {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  height: 30px;
+  background: rgba(10, 11, 15, 0.42);
+  -webkit-backdrop-filter: saturate(150%) blur(12px);
+  backdrop-filter: saturate(150%) blur(12px);
+}
+.tn-bar-l,
+.tn-bar-r {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 0 14px;
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.86);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.tn-bar-r { justify-content: flex-end; gap: 13px; }
+.tn-apple { display: flex; }
+.tn-apple svg { width: 12px; height: 14px; }
+.tn-app { font-weight: 600; }
+.tn-menu { color: rgba(255, 255, 255, 0.82); }
+.tn-ico { width: 15px; height: 15px; color: rgba(255, 255, 255, 0.82); }
+.tn-clock { font-variant-numeric: tabular-nums; }
+
+/* The notch sits in the bar, not on top of it. */
+.tn-notch-slot { flex: none; position: relative; z-index: 2; }
+/* The hardware cutout: always present, sized to the notch, behind the
+   indicator's shell (which is the same black, so they read as one). */
+.tn-hw {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 162px;
+  height: 30px;
+  background: #0a0b0f;
+  border-radius: 0 0 11px 11px;
+  z-index: 0;
+}
+
+@media (max-width: 900px) {
+  .tn-bar-l .tn-menu:nth-child(n + 4) { display: none; }
+  .tn-bar-r .tn-ico:nth-child(n + 3) { display: none; }
+}
+
+/* --- desktop below --- */
+.tn-desktop {
+  height: clamp(230px, 30vw, 340px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 26px;
+}
+.tn-window {
+  width: min(70%, 620px);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #1c1e22;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 26px 50px -20px rgba(0, 0, 0, 0.6);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.tn-window.dim { opacity: 0.5; transform: scale(0.99); }
+.tn-win-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  background: #2c2e33;
+}
+.tn-win-bar i { width: 9px; height: 9px; border-radius: 999px; display: block; }
+.tn-win-bar i.r { background: #ff5f57; }
+.tn-win-bar i.y { background: #febc2e; }
+.tn-win-bar i.g { background: #28c840; }
+.tn-win-title {
+  margin-left: auto;
+  margin-right: auto;
+  padding-right: 44px;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.tn-win-body {
+  display: block;
+  padding: 16px 18px 22px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.tn-line { display: block; color: rgba(255, 255, 255, 0.82); }
+.tn-line--h { color: #c8553d; }
+.tn-dim { color: rgba(255, 255, 255, 0.45); }
+.tn-prompt {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+}
+.tn-chev { color: #c8553d; }
+.tn-landed { color: #c0bdba; animation: ws-fade 0.4s ease-out both; }
+.tn-caret {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.5);
+  animation: cc-blink 1.1s step-end infinite;
+}
+
+/* --- wing labels --- */
+.tn-tag {
+  position: absolute;
+  top: 46px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+  transition: opacity 0.4s ease;
+}
+.tn-tag.off { opacity: 0; }
+.tn-tag::before {
+  content: "";
+  position: absolute;
+  top: -14px;
+  height: 11px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.26);
+}
+.tn-tag--l { right: 56%; text-align: right; }
+.tn-tag--l::before { right: 6px; }
+.tn-tag--r { left: 56%; }
+.tn-tag--r::before { left: 6px; }
+
+/* --- the four beats --- */
+.tn-beats {
+  list-style: none;
+  margin: 44px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+}
+@media (min-width: 860px) {
+  .tn-beats { grid-template-columns: repeat(4, 1fr); gap: 22px; }
+}
+.tn-beats li {
+  position: relative;
+  padding-top: 15px;
+  opacity: 0.34;
+  transition: opacity 0.45s ease;
+}
+.tn-beats li.on { opacity: 1; }
+.tn-num {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: #8a8779;
+  margin-bottom: 7px;
+}
+.tn-when {
+  display: block;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 21px;
+  color: var(--cream);
+  margin-bottom: 6px;
+}
+.tn-note {
+  display: block;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #b9b5a8;
+  max-width: 30ch;
+}
+/* Top rule fills across the active beat, pacing the loop. */
+.tn-rule {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.13);
+  overflow: hidden;
+}
+.tn-beats li.on .tn-rule::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #f3a08f;
+  transform-origin: left;
+  animation: tn-fill 3s linear both;
+}
+@keyframes tn-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* ============================================================
+   Final CTA — pins, then opens to full screen
+   ============================================================ */
+
+/* Tall track: the scroll distance the pin consumes while it opens. */
+.cta-track {
+  position: relative;
+  height: 200vh;
+  /* NEVER overflow:hidden here — it makes this a scroll container and the
+     sticky pin below silently stops pinning. */
+}
+.cta-pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cta-clip {
+  width: 100%;
+  height: 100%;
+  will-change: clip-path;
+  transition: clip-path 100ms linear;
+}
+/* Inverted. It was cream-on-cream against a cream page — the panel had
+   nothing to stand against, so "opening to full screen" was invisible.
+   Ink closes the page and makes the expansion actually read. */
+.cta-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  padding: clamp(96px, 15vh, 168px) 32px clamp(80px, 11vh, 128px);
+  padding: 32px;
+  color: var(--cream);
+  background:
+    radial-gradient(85% 60% at 50% 12%, rgba(200, 85, 61, 0.22), transparent 62%),
+    radial-gradient(70% 55% at 50% 100%, rgba(90, 143, 232, 0.16), transparent 60%),
+    linear-gradient(170deg, #1c1e25 0%, #121419 100%);
+}
+.cta-title { color: var(--cream); }
+.cta-sub { color: #bcb8a8; }
+.cta-fine { color: #8a8779; }
+/* The primary button is ink-on-cream by default, which disappears on ink. */
+.cta-panel .btn-primary { background: var(--cream); color: var(--ink); }
+.cta-panel .btn-chip {
+  background: rgba(20, 22, 30, 0.08);
+  border-color: rgba(20, 22, 30, 0.16);
 }
 .cta-title {
   font-family: var(--font-serif);
   font-weight: 400;
-  font-size: clamp(52px, 10vw, 116px);
+  font-size: clamp(52px, 9vw, 112px);
   line-height: 0.94;
   letter-spacing: -0.025em;
   margin: 0 0 22px;
@@ -4221,15 +4499,15 @@ body {
 .cta-title em { font-style: italic; }
 .cta-sub {
   font-size: 18px;
-  color: var(--ink-2);
   max-width: 520px;
   margin: 0 auto 34px;
 }
-.cta-fine { font-size: 13.5px; color: var(--muted); margin: 16px 0 0; }
-.cta-mark { margin-top: 52px; display: flex; justify-content: center; }
+.cta-fine { font-size: 13.5px; margin: 16px 0 0; }
+.cta-mark { margin-top: 44px; }
 
 @media (max-width: 900px) {
-  .cta-panel { padding-left: 22px; padding-right: 22px; }
+  .cta-track { height: 170vh; }
+  .cta-mark { margin-top: 30px; }
 }
 
 /* ============================================================

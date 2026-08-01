@@ -1,6 +1,7 @@
 import { Nav } from "@/components/Nav";
 import { Hero } from "@/components/Hero";
 import { BuiltForBuilders } from "@/components/BuiltForBuilders";
+import { TheNotch } from "@/components/TheNotch";
 import { PromptShaping } from "@/components/PromptShaping";
 import { SelectRewrite } from "@/components/SelectRewrite";
 import { PersistentContext } from "@/components/PersistentContext";
@@ -29,8 +30,10 @@ export default function Home() {
         <Hero />
         {/* One real-world frame between the hero mockup and the dark identity
             section — the page is otherwise all CSS-drawn app chrome. */}
-        <PhotoBand photo={PHOTOS.buildBench} />
+        <PhotoBand photo={PHOTOS.buildBench} expand priority />
         <BuiltForBuilders />
+        {/* What the app actually is, before the feature deep-dives */}
+        <TheNotch />
         {/* The three features, in order of what actually sells the product */}
         <PromptShaping />
         <SelectRewrite />
