@@ -35,6 +35,12 @@ contextBridge.exposeInMainWorld('yappr', {
   isAccessibilityTrusted: (): Promise<boolean> =>
     ipcRenderer.invoke(IPC.ACCESSIBILITY_CHECK),
   revealLog: () => ipcRenderer.invoke(IPC.REVEAL_LOG),
+  getAppInfo: (): Promise<{
+    version: string
+    arch: string
+    electron: string
+    packaged: boolean
+  }> => ipcRenderer.invoke(IPC.APP_INFO),
   // Notch dimensions as the app currently resolves them, so the
   // calibration control in General can show what it's correcting and
   // whether the value came from the estimate or an override.

@@ -17,35 +17,6 @@ const META: Record<Bucket, { title: string; sub: string; icon: BrandSlug }> = {
 const LEVEL_LABEL: Record<Strictness, string> = { 1: 'Light', 2: 'Balanced', 3: 'Strict' }
 const ORDER: Bucket[] = ['personal', 'work', 'writing']
 
-// Per-context example dictation and what each level does to it.
-// Deliberately not lunch-themed — that's the other guys' example.
-const EXAMPLES: Record<Bucket, { raw: string; outputs: Record<Strictness, string> }> = {
-  personal: {
-    raw: 'yo um did you get the package i sent like the one with the book',
-    outputs: {
-      1: 'yo did you get the package i sent like the one with the book',
-      2: 'did you get the package I sent? the one with the book',
-      3: 'Did the package make it to you — the one with the book?',
-    },
-  },
-  work: {
-    raw: 'hey just wanted to follow up on the proposal um can you let me know if you got a chance to look at it',
-    outputs: {
-      1: 'hey just wanted to follow up on the proposal can you let me know if you got a chance to look at it',
-      2: "Just following up on the proposal — can you let me know if you've had a chance to look?",
-      3: "Hi — following up on the proposal. Could you let me know once you've had a chance to review it?",
-    },
-  },
-  writing: {
-    raw: 'so the main idea is that um we want users to feel like the app is responding to them and like adapting',
-    outputs: {
-      1: 'so the main idea is that we want users to feel like the app is responding to them and like adapting',
-      2: 'The main idea is that we want users to feel the app is responding to them and adapting.',
-      3: 'The core idea: users should feel the app responds and adapts to them.',
-    },
-  },
-}
-
 // Code is FAITHFUL — one example, one output, never level-dependent.
 const CODE_EXAMPLE = {
   raw: 'git commit dash m fix the um the bug in user auth',
@@ -121,13 +92,10 @@ export default function PolishTab() {
                 />
               </div>
 
-              {isOpen && (
-                <Preview
-                  raw={EXAMPLES[bucket].raw}
-                  cleaned={EXAMPLES[bucket].outputs[level]}
-                  levelLabel={LEVEL_LABEL[level]}
-                />
-              )}
+              {/* No inline preview here. The fan-out above already shows
+                  this row's output at this row's level, and two previews
+                  of one setting on one screen is one too many — clicking
+                  the row highlights its card up there instead. */}
             </div>
           )
         })}

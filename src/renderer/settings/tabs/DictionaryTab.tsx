@@ -149,9 +149,13 @@ function MishearingStrip() {
         }
       `}</style>
 
-      <MenuBar>
-        <NotchMark state="recording" notchWidth={92} />
-      </MenuBar>
+      {/* A desktop for the strip to be part of — over bare cream the
+          translucent bar disappears and the shape reads as floating. */}
+      <div className="bg-[linear-gradient(135deg,#6E83A8_0%,#5A7196_55%,#4F6585_100%)]">
+        <MenuBar>
+          <NotchMark state="recording" notchWidth={92} />
+        </MenuBar>
+      </div>
 
       <div className="px-9 pt-7 pb-8">
         <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-accent mb-3">

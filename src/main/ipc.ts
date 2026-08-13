@@ -87,6 +87,16 @@ export function registerIpcHandlers(hooks: IpcHooks = {}): void {
     }
   })
 
+  ipcMain.handle(IPC.APP_INFO, () => ({
+    version: app.getVersion(),
+    arch: process.arch,
+    electron: process.versions.electron,
+    // packaged tells About whether "check for updates" is even meaningful
+    // — in dev it always points at a download page for a build you're not
+    // running.
+    packaged: app.isPackaged,
+  }))
+
   ipcMain.handle(IPC.PROVIDER_TEST, async (_e, { provider, key }) => {
     try {
       if (provider === 'groq') await testGroqKey(key)

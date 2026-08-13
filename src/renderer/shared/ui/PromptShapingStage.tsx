@@ -131,8 +131,13 @@ export function PromptShapingStage() {
   return (
     <div className="stage-bleed bg-cream2/60 border-y border-line px-9 pt-0 pb-7 mb-7">
       {/* The indicator hangs from a menu bar, as it must — and moves
-          through the same states the text below is moving through. */}
-      <div className="-mx-9 mb-6">
+          through the same states the text below is moving through.
+
+          The strip needs a desktop behind it. Over cream, a translucent
+          white bar is invisible, and the shape read as floating in the
+          middle of the pane — which is the one thing the notch may never
+          appear to do. */}
+      <div className="-mx-9 mb-6 bg-[linear-gradient(135deg,#6E83A8_0%,#5A7196_55%,#4F6585_100%)]">
         <MenuBar>
           <NotchMark state={NOTCH_FOR[phase]} notchWidth={92} />
         </MenuBar>

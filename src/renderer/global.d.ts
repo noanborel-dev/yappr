@@ -21,6 +21,13 @@ export interface LocalModelStatus {
   downloaded: Record<LocalModelId, boolean>
 }
 
+export interface AppInfo {
+  version: string
+  arch: string
+  electron: string
+  packaged: boolean
+}
+
 /** Notch dimensions for the display the indicator currently sits on. */
 export interface NotchGeometry {
   hasNotch: boolean
@@ -52,6 +59,7 @@ declare global {
       openAccessibilitySettings: () => Promise<void>
       isAccessibilityTrusted: () => Promise<boolean>
       revealLog: () => Promise<void>
+      getAppInfo: () => Promise<AppInfo>
       getNotchGeometry: () => Promise<NotchGeometry>
       reloadHotkeys: () => void
       openOnboarding: () => void

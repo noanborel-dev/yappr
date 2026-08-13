@@ -1,38 +1,43 @@
 import { useEffect, useState } from 'react'
 import type { Settings } from '../../../shared/types'
+import type { AppInfo } from '../../global'
 import { Wordmark } from '../../shared/ui/Wordmark'
 import { Pill } from '../../shared/ui/Pill'
 import { SectionHead, GroupLabel } from '../../shared/ui/SectionHead'
 import { Panel, SettingRow } from '../../shared/ui/Panel'
 
-const VERSION = '0.1.0'
-const BUILD = '218'   // stamped at package time; placeholder for now
-const ARCH = 'arm64'  // populated later from process.arch via IPC
-
 export default function AboutTab() {
   const [settings, setSettings] = useState<Settings | null>(null)
+  const [info, setInfo] = useState<AppInfo | null>(null)
 
   useEffect(() => {
     window.yappr.getSettings().then(setSettings)
+    window.yappr.getAppInfo().then(setInfo)
   }, [])
+
+  const version = info?.version ?? '—'
 
   return (
     <div className="max-w-[720px]">
       <SectionHead
         ord="08"
         label="About"
-        headline={<>Yappr <em className="italic">{VERSION}</em>.</>}
+        headline={<>Yappr <em className="italic">{version}</em>.</>}
         body="Version, license, and where to look when something goes wrong."
       />
 
       <div className="flex items-center gap-5 bg-card border border-line rounded-card px-6 py-5 mb-6">
         <Wordmark size="hero" />
         <div className="flex-1 min-w-0">
+          {/* Read from the running app. This line used to be three string
+              literals — "v0.1.0 · Build 218 · macOS arm64" — which were
+              wrong the moment any of them changed, and would have shipped
+              "arm64" to every Intel Mac. */}
           <div className="text-[11.5px] font-mono text-ink-60">
-            v{VERSION} · Build {BUILD} · macOS {ARCH}
+            v{version} · macOS {info?.arch ?? '—'}
+            {info && !info.packaged && ' · dev'}
           </div>
           <div className="flex items-center gap-1.5 mt-2.5">
-            <Tag tone="ok">up to date</Tag>
             <Tag>BYOK</Tag>
             <Tag>no telemetry</Tag>
           </div>
