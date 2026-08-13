@@ -4,6 +4,7 @@ import {
   fromPipelineState,
   recorderActionFor,
   paintsTranscript,
+  bandGeometry,
   formatHotkey,
   ACCENT,
   LABEL_SIZE,
@@ -91,13 +92,8 @@ const COPIED_HOLD_MS = 1600
  */
 const HOVER_SLACK = 30
 
-/**
- * Extra points reserved on each side of the estimated notch before a wing
- * may paint. Absorbs error in the width estimate: too wide only opens a
- * small gap between the housing and the content, while too narrow hides
- * content behind the cutout entirely.
- */
-const NOTCH_SAFETY = 14
+
+
 
 const FALLBACK_GEOMETRY: NotchGeometryIPC = {
   hasNotch: false,
@@ -415,12 +411,12 @@ export default function NotchIndicator() {
   // is nearest it: the record dot, the first waveform bars, the start of
   // the label. Since width is the one dimension we cannot read, the margin
   // buys tolerance for being wrong in the direction that costs content.
-  const bandWidth = geometry.width + 2 * NOTCH_SAFETY
+  const { width: bandWidth, height: bandHeight } = bandGeometry(geometry)
 
   const v = resolve({
     state,
     notchWidth: bandWidth,
-    notchHeight: geometry.height,
+    notchHeight: bandHeight,
     displayWidth: geometry.displayWidth,
     leftReserve: LEFT_RESERVE,
     rightReserve: RIGHT_RESERVE,
@@ -436,7 +432,12 @@ export default function NotchIndicator() {
   // On a Mac with no notch there is no housing to hide in, so a permanent
   // black bar would just be a black bar. Idle renders nothing; the wings
   // still appear for everything else, hanging from the menu bar.
-  if (!geometry.hasNotch && v.isIdle) return null
+  // Deliberately NOT unmounted at idle on a non-notched Mac. The idle
+  // shape already paints nothing — transparent background, no shadow — so
+  // returning null bought no visual difference, but it removed the only
+  // element the pointer handler hit-tests against. With nothing mounted
+  // there was no hover target, so peek could never open and the recent
+  // transcript was unreachable on every display without a cutout.
 
   const label = state === 'error' ? errorMsg || v.label : v.label
 

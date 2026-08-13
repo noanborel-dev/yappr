@@ -6,6 +6,10 @@ import {
   fromPipelineState,
   recorderActionFor,
   paintsTranscript,
+  bandGeometry,
+  NOTCH_SAFETY,
+  NO_NOTCH_BAND_WIDTH,
+  NO_NOTCH_MIN_HEIGHT,
   formatHotkey,
 
   RADIUS,
@@ -364,6 +368,51 @@ describe('formatHotkey', () => {
     expect(formatHotkey(undefined)).toBeNull()
     expect(formatHotkey('')).toBeNull()
     expect(formatHotkey('   ')).toBeNull()
+  })
+})
+
+describe('bandGeometry', () => {
+  const notched = { hasNotch: true, width: 183, height: 33 }
+  const external = { hasNotch: false, width: 183, height: 25 }
+
+  it('straddles the cutout with safety margin on a notched Mac', () => {
+    const b = bandGeometry(notched)
+    expect(b.width).toBe(183 + 2 * NOTCH_SAFETY)
+    expect(b.height).toBe(33)
+  })
+
+  it('collapses to a separator where there is no cutout', () => {
+    // Carrying the notch-sized band onto a display without one leaves a
+    // ~210pt slab of empty black between the wings, with nothing hiding
+    // it — the shape has to become a compact bar instead.
+    const b = bandGeometry(external)
+    expect(b.width).toBe(NO_NOTCH_BAND_WIDTH)
+    expect(b.width).toBeLessThan(bandGeometry(notched).width / 10)
+  })
+
+  it('floors the row height on a hanging shape', () => {
+    // A notched shape must match its housing exactly; a hanging one only
+    // has to stay legible, and a 24pt menu bar is tight for a 13.5px label.
+    expect(bandGeometry({ ...external, height: 24 }).height).toBe(NO_NOTCH_MIN_HEIGHT)
+    expect(bandGeometry({ ...external, height: 25 }).height).toBe(NO_NOTCH_MIN_HEIGHT)
+  })
+
+  it('never floors a notched shape — it must match the housing', () => {
+    for (const h of [29, 33, 37]) {
+      expect(bandGeometry({ hasNotch: true, width: 183, height: h }).height).toBe(h)
+    }
+  })
+
+  it('keeps a non-notched shape compact end to end', () => {
+    // The whole shape at rest, external display: separator only.
+    const v = resolve({
+      ...base,
+      state: 'idle',
+      notchWidth: bandGeometry(external).width,
+      notchHeight: bandGeometry(external).height,
+    })
+    expect(v.width).toBe(NO_NOTCH_BAND_WIDTH)
+    expect(v.isIdle).toBe(true)
   })
 })
 

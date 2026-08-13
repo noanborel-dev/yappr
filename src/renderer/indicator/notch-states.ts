@@ -297,6 +297,47 @@ export function fromPipelineState(s: PipelineState): NotchState {
  * drawer both rendered the PREVIOUS dictation, so the text you were told
  * to insert was not the text you had just spoken.
  */
+/**
+ * Extra points reserved on each side of the estimated notch before a wing
+ * may paint. Absorbs error in the width estimate: too wide only opens a
+ * small gap between the housing and the content, while too narrow hides
+ * content behind the cutout entirely.
+ */
+export const NOTCH_SAFETY = 14
+
+/**
+ * Centre band on a display with no cutout — a plain separator between the
+ * two wings rather than a stand-in for hardware that isn't there.
+ */
+export const NO_NOTCH_BAND_WIDTH = 10
+
+/**
+ * Floor for the row on a display with no cutout. A notched shape must
+ * match its housing exactly; a hanging one is free to be legible, and a
+ * 24pt menu bar is tight for a 13.5px label.
+ */
+export const NO_NOTCH_MIN_HEIGHT = 30
+
+/**
+ * The centre band the wings attach to, for a given display.
+ *
+ * Notched: the estimated cutout plus safety margin on each side, so the
+ * wings start clear of the housing.
+ *
+ * Not notched: there is nothing to straddle. Carrying the notch-sized
+ * band onto those displays would leave a ~210pt slab of empty black
+ * between the wings with nothing hiding it, so it collapses to a
+ * separator and the shape becomes a compact bar hanging from the menu bar.
+ */
+export function bandGeometry(g: { hasNotch: boolean; width: number; height: number }): {
+  width: number
+  height: number
+} {
+  return g.hasNotch
+    ? { width: g.width + 2 * NOTCH_SAFETY, height: g.height }
+    : { width: NO_NOTCH_BAND_WIDTH, height: Math.max(g.height, NO_NOTCH_MIN_HEIGHT) }
+}
+
 export function paintsTranscript(s: NotchState): boolean {
   return s === 'clipboard' || s === 'pasting' || s === 'expanded' || s === 'peek'
 }
