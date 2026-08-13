@@ -116,6 +116,6 @@ texture. Slight grain, imperfect exposure, on-camera flash feel.
 
 ## 8. How to hand results back
 
-Save the chosen file into `OpenFlowLanding/public/photos/` as
+Save the chosen file into `YapprLanding/public/photos/` as
 `build-bench.jpg` / `late-desk.jpg`, then tell Claude Code — it uncomments the
 matching entry in `components/photos.tsx` and the band goes live.

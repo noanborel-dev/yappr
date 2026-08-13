@@ -1,12 +1,12 @@
-# OpenFlow Landing — Operating Rules
+# Yappr Landing — Operating Rules
 
-This file is auto-loaded every session. It tells you how to work in this repo. **Design rules** live in `design-system/openflow-landing/MASTER.md` — read that file before touching anything visual.
+This file is auto-loaded every session. It tells you how to work in this repo. **Design rules** live in `design-system/yappr-landing/MASTER.md` — read that file before touching anything visual.
 
 ---
 
 ## What this is
 
-The marketing site for **OpenFlow** — a macOS voice-dictation app that polishes your speech per destination (iMessage, Slack, Gmail, etc.) and pastes the cleaned result. **Closed-source commercial product** — do NOT describe as open source / MIT / auditable / forkable / "source is public." The differentiation angle is *more creative, BYOK transparency, audio never proxied through us* — not OSS. The product lives one directory up at `/Users/noanborel/OpenFlow`. This landing page is its own project.
+The marketing site for **Yappr** — a macOS voice-dictation app that polishes your speech per destination (iMessage, Slack, Gmail, etc.) and pastes the cleaned result. **Closed-source commercial product** — do NOT describe as open source / MIT / auditable / forkable / "source is public." The differentiation angle is *more creative, BYOK transparency, audio never proxied through us* — not OSS. The product lives one directory up at `/Users/noanborel/Yappr`. This landing page is its own project.
 
 Primary goal: **macOS downloads**. Single dominant CTA. The page should sell by showing the product working, not describing it.
 
@@ -43,7 +43,7 @@ If you want to deviate, **ask first**. Don't quietly "improve."
 
 ### 3. The pill is the brand
 
-The OpenFlow recording pill must match the real macOS app exactly. The spec lives in `MASTER.md` under "The OpenFlow Pill" and was pulled from the actual app source. **Never approximate it.** If you're unsure of a spec detail, re-pull from `/Users/noanborel/OpenFlow`.
+The Yappr recording pill must match the real macOS app exactly. The spec lives in `MASTER.md` under "The Yappr Pill" and was pulled from the actual app source. **Never approximate it.** If you're unsure of a spec detail, re-pull from `/Users/noanborel/Yappr`.
 
 ### 4. Show, don't explain
 
@@ -57,7 +57,7 @@ If a section starts growing bullet lists, paragraphs, or feature grids — rebui
 
 ### 5. NOT open source — strip every OSS reference
 
-OpenFlow is closed-source. Never write "open source", "MIT-licensed", "view source", "audit reproduces it", "self-host", "fork it", "star on GitHub", or any contributor/stars framing. The differentiation angle is **creative product + BYOK transparency**, not OSS. The privacy story is "audio goes mic → your provider directly, our servers are not in the path" — no source-availability claim.
+Yappr is closed-source. Never write "open source", "MIT-licensed", "view source", "audit reproduces it", "self-host", "fork it", "star on GitHub", or any contributor/stars framing. The differentiation angle is **creative product + BYOK transparency**, not OSS. The privacy story is "audio goes mic → your provider directly, our servers are not in the path" — no source-availability claim.
 
 ### 6. Logos
 
@@ -230,6 +230,6 @@ When you implement the `/api/demo` endpoint:
 
 ## When in doubt
 
-Read `design-system/openflow-landing/MASTER.md` for visual rules. Read the relevant brainstorm prototype HTML for the exact motion + copy. If something contradicts between the two, MASTER wins.
+Read `design-system/yappr-landing/MASTER.md` for visual rules. Read the relevant brainstorm prototype HTML for the exact motion + copy. If something contradicts between the two, MASTER wins.
 
 If both are silent, ask the user.

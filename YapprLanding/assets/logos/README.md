@@ -23,9 +23,9 @@ Drop official SVG marks here. Filenames the landing page expects:
 - `openai.svg`
 - `anthropic.svg`
 
-## OpenFlow brand
-- `openflow-pill.svg` — the wordmark pill if we ever need it as an image
-- `openflow-mark.svg` — just the dot+pill if needed standalone
+## Yappr brand
+- `yappr-pill.svg` — the wordmark pill if we ever need it as an image
+- `yappr-mark.svg` — just the dot+pill if needed standalone
 
 ---
 
@@ -38,4 +38,4 @@ Sources (official press kits, MIT-okay for use):
 - Notion: https://notion.so/brand
 - Groq: https://groq.com/brand
 
-All marks are used for editorial/comparison purposes (showing what apps OpenFlow works inside).
+All marks are used for editorial/comparison purposes (showing what apps Yappr works inside).

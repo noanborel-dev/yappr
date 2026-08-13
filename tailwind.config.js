@@ -1,5 +1,5 @@
 // Palette is the landing page's, verbatim — see
-// OpenFlowLanding/design-system/openflow-landing/MASTER.md § Color tokens.
+// YapprLanding/design-system/yappr-landing/MASTER.md § Color tokens.
 // The app used to run a cool near-white surface with a "volt" blue that
 // exists nowhere in the brand; cream IS the brand, so the two now share
 // one set of tokens.
