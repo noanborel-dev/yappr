@@ -52,8 +52,9 @@ export default function AboutTab() {
           same sentence under it, then the same sentence again at the
           bottom of the page. It's one sentence. */}
       <p className="text-[12px] text-ink-60 leading-relaxed mb-6 max-w-[64ch]">
-        Your voice goes from your mic to the provider you chose. Yappr never sees or
-        stores your audio, your transcripts, or your keys on any server we control.
+        Your voice is transcribed on this Mac and never leaves it. Cleanup text goes
+        to Groq. Yappr never sees or stores your audio, your transcripts, or your keys
+        on any server we control.
       </p>
 
       <GroupLabel>License</GroupLabel>
@@ -61,10 +62,8 @@ export default function AboutTab() {
 
       <GroupLabel className="mt-6">Diagnostics</GroupLabel>
       <Panel className="mb-6">
-        <SettingRow title="Transcription" desc="What ran on your last dictation.">
-          <span className="text-[11.5px] font-mono text-ink-60">
-            {providerLabel(settings?.provider.provider)}
-          </span>
+        <SettingRow title="Transcription" desc="Runs on this Mac. Cleanup runs on Groq.">
+          <span className="text-[11.5px] font-mono text-ink-60">on-device · parakeet</span>
         </SettingRow>
         <SettingRow title="Log file" desc="Every error the app has recorded, in plain text." last>
           <Pill variant="secondary" size="sm" onClick={() => window.yappr.revealLog()}>
@@ -117,11 +116,6 @@ function LinkRow({ href, label, last }: { href: string; label: string; last?: bo
       <span className="text-ink-45">↗</span>
     </button>
   )
-}
-
-function providerLabel(p?: string): string {
-  if (p === 'local') return 'On-device'
-  return 'Groq · Whisper'
 }
 
 // Interest capture plus a real persistence path: Stripe isn't live, so

@@ -6,12 +6,13 @@ import { DEFAULT_LOCAL_MODEL } from './local-models'
 const defaults: Settings = {
   firstRun: true,
   provider: {
-    provider: 'groq',
+    // Transcription runs on-device on parakeet; cleanup goes to Groq.
+    // Neither is user-facing — see the coercion in getSettings().
+    provider: 'local',
     groqKey: '',
-    transcriptionModel: MODELS.groq.transcription,
+    transcriptionModel: MODELS.local.transcription,
     cleanupModel: MODELS.groq.cleanup,
     localModel: DEFAULT_LOCAL_MODEL,
-    localAutoAccurateInCode: true,
   },
   hotkeys: DEFAULT_HOTKEYS,
   perAppRules: [],
@@ -86,16 +87,18 @@ export function getSettings(): Settings {
     strictness,
   }
 
-  // Migrate legacy .en model IDs to their multilingual equivalents.
-  // Earlier builds shipped base.en / small.en; we switched to the
-  // multilingual variants because they give better English brand-
-  // name capitalization AND multilingual capability at the same
-  // speed. The model file on disk has a different name so the user
-  // will need to re-download — that's surfaced naturally in the
-  // Settings card (showing "Download" instead of "✓ active").
-  const legacyModel = merged.provider.localModel as unknown as string
-  if (legacyModel === 'small.en') merged.provider.localModel = 'small'
-  if (legacyModel === 'base.en') merged.provider.localModel = 'base'
+  // Transcription is no longer a setting. The app runs parakeet
+  // on-device and sends cleanup to Groq, and neither is exposed or
+  // configurable — so whatever an older install persisted (a Whisper
+  // tier, cloud Groq transcription, a legacy `small.en` id) is coerced
+  // here rather than being honoured. This is the single point where that
+  // is enforced; every read of getSettings() goes through it.
+  //
+  // Deliberately not persisted back: leaving the user's old values in the
+  // file costs nothing, and rewriting them would make this irreversible
+  // for anyone we later hand a build with the picker restored.
+  merged.provider.provider = 'local'
+  merged.provider.localModel = DEFAULT_LOCAL_MODEL
 
   // Merge in any new devModeApps bundle IDs that didn't exist when the
   // user first persisted their settings. Without this, users upgrading

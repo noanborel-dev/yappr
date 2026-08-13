@@ -74,16 +74,12 @@ export function registerIpcHandlers(hooks: IpcHooks = {}): void {
     if (getSettings().notchWidthOverride !== before) {
       hooks.onNotchGeometryChanged?.()
     }
-    // If the user just switched to Local or changed model tier, kick
-    // off a worker spawn + model load now so the next dictation hits
-    // the warm path instead of paying the cold-start tax. Fire-and-
-    // forget; failures fall back to the transcribe-time error.
-    const next = getSettings()
-    if (next.provider.provider === 'local') {
-      const id = prewarmModelId()
-      if (localModelDownloaded(id)) {
-        prewarmWhisper(localModelPath(id))
-      }
+    // Keep the worker warm. There is no tier to switch any more, but a
+    // settings write is still a cheap moment to make sure the model is
+    // loaded before the next dictation asks for it.
+    const id = prewarmModelId()
+    if (localModelDownloaded(id)) {
+      prewarmWhisper(localModelPath(id))
     }
   })
 

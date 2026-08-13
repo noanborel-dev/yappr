@@ -104,7 +104,85 @@ export default function GeneralTab() {
 
       <GroupLabel>Indicator</GroupLabel>
       <NotchCalibration />
+
+      <GroupLabel className="mt-6">Cleanup key</GroupLabel>
+      <CleanupKey />
     </div>
+  )
+}
+
+// The one surviving piece of the old Provider tab.
+//
+// Everything else there — cloud vs on-device, four Whisper tiers, a
+// smart-switch toggle — is gone: transcription runs on parakeet on-device
+// and cleanup goes to Groq, and neither is a choice the product offers.
+//
+// This field stays because the managed key isn't live yet, so a key has to
+// come from somewhere for cleanup to run at all. When the key ships with
+// the licence, delete this component and the row that mounts it.
+function CleanupKey() {
+  const [key, setKey] = useState<string | null>(null)
+  const [testing, setTesting] = useState(false)
+  const [result, setResult] = useState<{ ok: boolean; error?: string } | null>(null)
+
+  useEffect(() => {
+    window.yappr.getSettings().then((s) => setKey(s.provider.groqKey))
+  }, [])
+
+  if (key === null) return null
+
+  async function save(next: string) {
+    setKey(next)
+    setResult(null)
+    const s = await window.yappr.getSettings()
+    await window.yappr.setSettings({ provider: { ...s.provider, groqKey: next } })
+  }
+
+  async function test() {
+    setTesting(true)
+    setResult(await window.yappr.testProvider('groq', key ?? ''))
+    setTesting(false)
+  }
+
+  return (
+    <Panel>
+      <div className="px-5 py-4">
+        <div className="flex items-stretch gap-2">
+          <input
+            type="password"
+            value={key}
+            onChange={(e) => save(e.target.value)}
+            placeholder="gsk_…"
+            spellCheck={false}
+            autoComplete="off"
+            className="flex-1 bg-paper border border-line rounded-input px-3 py-2.5 text-[12.5px] font-mono placeholder:text-ink-45 focus:outline-none focus:border-cobalt focus:ring-2 focus:ring-cobalt-soft"
+          />
+          <Pill
+            variant={result?.ok ? 'ok' : 'primary'}
+            size="sm"
+            onClick={test}
+            disabled={testing || !key.trim()}
+          >
+            {testing ? '…' : result?.ok ? 'Connected' : 'Test'}
+          </Pill>
+        </div>
+        <div className="flex items-center justify-between gap-4 mt-2.5">
+          <p className="text-[11px] text-ink-60 leading-relaxed max-w-[54ch]">
+            Transcription runs on this Mac and needs nothing. Cleanup — register,
+            structure, prompt shaping — runs on Groq. Stored on this Mac only.{' '}
+            <button
+              onClick={() => window.open('https://console.groq.com', '_blank')}
+              className="text-ink-60 hover:text-ink underline underline-offset-2"
+            >
+              Get a key ↗
+            </button>
+          </p>
+          {result && !result.ok && (
+            <span className="text-[11px] text-danger shrink-0">{result.error}</span>
+          )}
+        </div>
+      </div>
+    </Panel>
   )
 }
 

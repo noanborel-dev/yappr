@@ -29,14 +29,14 @@ export function modelsDir(): string {
 //   large  ~970ms  best accuracy on multilingual + technical terms
 export type LocalModelId = 'base' | 'small' | 'large-v3-turbo' | 'parakeet-tdt-0.6b-v3'
 
-// Balanced (small, multilingual) is the default. It hits ~200ms
-// warm on M5 Pro for typical clips, transcribes English brand names
-// with proper capitalization (TypeScript, TRPC, Anthropic), AND
-// handles Spanish / French / German for users who occasionally speak
-// non-English. Users who want maximum accuracy on heavy multilingual
-// or technical content can opt into Accurate (large-v3-turbo) in
-// Settings — it's there, just ~5x slower.
-export const DEFAULT_LOCAL_MODEL: LocalModelId = 'small'
+// The model. Not "the default" — the only one the product runs.
+//
+// Parakeet is ~25ms warm against large-v3-turbo's ~900ms, at matching
+// English quality, and covers 24 European languages. The other three
+// entries in LOCAL_MODELS stay defined because installs from before this
+// change may still have their files on disk and we need to be able to
+// name and delete them; nothing selects them any more.
+export const DEFAULT_LOCAL_MODEL: LocalModelId = 'parakeet-tdt-0.6b-v3'
 
 interface LocalModelInfo {
   id: LocalModelId

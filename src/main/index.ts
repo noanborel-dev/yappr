@@ -51,6 +51,7 @@ import { captureSelectedText, clearSelectedText, getSelectedText } from './selec
 import { pasteText, prewarmPasteHelper, shutdownPasteHelper, captureAXRoleAtPress, getPressTimeAXRolePromise } from './paste'
 import { prewarmWhisper } from './whisper-host'
 import { localModelDownloaded, localModelPath } from './local-models'
+import { downloadWhisperModel } from './local-download'
 import { prewarmModelId } from './providers/local'
 import { toUserError } from './errors'
 import { logError, logInfo, getLogPath } from './log'
@@ -1030,27 +1031,35 @@ app.whenReady().then(() => {
   prewarmPasteHelper()
 
   const settings = getSettings()
-  // Prewarm the whisper utility process + selected model when Local
-  // is the active provider. Fire-and-forget — if the model isn't
-  // downloaded yet, the actual transcribe call surfaces the right
-  // error. Without this prewarm, the first dictation paid ~1s of
-  // worker fork + model load + Metal compile that we can hide behind
-  // app startup instead.
-  if (settings.provider.provider === 'local') {
+  // Get the model onto the machine, then warm it.
+  //
+  // Both halves used to be someone else's job: a Settings card offered a
+  // Download button, and onboarding made you pick a tier before it would
+  // let you continue. Neither surface exists now — transcription isn't a
+  // user-facing choice — so if the file isn't there, nothing else is
+  // going to fetch it and every dictation fails with a missing model.
+  //
+  // Fire-and-forget on purpose: it must not delay the tray, the hotkeys
+  // or the indicator. Progress still goes out on LOCAL_MODEL_PROGRESS for
+  // anything that wants to show it.
+  void (async () => {
     try {
-      // Prewarm the model most likely to be used FIRST. If smart-
-      // switch is on and Accurate is downloaded, prewarm Accurate
-      // (code/email/long dictations all elevate there; getting that
-      // hot first avoids paying ~1s of cold-load on the first
-      // important dictation). Otherwise prewarm user's picked tier.
       const modelId = prewarmModelId()
+      if (!localModelDownloaded(modelId)) {
+        logInfo('Model missing at startup — fetching', { modelId })
+        await downloadWhisperModel(modelId)
+      }
+      // Without this prewarm the first dictation pays ~1s of worker fork
+      // + model load + Metal compile, which we can hide behind startup.
       if (localModelDownloaded(modelId)) {
         prewarmWhisper(localModelPath(modelId))
       }
     } catch (err) {
-      logError('Whisper prewarm failed', { error: String(err) })
+      // A failed fetch is not fatal at launch — the next dictation
+      // surfaces the real error, and the next launch retries.
+      logError('Model fetch/prewarm failed', { error: String(err) })
     }
-  }
+  })()
 
   if (settings.firstRun) {
     createOnboardingWindow()

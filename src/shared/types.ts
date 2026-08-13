@@ -13,11 +13,11 @@ export type DictationState = 'idle' | 'recording' | 'processing' | 'done' | 'err
 
 export type Provider = 'groq' | 'local'
 
-// On-device whisper model tier. See src/main/local-models.ts for the
-// full info per tier. Default `small` (multilingual) is the
-// speed/accuracy sweet spot — ~200ms warm, 181 MB, handles English
-// plus Spanish/French/etc. Users who want minimum size pick `base`;
-// users who want maximum accuracy pick `large-v3-turbo`.
+// On-device model ids. The product runs `parakeet-tdt-0.6b-v3` and
+// nothing else — see DEFAULT_LOCAL_MODEL in src/main/local-models.ts.
+// The three Whisper tiers remain named because installs from before the
+// picker was removed may still have those files on disk, and the
+// uninstall path has to be able to address them.
 export type LocalModelId = 'base' | 'small' | 'large-v3-turbo' | 'parakeet-tdt-0.6b-v3'
 
 export interface ProviderSettings {
@@ -25,13 +25,11 @@ export interface ProviderSettings {
   groqKey: string
   transcriptionModel: string
   cleanupModel: string
+  // Always DEFAULT_LOCAL_MODEL. Kept in the shape because the download
+  // and uninstall paths still address models by id; coerced on every
+  // read in store.ts, so a persisted value from an older install can't
+  // change which engine runs.
   localModel: LocalModelId
-  // When true (default), the local provider auto-elevates to
-  // large-v3-turbo (Accurate) for dictations into code/IDE contexts.
-  // Trade ~1s extra inference for noticeably better transcription
-  // of technical terms, camelCase, and brand names. Disable to lock
-  // the user's selected tier for every dictation regardless of app.
-  localAutoAccurateInCode?: boolean
 }
 
 export interface HotkeySettings {

@@ -1,8 +1,6 @@
-import { useEffect, useState } from 'react'
-import type { Provider } from '../../shared/types'
+import { useState } from 'react'
 import GeneralTab from './tabs/GeneralTab'
 import HotkeysTab from './tabs/HotkeysTab'
-import AIProviderTab from './tabs/AIProviderTab'
 import DictionaryTab from './tabs/DictionaryTab'
 import PolishTab from './tabs/PolishTab'
 import AITab from './tabs/AITab'
@@ -10,26 +8,21 @@ import HistoryTab from './tabs/HistoryTab'
 import AboutTab from './tabs/AboutTab'
 import { Wordmark } from '../shared/ui/Wordmark'
 
-const TABS = ['Dashboard', 'Hotkey', 'Polish', 'AI', 'Dictionary', 'Provider', 'General', 'About'] as const
+const TABS = ['Dashboard', 'Hotkey', 'Polish', 'AI', 'Dictionary', 'General', 'About'] as const
 type Tab = typeof TABS[number]
 
 // Grouped rather than run together. The old flat list mixed "what Yappr
 // does with your voice" (Polish, AI, Dictionary) with "how Yappr is wired
-// up" (Provider, General) in one undifferentiated column, so nothing in it
+// up" (General, About) in one undifferentiated column, so nothing in it
 // told you where to look for anything.
 const GROUPS: Array<{ label: string | null; tabs: Tab[] }> = [
   { label: null, tabs: ['Dashboard'] },
   { label: 'Voice', tabs: ['Hotkey', 'Polish', 'AI', 'Dictionary'] },
-  { label: 'Setup', tabs: ['Provider', 'General', 'About'] },
+  { label: 'Setup', tabs: ['General', 'About'] },
 ]
 
 export default function SettingsApp() {
   const [tab, setTab] = useState<Tab>('Dashboard')
-  const [provider, setProvider] = useState<Provider | null>(null)
-
-  useEffect(() => {
-    window.yappr.getSettings().then(s => setProvider(s.provider.provider))
-  }, [tab])
 
   return (
     <div className="flex h-screen bg-paper text-ink select-none font-sans relative">
@@ -82,9 +75,12 @@ export default function SettingsApp() {
         </nav>
 
         <div className="mt-auto pb-3 px-2 pt-3 border-t border-line text-[10px] font-mono text-ink-45">
+          {/* A status line, not a control. It used to read the configured
+              provider back to the user; there is nothing to configure now,
+              so it states the one arrangement the app has. */}
           <span className="inline-flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-ok" />
-            {provider === 'local' ? 'on-device' : `connected · ${provider ?? 'groq'}`}
+            on-device
           </span>
         </div>
       </aside>
@@ -98,7 +94,6 @@ export default function SettingsApp() {
         {tab === 'Polish' && <PolishTab />}
         {tab === 'AI' && <AITab />}
         {tab === 'Dictionary' && <DictionaryTab />}
-        {tab === 'Provider' && <AIProviderTab />}
         {tab === 'General' && <GeneralTab />}
         {tab === 'About' && <AboutTab />}
       </main>
