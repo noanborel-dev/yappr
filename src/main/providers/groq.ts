@@ -143,8 +143,6 @@ function stripLLMArtifacts(raw: string, fallback: string): string {
       '\\n\\s*\\n',                                      // blank line
       '(?:',
       [
-        '\\d+\\.\\s+\\w',                                 // "1. word..."
-        '[-*]\\s+\\w',                                    // "- word..."
         '(?:note|here|the\\s+dictated|output|result|cleaned)\\b',
         'i\\s+(?:removed|cleaned|corrected|kept|fixed|added|made|left|did|polished|restructured|preserved|hope|tried|will|have|just|did|am|did|did)\\b',
         'this\\s+(?:is|version|output|response)\\b',
@@ -259,10 +257,16 @@ export function createGroqCleanupProvider(
 ): CleanupProvider {
   return {
     name: 'Groq',
-    async cleanup(text, { systemPrompt, appCategory }) {
+    async cleanup(text, { systemPrompt, appCategory, mode = 'cleanup', fallbackText }) {
       const client = getClient(apiKey)
-      // max_tokens budget per category:
+      // max_tokens budget:
       //
+      // - rewrite: 3× input + headroom. A rewrite EXPANDS ("turn these
+      //   notes into an email" adds a subject, a greeting, and a
+      //   sign-off), and until this case existed the budget was sized
+      //   off the whole user message anyway — which, when the message
+      //   was just the dictated command, meant ~90 tokens and an email
+      //   that stopped mid-sentence (finish_reason "length").
       // - ai_prompt: 3× input. The cleanup REFORMATS rambling speech
       //   into a structured prompt (headings, bullets, "Done when",
       //   "Constraints") and must preserve every detail — so output
@@ -273,9 +277,11 @@ export function createGroqCleanupProvider(
       //
       // Each token is ~4 chars (rough).
       const inputTokens = Math.ceil(text.length / 4)
-      const maxTokens = appCategory === 'ai_prompt'
-        ? Math.max(160, Math.min(2048, inputTokens * 3 + 120))
-        : Math.max(80, Math.min(1024, Math.ceil(inputTokens * 1.5) + 80))
+      const maxTokens = mode === 'rewrite'
+        ? Math.max(400, Math.min(3072, inputTokens * 3 + 200))
+        : appCategory === 'ai_prompt'
+          ? Math.max(160, Math.min(2048, inputTokens * 3 + 120))
+          : Math.max(80, Math.min(1024, Math.ceil(inputTokens * 1.5) + 80))
       const response = await client.chat.completions.create({
         model,
         messages: [
@@ -295,9 +301,20 @@ export function createGroqCleanupProvider(
         timeout: 8000,
         maxRetries: 0,
       })
-      const raw = response.choices[0]?.message?.content?.trim() ?? text
-      const cleaned = stripLLMArtifacts(raw, text)
-      if (detectLoopbackAnswer(raw, text)) {
+      // In rewrite mode the safe fallback is the user's selection, not
+      // `text` — `text` there is the selection wrapped up with the
+      // dictated command, and pasting THAT over their selection is the
+      // worst possible outcome.
+      const fallback = fallbackText ?? text
+      const raw = response.choices[0]?.message?.content?.trim() ?? fallback
+      const cleaned = stripLLMArtifacts(raw, fallback)
+      // The loopback guard is a cleanup-mode rule: it assumes output
+      // much longer than input means the model answered the dictation
+      // instead of cleaning it. A rewrite is SUPPOSED to run longer
+      // than its input, and command-mode input often opens with "can
+      // you…" — which used to trip both gates and paste the user's own
+      // command back over their selection.
+      if (mode === 'cleanup' && detectLoopbackAnswer(raw, text)) {
         // Model answered the dictated question instead of cleaning it.
         // Return the raw transcript so deterministic post-passes in
         // pipeline.ts still run on the user's actual message.

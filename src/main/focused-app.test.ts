@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest'
-import { parseFocusLine } from './focused-app'
+import { describe, it, expect, vi } from 'vitest'
+
+// focused-app imports ./log, which builds its path from electron's
+// app.getPath at module load. Stub it — these tests only exercise the
+// pure routing.
+vi.mock('./log', () => ({ logInfo: () => {}, logError: () => {} }))
+
+const { parseFocusLine, resolveSurface } = await import('./focused-app')
 
 describe('parseFocusLine', () => {
   it('parses an ordinary reply', () => {
@@ -44,5 +50,78 @@ describe('parseFocusLine', () => {
   it('never returns a negative or zero pid as truthy', () => {
     expect(parseFocusLine('com.foo.bar|Foo|title|-1').pid).toBe(0)
     expect(parseFocusLine('com.foo.bar|Foo|title|0').pid).toBe(0)
+  })
+})
+
+describe('resolveSurface', () => {
+  const CHROME = 'com.google.Chrome'
+  const tab = (url: string, title = '') => ({ url, title })
+
+  it('routes Gmail in Chrome to the email category from the URL alone', () => {
+    // The regression this was written for: Chrome hands us NO window
+    // title (its AX tree reports zero windows), so before URL routing
+    // this fell through to 'other' and a Gmail draft got generic prose
+    // polish instead of the email prompt.
+    expect(resolveSurface(CHROME, 'Google Chrome', '', tab('https://mail.google.com/mail/u/0/#inbox')))
+      .toEqual({ name: 'Gmail', category: 'email' })
+  })
+
+  it('routes a Gmail compose window', () => {
+    const url = 'https://mail.google.com/mail/u/0/?compose=DmwnWsBvxLpMlZjLtqwSTPzGxKcVzZhLLQ'
+    expect(resolveSurface(CHROME, 'Google Chrome', '', tab(url)).category).toBe('email')
+  })
+
+  it('covers the other webmail hosts', () => {
+    const cases: Array<[string, string]> = [
+      ['https://outlook.office.com/mail/', 'Outlook'],
+      ['https://outlook.live.com/mail/0/', 'Outlook'],
+      ['https://mail.proton.me/u/0/inbox', 'ProtonMail'],
+      ['https://app.fastmail.com/mail/Inbox', 'Fastmail'],
+      ['https://mail.superhuman.com/', 'Superhuman'],
+    ]
+    for (const [url, name] of cases) {
+      const r = resolveSurface(CHROME, 'Google Chrome', '', tab(url))
+      expect(r, url).toEqual({ name, category: 'email' })
+    }
+  })
+
+  it('routes non-email web apps too', () => {
+    expect(resolveSurface(CHROME, 'Google Chrome', '', tab('https://app.slack.com/client/T1/C2')).category).toBe('messaging')
+    expect(resolveSurface(CHROME, 'Google Chrome', '', tab('https://www.notion.so/Page-abc')).category).toBe('docs')
+    expect(resolveSurface(CHROME, 'Google Chrome', '', tab('https://claude.ai/chat/123')).category).toBe('ai_prompt')
+    expect(resolveSurface(CHROME, 'Google Chrome', '', tab('https://discord.com/channels/1/2')).category).toBe('messaging')
+  })
+
+  it('does not match a look-alike host', () => {
+    for (const url of [
+      'https://mail.google.com.evil.example/inbox',
+      'https://notmail.google.com/',
+      'https://example.com/?next=https://mail.google.com/',
+    ]) {
+      expect(resolveSurface(CHROME, 'Google Chrome', '', tab(url)), url)
+        .toEqual({ name: 'Google Chrome', category: 'other' })
+    }
+  })
+
+  it('falls back to the tab title when the URL is unknown', () => {
+    expect(resolveSurface(CHROME, 'Google Chrome', '', tab('https://mail.example.edu/', 'Inbox – Gmail')))
+      .toEqual({ name: 'Gmail', category: 'email' })
+  })
+
+  it('falls back to the window title when there is no tab read at all', () => {
+    // Firefox: no AppleScript vocabulary for tabs, but it does publish
+    // a window title.
+    expect(resolveSurface('org.mozilla.firefox', 'Firefox', '(3) Inbox - me@gmail.com - Gmail — Mozilla Firefox', null))
+      .toEqual({ name: 'Gmail', category: 'email' })
+  })
+
+  it('leaves an unmatched browser tab as the browser itself', () => {
+    expect(resolveSurface(CHROME, 'Google Chrome', 'localhost', tab('http://localhost:5173/', 'localhost')))
+      .toEqual({ name: 'Google Chrome', category: 'other' })
+  })
+
+  it('ignores tab data for non-browser apps', () => {
+    expect(resolveSurface('com.apple.mail', 'Mail', 'Inbox', tab('https://app.slack.com/client/T1/C2')))
+      .toEqual({ name: 'Mail', category: 'email' })
   })
 })

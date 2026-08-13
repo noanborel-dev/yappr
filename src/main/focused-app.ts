@@ -1,6 +1,13 @@
 import { execFile } from 'child_process'
 import { promisify } from 'util'
-import { APP_CATEGORY_MAP, BROWSER_BUNDLE_IDS, BROWSER_TITLE_ROUTES } from '../shared/constants'
+import {
+  APP_CATEGORY_MAP,
+  BROWSER_BUNDLE_IDS,
+  BROWSER_TITLE_ROUTES,
+  BROWSER_URL_ROUTES,
+} from '../shared/constants'
+import { readActiveTab } from './browser-tab'
+import { logInfo } from './log'
 import type { AppCategory } from '../shared/types'
 
 const exec = promisify(execFile)
@@ -39,19 +46,43 @@ tell application "System Events"
 end tell
 `
 
-// Apply browser-title routing: if the focused app is a browser, look
-// at the window title to detect Gmail / Slack / Notion / etc. and
-// override the category accordingly. Returns the original values when
-// not a browser or no title pattern matched.
-function resolveCategory(
+// Apply browser routing: if the focused app is a browser, work out
+// which WEB APP the user is actually in (Gmail / Slack / Notion / …)
+// and override the category accordingly. Returns the original values
+// when not a browser or nothing matched.
+//
+// Signals, in order of reliability:
+//   1. the active tab's URL, read from the browser itself. Exact, and
+//      the only signal Chromium browsers give us at all — their AX
+//      tree reports zero windows, so `windowTitle` is always empty
+//      there and step 3 can never fire (this is what left Gmail-in-
+//      Chrome categorised as 'other').
+//   2. the active tab's TITLE, same source. Covers a web app whose
+//      host isn't in the URL table.
+//   3. the window title from System Events. Firefox and any browser
+//      whose automation permission the user declined.
+//
+// Exported for tests — the routing table is the whole behaviour here.
+export function resolveSurface(
   bundleId: string,
   appName: string,
-  windowTitle: string
+  windowTitle: string,
+  tab: { url: string; title: string } | null,
 ): { name: string; category: AppCategory } {
-  if (BROWSER_BUNDLE_IDS.has(bundleId) && windowTitle) {
-    for (const route of BROWSER_TITLE_ROUTES) {
-      if (route.pattern.test(windowTitle)) {
-        return { name: route.appName, category: route.category }
+  if (BROWSER_BUNDLE_IDS.has(bundleId)) {
+    if (tab?.url) {
+      for (const route of BROWSER_URL_ROUTES) {
+        if (route.pattern.test(tab.url)) {
+          return { name: route.appName, category: route.category }
+        }
+      }
+    }
+    for (const title of [tab?.title, windowTitle]) {
+      if (!title) continue
+      for (const route of BROWSER_TITLE_ROUTES) {
+        if (route.pattern.test(title)) {
+          return { name: route.appName, category: route.category }
+        }
       }
     }
   }
@@ -97,7 +128,18 @@ export async function captureFocusedApp(): Promise<void> {
   try {
     const { stdout } = await exec('osascript', ['-e', APPLESCRIPT])
     const { bundleId, appName, windowTitle, pid } = parseFocusLine(stdout)
-    const resolved = resolveCategory(bundleId, appName, windowTitle)
+    // Second osascript, browsers only: ask the browser what tab is
+    // open. Both callers (hotkey press, release-time refresh) overlap
+    // this with recording or transcription, so the ~50-100ms is free.
+    const tab = BROWSER_BUNDLE_IDS.has(bundleId) ? await readActiveTab(bundleId) : null
+    const resolved = resolveSurface(bundleId, appName, windowTitle, tab)
+    if (tab && resolved.name !== appName) {
+      logInfo('Browser surface resolved', {
+        app: resolved.name,
+        category: resolved.category,
+        host: hostOf(tab.url),
+      })
+    }
     cached = {
       bundleId,
       name: resolved.name,
@@ -107,6 +149,13 @@ export async function captureFocusedApp(): Promise<void> {
   } catch {
     // Keep stale cache rather than reset to 'unknown'.
   }
+}
+
+// Host only — the full URL of a private tab has no business in a log
+// file that users are asked to attach to bug reports.
+function hostOf(url: string): string {
+  const m = url.match(/^https?:\/\/([^/?#:]+)/i)
+  return m ? m[1] : ''
 }
 
 // Synchronous read of the cached frontmost app. Cheap.

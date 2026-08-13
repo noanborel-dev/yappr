@@ -19,6 +19,18 @@ export interface TranscriptionProvider {
   ): Promise<string>
 }
 
+// What the cleanup call is being asked to do. The two modes have
+// genuinely different contracts and conflating them broke command mode:
+//
+//   'cleanup' (default) — `text` IS the user's content (a dictation
+//     transcript). Output should be about the same length, and a much
+//     longer output means the model answered instead of cleaning.
+//   'rewrite' — `text` is a selection PLUS an editing command, and the
+//     output is a transformation of the selection. It legitimately runs
+//     far longer than the input ("turn this into an email"), so the
+//     token budget and the anti-loopback guard both have to change.
+export type CleanupMode = 'cleanup' | 'rewrite'
+
 export interface CleanupProvider {
   name: string
   cleanup(
@@ -27,6 +39,12 @@ export interface CleanupProvider {
       appName: string
       appCategory: AppCategory
       systemPrompt: string
+      mode?: CleanupMode
+      // What to return when the model's output has to be discarded.
+      // Defaults to `text`, which is right for cleanup mode but wrong
+      // for a rewrite — there the safe fallback is the user's own
+      // selection, never the command they dictated.
+      fallbackText?: string
     }
   ): Promise<string>
 }

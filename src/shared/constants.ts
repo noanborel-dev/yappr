@@ -120,6 +120,18 @@ export const AX_OPAQUE_APPS = new Set<string>([
 // user@gmail.com - Gmail"). Keep tokens specific enough to avoid false
 // positives (e.g. "GitHub" stays out of email even though some pages
 // say "user@github.com").
+//
+// TITLE ROUTING IS THE FALLBACK, NOT THE PRIMARY SIGNAL. Chromium
+// browsers publish no windows through the accessibility API — with a
+// visible Gmail window open, `count of windows of application process
+// "Google Chrome"` is 0 and `name of front window` raises -1719, so the
+// title arrives empty and nothing here can ever match. Gmail-in-Chrome
+// consequently fell through to APP_CATEGORY_MAP and got polished as
+// generic prose instead of email. The active tab's URL (read through
+// the browser's own AppleScript dictionary — see main/browser-tab.ts)
+// is the reliable signal; these patterns still cover Firefox, which
+// does expose its window title, and any browser whose automation
+// permission the user declined.
 export interface BrowserTitleRoute {
   pattern: RegExp
   category: AppCategory
@@ -162,6 +174,64 @@ export const BROWSER_TITLE_ROUTES: BrowserTitleRoute[] = [
   { pattern: /\bv0\.dev\b/i, category: 'ai_prompt', appName: 'v0' },
   { pattern: /\bGrok\b/, category: 'ai_prompt', appName: 'Grok' },
   { pattern: /\bMistral\b/i, category: 'ai_prompt', appName: 'Mistral' },
+]
+
+// URL routing for browser-based web apps — the PRIMARY browser signal
+// (see the note on BROWSER_TITLE_ROUTES for why the title cannot be).
+// Matched against the active tab's full URL, first match wins, so
+// path-qualified entries come before bare-host ones.
+export interface BrowserUrlRoute {
+  pattern: RegExp
+  category: AppCategory
+  appName: string
+}
+
+// Build a host matcher: `https://mail.google.com/mail/u/0/#inbox` and
+// `http://mail.google.com` match, `https://notmail.google.com.evil.co`
+// does not (the host must end at a port, path, query, fragment, or the
+// end of the string).
+function hostRe(...hosts: string[]): RegExp {
+  const alt = hosts.map(h => h.replace(/\./g, '\\.')).join('|')
+  return new RegExp(`^https?://(?:www\\.)?(?:${alt})(?:[:/?#]|$)`, 'i')
+}
+
+export const BROWSER_URL_ROUTES: BrowserUrlRoute[] = [
+  // Email
+  { pattern: hostRe('mail.google.com'), category: 'email', appName: 'Gmail' },
+  { pattern: hostRe('outlook.office.com', 'outlook.office365.com', 'outlook.live.com', 'outlook.com'), category: 'email', appName: 'Outlook' },
+  { pattern: hostRe('mail.proton.me', 'mail.protonmail.com'), category: 'email', appName: 'ProtonMail' },
+  { pattern: hostRe('app.fastmail.com', 'fastmail.com'), category: 'email', appName: 'Fastmail' },
+  { pattern: hostRe('app.hey.com'), category: 'email', appName: 'HEY' },
+  { pattern: hostRe('mail.yahoo.com'), category: 'email', appName: 'Yahoo Mail' },
+  { pattern: hostRe('mail.zoho.com'), category: 'email', appName: 'Zoho Mail' },
+  { pattern: hostRe('mail.superhuman.com'), category: 'email', appName: 'Superhuman' },
+  { pattern: hostRe('app.shortwave.com'), category: 'email', appName: 'Shortwave' },
+  // Team chat
+  { pattern: hostRe('app.slack.com'), category: 'messaging', appName: 'Slack' },
+  { pattern: /^https?:\/\/(?:ptb\.|canary\.)?discord\.com\/(?:channels|app)/i, category: 'messaging', appName: 'Discord' },
+  { pattern: hostRe('teams.microsoft.com', 'teams.live.com'), category: 'messaging', appName: 'Microsoft Teams' },
+  { pattern: hostRe('web.whatsapp.com'), category: 'messaging', appName: 'WhatsApp' },
+  { pattern: hostRe('messenger.com'), category: 'messaging', appName: 'Messenger' },
+  { pattern: hostRe('web.telegram.org'), category: 'messaging', appName: 'Telegram' },
+  // Docs / project mgmt
+  { pattern: hostRe('docs.google.com'), category: 'docs', appName: 'Google Docs' },
+  { pattern: hostRe('notion.so', 'notion.com'), category: 'docs', appName: 'Notion' },
+  { pattern: hostRe('linear.app'), category: 'docs', appName: 'Linear' },
+  { pattern: hostRe('app.asana.com'), category: 'docs', appName: 'Asana' },
+  { pattern: hostRe('app.clickup.com'), category: 'docs', appName: 'ClickUp' },
+  { pattern: hostRe('coda.io'), category: 'docs', appName: 'Coda' },
+  { pattern: /^https?:\/\/(?:[a-z0-9-]+\.)?atlassian\.net\/wiki/i, category: 'docs', appName: 'Confluence' },
+  // AI chat surfaces — same routing the desktop apps get via
+  // PRIMARY_AI_CHAT_BUNDLES, so a prompt typed at claude.ai in Chrome
+  // is shaped like one typed in the Claude app.
+  { pattern: hostRe('claude.ai'), category: 'ai_prompt', appName: 'Claude' },
+  { pattern: hostRe('chatgpt.com', 'chat.openai.com'), category: 'ai_prompt', appName: 'ChatGPT' },
+  { pattern: hostRe('gemini.google.com', 'aistudio.google.com'), category: 'ai_prompt', appName: 'Gemini' },
+  { pattern: hostRe('perplexity.ai'), category: 'ai_prompt', appName: 'Perplexity' },
+  { pattern: hostRe('grok.com'), category: 'ai_prompt', appName: 'Grok' },
+  { pattern: hostRe('chat.mistral.ai'), category: 'ai_prompt', appName: 'Mistral' },
+  { pattern: hostRe('v0.dev', 'v0.app'), category: 'ai_prompt', appName: 'v0' },
+  { pattern: /^https?:\/\/github\.com\/copilot/i, category: 'ai_prompt', appName: 'Copilot' },
 ]
 
 // IDEs with @-mention chip support in their AI chat panes. Used to
