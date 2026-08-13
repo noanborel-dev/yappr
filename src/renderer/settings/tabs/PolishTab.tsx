@@ -4,6 +4,7 @@ import { SectionHead, GroupLabel } from '../../shared/ui/SectionHead'
 import { Panel, SettingRow } from '../../shared/ui/Panel'
 import { Toggle } from '../../shared/ui/Toggle'
 import { BrandLogo, type BrandSlug } from '../../shared/ui/BrandLogo'
+import { PolishFanout } from '../../shared/ui/PolishFanout'
 
 type Bucket = keyof CategoryStrictness
 
@@ -79,7 +80,16 @@ export default function PolishTab() {
         ord="03"
         label="Polish"
         headline={<>One voice, three <em className="italic">registers</em>.</>}
-        body="Same content, calibrated to where it lands. Code and terminal stay faithful — words are never dropped there."
+        body="One dictation, three destinations. Code and terminal stay faithful — words are never dropped there."
+      />
+
+      {/* The site's per-app-polish fan-out, except each card renders at
+          the level that context is actually set to below — so it's the
+          preview for these controls, not a picture of someone else's. */}
+      <PolishFanout
+        strictness={strictness}
+        active={open}
+        onPick={(id) => setOpen(id)}
       />
 
       <Panel className="mb-6">

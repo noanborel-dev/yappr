@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Settings } from '../../../shared/types'
 import { Pill } from '../../shared/ui/Pill'
 import { SectionHead, GroupLabel } from '../../shared/ui/SectionHead'
+import { MenuBar, NotchMark } from '../../shared/ui/NotchMark'
 
 export default function DictionaryTab() {
   const [settings, setSettings] = useState<Settings | null>(null)
@@ -136,7 +137,7 @@ function MishearingStrip() {
   const s = SAMPLES[idx]
 
   return (
-    <div className="bg-card border border-line rounded-card px-5 py-4 mb-5 overflow-hidden">
+    <div className="stage-bleed bg-cream2/60 border-y border-line mb-7 overflow-hidden">
       <style>{`
         @keyframes dict-out { 0%, 36% { opacity: 1; } 46%, 100% { opacity: 0; } }
         @keyframes dict-in  { 0%, 42% { opacity: 0; } 54%, 100% { opacity: 1; } }
@@ -148,42 +149,57 @@ function MishearingStrip() {
         }
       `}</style>
 
-      <div className="grid grid-cols-[86px_minmax(0,1fr)] gap-4 items-center">
-        <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-ink-45 leading-relaxed">
-          heard<br />→ written
-        </div>
-        {/* Fixed height so the two layers can stack without the card
-            resizing as they cross-fade.
+      <MenuBar>
+        <NotchMark state="recording" notchWidth={92} />
+      </MenuBar>
 
-            The segments must stay INLINE inside one <p>. As flex children
-            they were flex items, and flex layout drops the leading and
-            trailing whitespace in each — the sentence rendered as
-            "push toGet Huband runkoob control". */}
-        <div key={idx} className="relative h-[42px]">
-          <p className="dict-out absolute inset-0 flex items-center text-[13px] text-ink-60">
+      <div className="px-9 pt-7 pb-8">
+        <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-accent mb-3">
+          heard → written
+        </div>
+        {/* One big line of type, the way the site does it. Fixed height so
+            the two layers can cross-fade without the band resizing.
+
+            The segments stay INLINE inside one <p>: as flex children they
+            were flex items, and flex layout drops each item's leading and
+            trailing whitespace — it rendered "push toGet Huband run…". */}
+        <div key={idx} className="relative h-[74px]">
+          <p className="dict-out absolute inset-0 flex items-center font-display italic text-[26px] leading-[1.3] text-ink-60">
             <span>
               {s.wrong.map((seg, i) => (
                 <span
                   key={i}
-                  className={seg.bad ? 'line-through decoration-danger/70 text-danger/80' : ''}
+                  className={seg.bad ? 'line-through decoration-danger/60 text-danger/80' : ''}
                 >
                   {seg.text}
                 </span>
               ))}
             </span>
           </p>
-          <p className="dict-in absolute inset-0 flex items-center text-[13px] text-ink font-medium">
+          <p className="dict-in absolute inset-0 flex items-center font-display italic text-[26px] leading-[1.3] text-ink">
             <span>
               {s.right.map((seg, i) => (
                 <span
                   key={i}
-                  className={seg.hit ? 'underline decoration-cobalt decoration-2 underline-offset-[3px]' : ''}
+                  className={seg.hit ? 'underline decoration-cobalt decoration-[3px] underline-offset-[5px]' : ''}
                 >
                   {seg.text}
                 </span>
               ))}
             </span>
           </p>
+        </div>
+
+        <div className="flex items-center gap-1.5 mt-1">
+          {SAMPLES.map((_, i) => (
+            <span
+              key={i}
+              className={[
+                'h-1 rounded-full transition-all duration-300',
+                i === idx ? 'w-5 bg-ink' : 'w-1.5 bg-ink/15',
+              ].join(' ')}
+            />
+          ))}
         </div>
       </div>
     </div>

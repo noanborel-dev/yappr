@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import type { Settings } from '../../../shared/types'
 import { SectionHead, GroupLabel } from '../../shared/ui/SectionHead'
 import { Panel, StackRow, SettingRow } from '../../shared/ui/Panel'
-import { BrandLogo, type BrandSlug } from '../../shared/ui/BrandLogo'
 import { Pill } from '../../shared/ui/Pill'
 import { Toggle } from '../../shared/ui/Toggle'
+import { PromptShapingStage } from '../../shared/ui/PromptShapingStage'
 
 // What this tab used to be: a hero chat mock, then ~450 lines of
 // pixel-recreated iMessage / Gmail / Notion windows — invented contact
@@ -22,13 +22,20 @@ export default function AITab() {
       <SectionHead
         ord="04"
         label="AI"
-        headline={<>Prompts, not <em className="italic">transcripts</em>.</>}
-        body="In Claude Code, Cursor, ChatGPT and the terminal, Yappr shapes what you said into what you meant to ask."
+        headline={<>Rambling in. <em className="italic">Sections</em> out.</>}
+        body="Watch where every piece goes. Nothing is summarised away — it's just filed."
       />
 
-      <PromptShaping />
+      {/* The site's Section 01, at full width. The notch above it runs on
+          the same clock as the text, so this is the real indicator moving
+          through a real dictation rather than a picture of one.
 
-      <GroupLabel className="mt-7">Anywhere else</GroupLabel>
+          It replaced a smaller card that cycled three surfaces through the
+          same before/after. Two demos of one feature on one screen is one
+          too many — this is the one that shows WHERE each phrase went. */}
+      <PromptShapingStage />
+
+      <GroupLabel className="mt-6">Anywhere else</GroupLabel>
       <Panel className="mb-7">
         <SettingRow
           title="Select and rewrite"
@@ -43,97 +50,6 @@ export default function AITab() {
 
       <GroupLabel>Memory</GroupLabel>
       <ContextMemoryCard />
-    </div>
-  )
-}
-
-// ─── Prompt shaping proof ───────────────────────────────────────────
-
-type Surface = 'claudecode' | 'cursor' | 'chatgpt'
-
-const SCRIPTS: Record<Surface, { app: string; raw: string; shaped: string }> = {
-  claudecode: {
-    app: 'Claude Code',
-    raw: 'okay so um the login thing is broken when you use google and i think it might be the redirect uh can you look at it and like fix it',
-    shaped: 'Google OAuth login is failing — I suspect the redirect URI. Investigate and fix.',
-  },
-  cursor: {
-    app: 'Cursor',
-    raw: 'can you refactor this so that it uses async await instead of all the promise chaining stuff',
-    shaped: 'Refactor to use async/await instead of promise chaining.',
-  },
-  chatgpt: {
-    app: 'ChatGPT',
-    raw: "so like help me draft a quick email saying i'm gonna be late to the meeting tomorrow",
-    shaped: "Draft a brief email noting I'll be late to tomorrow's meeting.",
-  },
-}
-
-const SURFACES: Surface[] = ['claudecode', 'cursor', 'chatgpt']
-const HOLD_MS = 6000
-
-function PromptShaping() {
-  const [idx, setIdx] = useState(0)
-  useEffect(() => {
-    const id = window.setInterval(() => setIdx((i) => (i + 1) % SURFACES.length), HOLD_MS)
-    return () => window.clearInterval(id)
-  }, [])
-
-  const surface = SURFACES[idx]
-  const script = SCRIPTS[surface]
-
-  return (
-    <div className="bg-card border border-line rounded-card overflow-hidden">
-      <style>{`
-        @keyframes ps-raw   { 0%, 34% { opacity: .55; } 44%, 100% { opacity: .18; } }
-        @keyframes ps-clean { 0%, 40% { opacity: 0; transform: translateY(4px); }
-                              52%, 100% { opacity: 1; transform: translateY(0); } }
-        @keyframes ps-caret { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
-        .ps-raw   { animation: ps-raw   ${HOLD_MS}ms ease-in-out infinite; }
-        .ps-clean { animation: ps-clean ${HOLD_MS}ms ease-in-out infinite; }
-        .ps-caret { animation: ps-caret 1s steps(2) infinite; }
-        @media (prefers-reduced-motion: reduce) {
-          .ps-raw   { animation: none; opacity: .25; }
-          .ps-clean { animation: none; opacity: 1; transform: none; }
-          .ps-caret { animation: none; }
-        }
-      `}</style>
-
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-line-soft">
-        <BrandLogo brand={surface as BrandSlug} size={14} />
-        <span className="text-[11px] font-medium text-ink-60">{script.app}</span>
-        <span className="ml-auto text-[9.5px] font-mono uppercase tracking-[0.16em] text-ink-45">
-          you said → what lands
-        </span>
-      </div>
-
-      {/* Both lines stay in flow and reserve their space — only opacity
-          animates. Floating the shaped line at the bottom of a fixed box
-          left a dead band in the middle for the half of the loop where it
-          hadn't faded in yet. */}
-      <div key={surface} className="px-5 py-4 flex flex-col gap-3">
-        <div className="ps-raw text-[12px] leading-relaxed text-ink-60 italic min-h-[36px]">
-          “{script.raw}”
-        </div>
-        <div className="ps-clean bg-paper border border-line rounded-[10px] px-3.5 py-3 text-[13px] leading-snug text-ink font-medium min-h-[44px]">
-          {script.shaped}
-          <span className="ps-caret inline-block w-[2px] h-[13px] bg-ink ml-1 align-text-bottom" />
-        </div>
-      </div>
-
-      <div className="flex items-center justify-center gap-1.5 pb-3">
-        {SURFACES.map((s, i) => (
-          <button
-            key={s}
-            onClick={() => setIdx(i)}
-            aria-label={`Show ${SCRIPTS[s].app} example`}
-            className={[
-              'h-1 rounded-full transition-all duration-300',
-              i === idx ? 'w-5 bg-ink' : 'w-1.5 bg-ink/15 hover:bg-ink-45',
-            ].join(' ')}
-          />
-        ))}
-      </div>
     </div>
   )
 }

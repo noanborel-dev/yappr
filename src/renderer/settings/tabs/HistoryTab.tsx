@@ -51,11 +51,12 @@ export default function HistoryTab() {
         body="The last 50 dictations, searchable. They stay on this Mac and are never synced."
       />
 
-      {/* Three numbers, all of them true of the kept history and nothing
-          more. The old strip added a streak, a busiest hour, a longest
-          dictation and a "time saved vs typing at 40 wpm" — the last one
-          being both invented arithmetic and a speed claim the product
-          deliberately doesn't make. */}
+      {/* Two weeks of activity, then three numbers — all of them true of
+          the kept history and nothing more. The old strip added a streak,
+          a busiest hour, a longest dictation and a "time saved vs typing
+          at 40 wpm" — the last being both invented arithmetic and a speed
+          claim the product deliberately doesn't make. */}
+      {items.length > 0 && <Activity days={stats.days} />}
       <StatRail stats={stats} />
 
       <div className="flex items-stretch gap-2 mb-3">
@@ -165,7 +166,11 @@ interface Stats {
   thisWeek: number
   apps: number
   topApps: Array<{ name: string; count: number }>
+  /** Dictations per day, oldest first, for the last DAYS days. */
+  days: Array<{ label: string; date: Date; count: number }>
 }
+
+const DAYS = 14
 
 function computeStats(items: DictationResult[]): Stats {
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
@@ -173,10 +178,29 @@ function computeStats(items: DictationResult[]): Stats {
   let words = 0
   let thisWeek = 0
 
+  // Bucket by local calendar day so a dictation at 11pm counts for that
+  // day, not for a rolling 24h window nobody thinks in.
+  const buckets = new Map<string, number>()
+  const key = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+
   for (const i of items) {
     words += wordCount(i.cleaned)
     if (i.timestamp >= weekAgo) thisWeek++
     byApp.set(i.appName, (byApp.get(i.appName) ?? 0) + 1)
+    const d = new Date(i.timestamp)
+    buckets.set(key(d), (buckets.get(key(d)) ?? 0) + 1)
+  }
+
+  const days: Stats['days'] = []
+  for (let back = DAYS - 1; back >= 0; back--) {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() - back)
+    days.push({
+      label: d.toLocaleDateString(undefined, { weekday: 'narrow' }),
+      date: d,
+      count: buckets.get(key(d)) ?? 0,
+    })
   }
 
   const topApps = [...byApp.entries()]
@@ -184,7 +208,67 @@ function computeStats(items: DictationResult[]): Stats {
     .sort((a, b) => b.count - a.count)
     .slice(0, 4)
 
-  return { total: items.length, words, thisWeek, apps: byApp.size, topApps }
+  return { total: items.length, words, thisWeek, apps: byApp.size, topApps, days }
+}
+
+// Dictations per day for the last two weeks.
+//
+// One series, so no legend — the heading says what's plotted. Columns are
+// capped rather than filling their slot, carry a 4px rounded cap and a
+// square baseline, and are separated by surface-colored gaps rather than
+// strokes. Only the busiest day is labelled: a number over every column is
+// noise, and the tooltip carries the rest.
+function Activity({ days }: { days: Stats['days'] }) {
+  const max = Math.max(...days.map((d) => d.count), 1)
+  const busiest = days.reduce((a, b) => (b.count > a.count ? b : a), days[0])
+
+  return (
+    <div className="bg-card border border-line rounded-card px-5 pt-4 pb-3 mb-2.5">
+      <div className="flex items-baseline justify-between mb-3">
+        <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-ink-45">
+          Last {DAYS} days
+        </div>
+        {busiest.count > 0 && (
+          <div className="text-[10px] font-mono text-ink-45">
+            busiest {busiest.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+            {' · '}{busiest.count}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-end gap-[2px] h-[68px]">
+        {days.map((d, i) => {
+          const pct = (d.count / max) * 100
+          const isMax = d.count === busiest.count && d.count > 0
+          return (
+            <div key={i} className="flex-1 h-full flex flex-col justify-end items-center group">
+              {isMax && (
+                <div className="text-[9.5px] font-mono text-ink-60 mb-1 leading-none">
+                  {d.count}
+                </div>
+              )}
+              <div
+                title={`${d.date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })} — ${d.count} dictation${d.count === 1 ? '' : 's'}`}
+                style={{ height: `${Math.max(pct, d.count > 0 ? 6 : 1.5)}%` }}
+                className={[
+                  'w-full max-w-[22px] rounded-t-[4px] transition-colors',
+                  d.count > 0 ? 'bg-cobalt group-hover:bg-ink' : 'bg-ink/[0.10]',
+                ].join(' ')}
+              />
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Hairline baseline, one step off the surface — recessive. */}
+      <div className="h-px bg-line mt-1.5 mb-1.5" />
+
+      <div className="flex justify-between text-[9px] font-mono text-ink-45">
+        <span>{days[0].date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+        <span>today</span>
+      </div>
+    </div>
+  )
 }
 
 function StatRail({ stats }: { stats: Stats }) {

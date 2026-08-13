@@ -159,6 +159,17 @@ const FRAMES: Record<Mode, Array<[NotchState, boolean]>> = {
 
 const TICK_MS = 620
 
+// Names what the shape is doing, so the loop teaches rather than just
+// moving. Keyed off the notch state so it can never describe a frame the
+// indicator isn't actually showing.
+const CAPTION: Partial<Record<NotchState, string>> = {
+  idle: 'nothing running',
+  recording: 'listening — say it however it comes out',
+  processing: 'polishing for wherever you were typing',
+  done: 'pasted, in place',
+  pasting: 'your last dictation, again',
+}
+
 function Gestures({ glyph }: { glyph: string }) {
   const [frame, setFrame] = useState(0)
   const [active, setActive] = useState<Mode>('tap')
@@ -180,16 +191,21 @@ function Gestures({ glyph }: { glyph: string }) {
   const [state, keyDown] = FRAMES[active][Math.min(frame, FRAMES[active].length - 1)]
 
   return (
-    <div className="bg-card border border-line rounded-card overflow-hidden">
+    <div className="stage-bleed border-y border-line overflow-hidden">
       {/* One shared stage. Three separate looping mocks side by side would
           be three animations in one viewport — the page rules cap that at
           one, and they were right: it read as noise. */}
-      <div className="bg-[linear-gradient(135deg,#6E83A8_0%,#5A7196_55%,#4F6585_100%)]">
+      <div className="bg-[linear-gradient(135deg,#6E83A8_0%,#5A7196_55%,#4F6585_100%)] relative">
         <MenuBar>
-          <NotchMark state={state} notchWidth={84} />
+          <NotchMark state={state} notchWidth={92} />
         </MenuBar>
-        <div className="flex items-center justify-center py-7">
+        <div className="flex flex-col items-center justify-center gap-5 py-12">
           <MiniKeycap glyph={glyph} pressed={keyDown} />
+          {/* Caption track, as under the site's live demo — it names what
+              you're watching, so the loop teaches instead of just moving. */}
+          <div className="h-5 text-[11.5px] font-mono text-white/70 tracking-wide">
+            {CAPTION[state] ?? ''}
+          </div>
         </div>
       </div>
 

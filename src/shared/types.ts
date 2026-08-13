@@ -152,6 +152,10 @@ export const IPC = {
   // Phase 3: force-compaction trigger + status read for the UI.
   CONTEXT_REFRESH_NOW: 'context:refresh-now',
   CONTEXT_STATUS_GET: 'context:status:get',
+  // Version / build / arch, read from the running app rather than
+  // hardcoded in the About tab — which shipped "Build 218 · arm64" as
+  // string literals that were wrong the moment either changed.
+  APP_INFO: 'app:info',
   OPEN_SETTINGS: 'open-settings',
   OPEN_ONBOARDING: 'open-onboarding',
   MIC_PERMISSION: 'mic:permission',
