@@ -144,6 +144,66 @@ export function isExplicitPromptRequest(transcript: string): boolean {
   return EXPLICIT_PROMPT_RE.test(transcript)
 }
 
+// Does this dictation ASK the AI to do something, or merely describe?
+//
+// Both deserve cleanup; only one deserves ## Goal / ## Context / ## Tasks.
+// Wrapping a description in a task template invents a job the user never
+// asked for, and it is also the slow path — shaping runs a heavier model.
+// Descriptive input takes the fast register instead, which is where most
+// of the latency saving on long dictations comes from.
+//
+// POSITION matters more than vocabulary here. "This is what I needed to
+// essentially rewrite" contains a request verb and is plainly a
+// description; "rewrite the auth module" is the same verb doing the
+// opposite job. So a bare verb only counts when it OPENS a sentence —
+// where English puts imperatives — or when an explicit directive phrase
+// addresses the assistant.
+// "I need you to X" was too strict. Real dictation states the need
+// directly — "I need a waitlist page, and I need the copy tightened" —
+// and describing a need IS asking for it. Bare "I need/I want/we need"
+// counts, as do "it should" / "needs to", which are how requirements get
+// phrased when the speaker is halfway between describing and asking.
+const DIRECTIVE_PHRASE_RE = new RegExp([
+  /\b(?:can|could|would|will)\s+you\b/,
+  /\bplease\b/,
+  /\b(?:i|we)\s+(?:want|need|would\s+like)\b/,
+  // Any subject + "should" is a requirement, and a requirement is a
+  // request: "the empty state should say something friendlier". Only
+  // "I should" is excluded — that one is the speaker talking to
+  // themselves, not asking for anything.
+  /(?<!\bi\s)\bshould\b/,
+  /\bneeds?\s+to\s+(?:be|have|get|do)\b/,
+  /\bmake\s+sure\s+(?:you|to|that)\b/,
+  /\blet'?s\b/,
+].map(r => r.source).join('|'), 'i')
+
+// Verbs that, when they OPEN a clause, are an instruction.
+const IMPERATIVE_VERBS = [
+  'add', 'build', 'change', 'check', 'clean', 'create', 'debug', 'delete',
+  'document', 'find', 'fix', 'generate', 'give', 'go', 'implement', 'improve',
+  'install', 'look', 'make', 'migrate', 'move', 'open', 'optimize', 'refactor',
+  'remove', 'rename', 'replace', 'rewrite', 'run', 'set', 'show', 'split',
+  'start', 'stop', 'switch', 'take', 'tell', 'turn', 'update', 'use', 'write',
+]
+const CLAUSE_OPENER_RE = new RegExp(
+  // Start of text, after sentence punctuation, after a COMMA, or after
+  // a coordinator. The comma case is not optional: English routinely
+  // hangs an imperative off one — "there's an issue, just check the logs
+  // and fix it" is a request, and without it that reads as description.
+  //
+  // The trailing \b is load-bearing: without it "changed everything"
+  // matches `change` and a past-tense description reads as an instruction.
+  String.raw`(?:^|[.!?;,]\s+|\b(?:and|then|also)\s+)(?:please\s+|just\s+)?(` +
+  IMPERATIVE_VERBS.join('|') + String.raw`)\b`,
+)
+
+export function isActionableRequest(transcript: string): boolean {
+  const text = stripQuotedSpans(transcript.toLowerCase())
+  if (DIRECTIVE_PHRASE_RE.test(text)) return true
+  if (CLAUSE_OPENER_RE.test(text)) return true
+  return false
+}
+
 export function hasPromptSubstance(transcript: string): boolean {
   return transcript.trim().split(/\s+/).filter(Boolean).length >= MIN_REFORMAT_WORDS
 }
@@ -206,14 +266,18 @@ export function classifyCodeSurface(input: CodeSurfaceInput): CodeSurfaceResult 
   }
   if (substantial) {
     if (input.isPrimaryAiBundle) {
-      return { register: 'reformat', reason: 'primary-ai-app', destination: 'chat' }
+      return isActionableRequest(input.transcript)
+        ? { register: 'reformat', reason: 'primary-ai-app', destination: 'chat' }
+        : { register: 'faithful_ai', reason: 'primary-ai-descriptive' }
     }
     if (input.browserAiRouted) {
       return { register: 'reformat', reason: 'browser-ai-url', destination: 'chat' }
     }
     if (input.category === 'code' && input.axRole === 'AXTextArea' && input.isAxReadable === true) {
       // Cursor / VS Code chat panes: agentic, they can see the repo.
-      return { register: 'reformat', reason: 'readable-chat-textarea', destination: 'agentic' }
+      return isActionableRequest(input.transcript)
+        ? { register: 'reformat', reason: 'readable-chat-textarea', destination: 'agentic' }
+        : { register: 'faithful_ai', reason: 'chat-textarea-descriptive' }
     }
   }
 
@@ -244,9 +308,13 @@ export function classifyCodeSurface(input: CodeSurfaceInput): CodeSurfaceResult 
   // of "2+ sentences", so anything shorter has no business there — it takes
   // the cheap faithful path instead, which still fixes "cloud"→"Claude".
   if (input.terminalAiCli?.isAiCli) {
-    return substantial
+    if (!substantial) return { register: 'faithful_ai', reason: 'ai-cli-detected-short' }
+    // Substantial, but only shape it if it actually asks for something.
+    // Describing what you did is not a task list, and forcing it into one
+    // invents work nobody requested — as well as taking the slow model.
+    return isActionableRequest(input.transcript)
       ? { register: 'reformat', reason: 'ai-cli-detected', destination: 'agentic' }
-      : { register: 'faithful_ai', reason: 'ai-cli-detected-short' }
+      : { register: 'faithful_ai', reason: 'ai-cli-descriptive' }
   }
 
   // Short dictation into a focus-localized AI surface: too small to

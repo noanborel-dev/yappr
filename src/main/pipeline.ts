@@ -6,7 +6,7 @@ import {
   normalizeEmailRewrite,
 } from '../shared/rewrite-prompt'
 import { buildContextBlock } from './context/prompt-injector'
-import { MODELS, BUILTIN_DICTIONARY, IDE_EDITORS } from '../shared/constants'
+import { MODELS, BUILTIN_DICTIONARY, DICTIONARY_ALIASES, IDE_EDITORS } from '../shared/constants'
 import type { AppCategory, DictationResult, Settings, Strictness } from '../shared/types'
 import type { FocusedApp } from './focused-app'
 import type { TranscriptionProvider, CleanupProvider } from './providers/types'
@@ -754,6 +754,23 @@ function buildDictionaryReplacers(terms: string[]): Array<[RegExp, string]> {
   return out
 }
 
+// Whole-word, case-insensitive alias substitution. Preserves the
+// canonical casing from the table, not the casing that was misheard.
+const ALIAS_RE = new RegExp(
+  '\\b(' + Object.keys(DICTIONARY_ALIASES)
+    .sort((a, b) => b.length - a.length)   // longest first: "super base" before "base"
+    .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'))
+    .join('|') + ')\\b',
+  'gi',
+)
+
+function applyDictionaryAliases(text: string): string {
+  return text.replace(ALIAS_RE, (match) => {
+    const key = match.toLowerCase().replace(/\s+/g, ' ')
+    return DICTIONARY_ALIASES[key] ?? match
+  })
+}
+
 function applyDictionaryReplacements(text: string, terms: string[]): string {
   let out = text
   for (const [re, canonical] of buildDictionaryReplacers(terms)) {
@@ -1052,7 +1069,19 @@ export async function runDictationPipeline(
   // flow" → "Yappr", "type script" → "TypeScript", etc., for any
   // term the user added to their dictionary. Case-insensitive, word-
   // boundary anchored, multi-part-aware (see buildDictionaryReplacers).
-  cleaned = applyDictionaryReplacements(cleaned, settings.userDictionary ?? [])
+  // Aliases first: they fix mis-HEARD spellings ("Yapper" -> "Yappr"),
+  // which the replacer below cannot do because it only knows a term's own
+  // spelling and its spacing variants.
+  cleaned = applyDictionaryAliases(cleaned)
+  // BUILTIN_DICTIONARY belongs here, not just the user's terms. It used to
+  // reach the model only as whisper's bias PROMPT; Parakeet takes no
+  // prompt, so passing only settings.userDictionary meant the entire
+  // built-in vocabulary — every brand name in it — silently stopped being
+  // applied anywhere once the engine changed.
+  cleaned = applyDictionaryReplacements(cleaned, [
+    ...BUILTIN_DICTIONARY,
+    ...(settings.userDictionary ?? []),
+  ])
 
   // Deterministic self-correction safety net. The LLM should handle
   // "at 6, I mean 7" → "at 7" — but the 8B cleanup model still keeps

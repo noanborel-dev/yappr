@@ -299,7 +299,40 @@ export const HISTORY_LIMIT = 10
 // mistranscribes (e.g. "cloud" → "Claude", "open AI" → "OpenAI"). Passed
 // as the transcription `prompt` so Whisper biases toward these spellings.
 // Keep this short — Whisper's prompt has a 224-token cap.
+// Phonetic mis-hearings -> canonical spelling.
+//
+// The dictionary replacer only matches a term's own spelling (plus
+// spacing variants), so it can turn "type script" into "TypeScript" but
+// can never turn "Yapper" into "Yappr" — different letters, not different
+// spacing. Whisper had a bias PROMPT that made the right spelling more
+// likely up front; Parakeet takes no prompt, so that lever is gone and
+// this table is the only thing left that can fix a mis-heard name.
+//
+// It matters most on SHORT dictations, which skip the LLM entirely — a
+// three-word "ship it in Yappr" gets no model pass at all, so if this
+// doesn't correct it, nothing will.
+//
+// Keys are lowercase and matched whole-word, case-insensitively.
+export const DICTIONARY_ALIASES: Record<string, string> = {
+  // The product's own name — the one it got wrong most often.
+  'yapper': 'Yappr',
+  'yappers': 'Yappr',
+  'yapr': 'Yappr',
+  // The transcription engine, heard in these shapes in real logs.
+  'periki': 'Parakeet',
+  'paraquet': 'Parakeet',
+  'parakeets': 'Parakeet',
+  // Long-standing offenders that the bias prompt used to cover.
+  'clawed': 'Claude',
+  'grok': 'Groq',
+  'gronk': 'Groq',
+  'super base': 'Supabase',
+  'superbase': 'Supabase',
+}
+
 export const BUILTIN_DICTIONARY: string[] = [
+  // The product and the engine that transcribes it.
+  'Yappr', 'Parakeet',
   // AI labs / products. Multi-word phrases bias Whisper toward the bigram,
   // which helps it pick "Claude Code" instead of "cloud code" etc.
   'Claude', 'Claude Code', 'Claude Sonnet', 'Claude Opus', 'Claude Haiku',

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { detectAiAddressing, classifyCodeSurface } from './ai-intent'
+import { detectAiAddressing, classifyCodeSurface, isActionableRequest } from './ai-intent'
 
 describe('detectAiAddressing', () => {
   it('flags an explicit AI name as a STRONG cue', () => {
@@ -127,11 +127,15 @@ describe('classifyCodeSurface', () => {
   //
   // If asides like this being shaped turns out to annoy more than the
   // dead zone did, raise MIN_REFORMAT_WORDS; the floor is one constant.
-  it('shapes a 9-word aside — accepted cost of the aligned floor', () => {
+  // A 9-word aside is substantial by word count but asks for nothing, so
+  // it takes the fast descriptive path rather than being forced into a
+  // task template. This is what makes the aligned floor safe.
+  it('does not shape a 9-word aside — it asks for nothing', () => {
     const transcript = 'just wanted to see how quick this thing works'
     expect(transcript.split(' ')).toHaveLength(9)
     const r = classifyCodeSurface({ ...base, terminalAiCli: { isAiCli: true }, transcript })
-    expect(r.register).toBe('reformat')
+    expect(r.register).toBe('faithful_ai')
+    expect(r.reason).toBe('ai-cli-descriptive')
   })
 
   it('a short dictation with a spoken AI name still only reaches faithful', () => {
@@ -216,10 +220,15 @@ describe('reformat threshold aligns with the no-LLM floor', () => {
     terminalAiCli: { isAiCli: true, cli: 'claude' },
   })
 
-  it('reformats at 8 words in an AI CLI — the old dead zone', () => {
-    const eight = 'I also have to respond to this one'
-    expect(eight.split(' ')).toHaveLength(8)
+  it('reformats an 8-word REQUEST — the old dead zone', () => {
+    const eight = 'please fix the login redirect it keeps looping'
     expect(inCli(eight).register).toBe('reformat')
+  })
+
+  it('leaves an 8-word DESCRIPTION as plain text, no headings', () => {
+    // Straight from the log. Nothing is being asked for, so a ## Goal /
+    // ## Tasks template would invent a job the user never requested.
+    expect(inCli('I also have to respond to this one').register).toBe('faithful_ai')
   })
 
   it('does not reformat below the floor', () => {
@@ -261,5 +270,47 @@ describe('explicit "make a prompt" request', () => {
 
   it('still respects the word floor — a two word request is an aside', () => {
     expect(anywhere('make a prompt').register).not.toBe('reformat')
+  })
+})
+
+// Descriptive vs request. Both get cleaned; only a request gets shaped
+// into ## Goal / ## Tasks. Wrapping a description in a task template
+// invents work nobody asked for — and it is also the slow path, since
+// shaping runs a heavier model.
+describe('isActionableRequest', () => {
+  it('recognises an outright instruction', () => {
+    expect(isActionableRequest('please build me a landing page for the waitlist')).toBe(true)
+    expect(isActionableRequest('fix the login redirect it keeps looping on expiry')).toBe(true)
+  })
+
+  // The user's own phrasing: stating a need IS asking for it.
+  it('recognises a stated need, not just "I need YOU TO"', () => {
+    expect(isActionableRequest('I need a waitlist page and I need the copy tightened')).toBe(true)
+    expect(isActionableRequest('the empty state should say something friendlier')).toBe(true)
+  })
+
+  // English hangs imperatives off commas constantly.
+  it('recognises an imperative after a comma', () => {
+    expect(isActionableRequest(
+      "there's an issue because it's taking forever, just check the logs and fix it",
+    )).toBe(true)
+  })
+
+  it('treats plain description as description', () => {
+    for (const t of [
+      'we rebuilt the dictation indicator to live in the MacBook notch',
+      'just wanted to see how quick this thing works',
+      'I also have to respond to this one',
+    ]) expect(isActionableRequest(t), t).toBe(false)
+  })
+
+  // Position beats vocabulary: these carry request VERBS while plainly
+  // describing. Matching on the word alone would shape all of them.
+  it('is not fooled by a request verb in descriptive position', () => {
+    for (const t of [
+      'this is what I needed to essentially rewrite',
+      'the deploy changed everything about how we ship now',
+      'the build step removed the old assets automatically',
+    ]) expect(isActionableRequest(t), t).toBe(false)
   })
 })
