@@ -21,7 +21,7 @@ import { pasteText, probeFocusedAXRole, getPressTimeAXRolePromise } from './past
 import { logInfo, logError } from './log'
 import { NoSpeechError, ModelUnsupportedError } from './errors'
 import { focusedAppRunningAiCli } from './terminal-ai-cli'
-import { classifyCodeSurface } from './ai-intent'
+import { classifyCodeSurface, isExplicitPromptRequest } from './ai-intent'
 import type { PromptDestination } from './ai-intent'
 import { cleanupSkipReason, cleanupRetryDecision, countWords } from './cleanup-policy'
 
@@ -849,7 +849,15 @@ export async function runDictationPipeline(
   //   code        → unchanged; the verbatim fast path stays eligible
   let runFaithfulAi = false
   let promptDestination: PromptDestination = 'chat'
-  if (effectiveCategory === 'code' || PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId)) {
+  // The classifier is normally only consulted on code surfaces and the
+  // dedicated AI apps. An explicit "make me a prompt" has to widen that:
+  // the request stands on its own, and the user asking for it from a
+  // browser or a notes app means the same thing it means in an editor.
+  if (
+    effectiveCategory === 'code'
+    || PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId)
+    || isExplicitPromptRequest(transcript)
+  ) {
     const axRole = await (getPressTimeAXRolePromise() ?? Promise.resolve('script-error'))
     const isAxReadable = axRole !== 'no-focus' && axRole !== 'script-error'
 

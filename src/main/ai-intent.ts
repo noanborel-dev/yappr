@@ -109,7 +109,40 @@ export function detectAiAddressing(transcript: string): AiCue {
 // asides; "I think there's an issue because it's taking forever for things
 // to paste, just check the logs and fix" (20) is a genuine instruction to
 // an agent and does deserve shaping.
-export const MIN_REFORMAT_WORDS = 12
+// Aligned with SHORT_UTTERANCE_MAX_WORDS (8) on purpose.
+//
+// At 12 there was a dead zone: an 8-11 word dictation was too long to
+// skip the LLM and too short to reformat, so it took the faithful path —
+// a full round-trip that returned the text almost unchanged. Observed:
+// "I also have to respond to this one." and "This is what I needed to
+// essentially rewrite." both cost ~2s to come back near-identical. Paying
+// two seconds to change nothing is the worst of both options.
+//
+// One line now: under 8 words nothing is sent at all and the paste is
+// immediate; at 8 or more, in an AI surface, it gets shaped into a real
+// prompt. Nothing lands in between.
+export const MIN_REFORMAT_WORDS = 8
+
+// An explicit instruction to produce a prompt — "make a prompt to turn
+// the landing page into a waitlist", "write me a prompt for...".
+//
+// This is the ONE spoken signal allowed to reach reformat on its own, and
+// it does not weaken the invariant it appears to bend. That rule exists to
+// stop a focus-DECOUPLED signal (an agent running in some background tab,
+// an AI name merely mentioned) from restructuring words the user wanted
+// verbatim. Saying "make me a prompt" is not a decoupled signal — it is
+// the user asking for the thing, in as many words. Refusing there means
+// refusing an explicit request.
+//
+// Deliberately narrow: a verb of creation, then "a/an/me a", then the noun.
+// "at the prompt", "prompt me when it finishes", "the prompt was wrong"
+// all fail it.
+const EXPLICIT_PROMPT_RE =
+  /\b(?:make|write|create|draft|turn\s+\w+\s+into|generate)\s+(?:me\s+)?(?:a|an|the)\s+(?:\w+\s+){0,2}prompt\b/i
+
+export function isExplicitPromptRequest(transcript: string): boolean {
+  return EXPLICIT_PROMPT_RE.test(transcript)
+}
 
 export function hasPromptSubstance(transcript: string): boolean {
   return transcript.trim().split(/\s+/).filter(Boolean).length >= MIN_REFORMAT_WORDS
@@ -162,6 +195,15 @@ export function classifyCodeSurface(input: CodeSurfaceInput): CodeSurfaceResult 
   // first, so the behaviour is explainable. Strictly more conservative:
   // this only ever removes LLM calls.
   const substantial = hasPromptSubstance(input.transcript)
+
+  // Asked for outright — honour it wherever they are, so long as there is
+  // enough to shape. Placed above the surface routes because it does not
+  // depend on being in an AI app at all: "make a prompt to turn our
+  // landing page into a waitlist" deserves shaping whether it is going to
+  // Claude Code, a browser, or a notes app.
+  if (substantial && isExplicitPromptRequest(input.transcript)) {
+    return { register: 'reformat', reason: 'explicit-prompt-request', destination: 'agentic' }
+  }
   if (substantial) {
     if (input.isPrimaryAiBundle) {
       return { register: 'reformat', reason: 'primary-ai-app', destination: 'chat' }
