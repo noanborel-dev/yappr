@@ -133,18 +133,46 @@ export interface CodeSurfaceInput {
   weakCueSettingOn?: boolean
 }
 
+// Where a reformatted prompt is headed. Shapes the prompt: an agentic
+// tool has the repo, git, a shell and the test suite; a chat assistant
+// has none of that, so telling it to "run the tests" is noise.
+//
+// Note readable-chat-textarea is AGENTIC, not chat — that route fires on
+// Cursor / VS Code chat panes, which do have repo access. Only the
+// standalone assistants and browser AI URLs are 'chat'.
+export type PromptDestination = 'agentic' | 'chat'
+
 export interface CodeSurfaceResult {
   register: CodeRegister
   reason: string
+  // Only meaningful when register === 'reformat'.
+  destination?: PromptDestination
 }
 
 // Three-way routing. Decision order, first match wins.
 export function classifyCodeSurface(input: CodeSurfaceInput): CodeSurfaceResult {
   // 1) REFORMAT — focus-LOCALIZED AI surface ONLY (never a decoupled signal).
-  if (input.isPrimaryAiBundle) return { register: 'reformat', reason: 'primary-ai-app' }
-  if (input.browserAiRouted) return { register: 'reformat', reason: 'browser-ai-url' }
-  if (input.category === 'code' && input.axRole === 'AXTextArea' && input.isAxReadable === true) {
-    return { register: 'reformat', reason: 'readable-chat-textarea' }
+  //
+  // Every route below is gated on the SAME word floor as the AI-CLI route.
+  // It used to guard only that one, so a nine-word aside in ChatGPT — or
+  // anywhere the AX probe happened to return AXTextArea — got the full
+  // markdown-section treatment. Since the probe is unreliable on Electron
+  // editors (AXTextArea / AXTextField / no-focus for the same caret), that
+  // made reformat fire unpredictably on identical input. Now length decides
+  // first, so the behaviour is explainable. Strictly more conservative:
+  // this only ever removes LLM calls.
+  const substantial = hasPromptSubstance(input.transcript)
+  if (substantial) {
+    if (input.isPrimaryAiBundle) {
+      return { register: 'reformat', reason: 'primary-ai-app', destination: 'chat' }
+    }
+    if (input.browserAiRouted) {
+      return { register: 'reformat', reason: 'browser-ai-url', destination: 'chat' }
+    }
+    if (input.category === 'code' && input.axRole === 'AXTextArea' && input.isAxReadable === true) {
+      // Cursor / VS Code chat panes: agentic, they can see the repo.
+      return { register: 'reformat', reason: 'readable-chat-textarea', destination: 'agentic' }
+    }
   }
 
   // 1b) REFORMAT — a DETECTED AI CLI in the focused app's process subtree.
@@ -174,9 +202,16 @@ export function classifyCodeSurface(input: CodeSurfaceInput): CodeSurfaceResult 
   // of "2+ sentences", so anything shorter has no business there — it takes
   // the cheap faithful path instead, which still fixes "cloud"→"Claude".
   if (input.terminalAiCli?.isAiCli) {
-    return hasPromptSubstance(input.transcript)
-      ? { register: 'reformat', reason: 'ai-cli-detected' }
+    return substantial
+      ? { register: 'reformat', reason: 'ai-cli-detected', destination: 'agentic' }
       : { register: 'faithful_ai', reason: 'ai-cli-detected-short' }
+  }
+
+  // Short dictation into a focus-localized AI surface: too small to
+  // restructure, but still worth the faithful pass so "cloud" -> "Claude"
+  // and friends get fixed.
+  if (!substantial && (input.isPrimaryAiBundle || input.browserAiRouted)) {
+    return { register: 'faithful_ai', reason: 'ai-surface-short' }
   }
 
   // 2) FAITHFUL_AI — run the LLM, stay faithful. Reached when the user merely

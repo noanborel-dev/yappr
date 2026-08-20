@@ -31,6 +31,7 @@ import {
 } from './store'
 import { loadPersistedHistory } from '../history-store'
 import { getSettings } from '../store'
+import { compactionGate, shouldKeepRetrying, type GateInput } from './compaction-gate'
 import { logInfo, logError } from '../log'
 
 const THRESHOLD = 50
@@ -43,15 +44,58 @@ let lastDictationActivityAt = 0
 let compacting = false
 let successfulCompactions = 0
 
+// How often to re-ask the gate once there's a backlog. Compaction must
+// wait for the user to be idle, and "idle" is never true at the instant a
+// dictation finishes — so the only way it ever runs is to keep checking.
+const RETRY_INTERVAL_MS = 60_000
+let retryTimer: ReturnType<typeof setInterval> | null = null
+
+function stopCompactionRetries(): void {
+  if (retryTimer) {
+    clearInterval(retryTimer)
+    retryTimer = null
+  }
+}
+
+// Start polling until a compaction actually lands. Idempotent.
+export function startCompactionRetries(): void {
+  if (retryTimer) return
+  logInfo('[compactor] backlog reached threshold — polling for an idle moment', {
+    count: getDictationCount(),
+    threshold: THRESHOLD,
+    everyMs: RETRY_INTERVAL_MS,
+  })
+  retryTimer = setInterval(() => {
+    maybeRunCompaction()
+      .then(() => {
+        if (!shouldKeepRetrying(gateInput())) stopCompactionRetries()
+      })
+      .catch((err) => {
+        logError('[compactor] scheduled run threw', err)
+      })
+  }, RETRY_INTERVAL_MS)
+  // Don't hold the process open purely to run housekeeping.
+  retryTimer.unref?.()
+}
+
 export function notifyDictationCompleted(): void {
   lastDictationActivityAt = Date.now()
   const count = incrementDictationCount()
-  if (count >= THRESHOLD && !compacting) {
-    setTimeout(() => {
-      maybeRunCompaction().catch((err) => {
-        logError('[compactor] scheduled run threw', err)
-      })
-    }, 0)
+  // Previously this fired setTimeout(..., 0), which then failed the
+  // "quiet for 60s" check it had just made impossible. Poll instead.
+  if (count >= THRESHOLD && !compacting) startCompactionRetries()
+}
+
+function gateInput(): GateInput {
+  return {
+    count: getDictationCount(),
+    threshold: THRESHOLD,
+    compacting,
+    hasApiKey: getSettings().provider.groqKey.trim().length > 0,
+    msSinceDictation: Date.now() - lastDictationActivityAt,
+    osIdleSeconds: powerMonitor.getSystemIdleTime(),
+    idleMs: IDLE_MS,
+    osIdleSeconds_threshold: OS_IDLE_SECONDS,
   }
 }
 
@@ -74,15 +118,11 @@ export function getCompactionStatus(): {
 }
 
 export async function maybeRunCompaction(): Promise<{ ran: boolean; reason?: string }> {
-  if (compacting) return { ran: false, reason: 'in-progress' }
+  const decision = compactionGate(gateInput())
+  if (!decision.run) return { ran: false, reason: decision.reason }
 
   const settings = getSettings()
   const apiKey = settings.provider.groqKey
-  if (!apiKey) return { ran: false, reason: 'no-key' }
-
-  const recentDictation = Date.now() - lastDictationActivityAt <= IDLE_MS
-  const osIdle = powerMonitor.getSystemIdleTime() > OS_IDLE_SECONDS
-  if (recentDictation || !osIdle) return { ran: false, reason: 'busy' }
 
   compacting = true
   try {
@@ -96,6 +136,7 @@ export async function maybeRunCompaction(): Promise<{ ran: boolean; reason?: str
     resetDictationCount()
     setLastCompaction(Date.now())
     successfulCompactions += 1
+    stopCompactionRetries()
     logInfo('[compactor] compaction complete', {
       rebuild,
       chars: result.overview.length,

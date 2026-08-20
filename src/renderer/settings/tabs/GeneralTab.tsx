@@ -11,6 +11,7 @@ export default function GeneralTab() {
   const [mics, setMics] = useState<MediaDeviceInfo[]>([])
   const [inputDeviceId, setInputDeviceId] = useState<string | null>(null)
   const [audioCues, setAudioCues] = useState<boolean>(true)
+  const [pauseMedia, setPauseMedia] = useState<boolean>(true)
 
   useEffect(() => {
     window.yappr.getLaunchAtLogin().then(setLaunchAtLogin)
@@ -26,6 +27,7 @@ export default function GeneralTab() {
       setMics(devices.filter((d) => d.kind === 'audioinput'))
       setInputDeviceId(settings.inputDeviceId)
       setAudioCues(settings.audioCues)
+      setPauseMedia(settings.pauseMediaWhileDictating)
     })
     return () => { cancelled = true }
   }, [])
@@ -38,6 +40,11 @@ export default function GeneralTab() {
   function toggleAudioCues(next: boolean) {
     setAudioCues(next)
     window.yappr.setSettings({ audioCues: next })
+  }
+
+  function togglePauseMedia(next: boolean) {
+    setPauseMedia(next)
+    window.yappr.setSettings({ pauseMediaWhileDictating: next })
   }
 
   async function toggleLaunchAtLogin(next: boolean) {
@@ -73,9 +80,23 @@ export default function GeneralTab() {
         <SettingRow
           title="Audio cues"
           desc="A subtle blip when recording starts and ends."
-          last
         >
           <Toggle on={audioCues} onChange={toggleAudioCues} label="Audio cues" />
+        </SettingRow>
+        {/* Ported from fix/short-utterance-latency, which added this row
+            against the old markup. HEAD had already rebuilt this tab on
+            SettingRow, so it's re-expressed here rather than merged as-is —
+            the feature is theirs, the idiom is HEAD's. */}
+        <SettingRow
+          title="Pause music while dictating"
+          desc="Pauses Music and Spotify, then resumes them. Keeps speakers out of the mic."
+          last
+        >
+          <Toggle
+            on={pauseMedia}
+            onChange={togglePauseMedia}
+            label="Pause music while dictating"
+          />
         </SettingRow>
       </Panel>
 

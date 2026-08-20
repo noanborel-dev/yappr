@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { fork, type ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import { logInfo, logError } from './log'
+import { ModelUnsupportedError } from './errors'
 import { SerialQueue } from './serial-queue'
 import type { TranscribeOptions } from '@fugood/whisper.node'
 
@@ -134,6 +135,15 @@ function ensureProc(): Promise<void> {
   return readyPromise
 }
 
+// Worker errors cross IPC as plain strings, so the type is rebuilt here.
+// Capability failures must not be retried — see ModelUnsupportedError.
+function reviveWorkerError(message: string): Error {
+  if (/needs @fugood\/whisper\.node/.test(message)) {
+    return new ModelUnsupportedError(message)
+  }
+  return new Error(message)
+}
+
 function handleWorkerMessage(
   msg: Record<string, unknown>,
   spawnResolve: () => void,
@@ -187,12 +197,12 @@ function handleWorkerMessage(
       const req = pending.get(id)
       if (req) {
         pending.delete(id)
-        req.reject(new Error(message))
+        req.reject(reviveWorkerError(message))
       }
       return
     }
     if (loadReject) {
-      loadReject(new Error(message))
+      loadReject(reviveWorkerError(message))
       loadReject = null
       loadResolve = null
       loadingModelPath = null

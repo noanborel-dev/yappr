@@ -13,9 +13,10 @@ import { createLocalWhisperProvider, createLocalCleanupProvider } from './provid
 import { captureFocusedApp, getFocusedApp } from './focused-app'
 import { pasteText, probeFocusedAXRole, getPressTimeAXRolePromise } from './paste'
 import { logInfo, logError } from './log'
-import { NoSpeechError } from './errors'
+import { NoSpeechError, ModelUnsupportedError } from './errors'
 import { focusedAppRunningAiCli } from './terminal-ai-cli'
 import { classifyCodeSurface } from './ai-intent'
+import type { PromptDestination } from './ai-intent'
 import { cleanupSkipReason, cleanupRetryDecision, countWords } from './cleanup-policy'
 
 // Apps that are PRIMARILY AI chat surfaces. Dictation here is always
@@ -119,6 +120,9 @@ async function withRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
     return await fn()
   } catch (err) {
     if (err instanceof NoSpeechError) throw err
+    // Retrying a model the binding cannot load just repeats the same
+    // failure and triples the delay before the user sees the reason.
+    if (err instanceof ModelUnsupportedError) throw err
     logError(`${label} failed (attempt 1) — retrying`, err)
     await new Promise(r => setTimeout(r, 250))
     try {
@@ -835,6 +839,7 @@ export async function runDictationPipeline(
   //                 (fixes "cloud"→"Claude" mishears without restructuring)
   //   code        → unchanged; the verbatim fast path stays eligible
   let runFaithfulAi = false
+  let promptDestination: PromptDestination = 'chat'
   if (effectiveCategory === 'code' || PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId)) {
     const axRole = await (getPressTimeAXRolePromise() ?? Promise.resolve('script-error'))
     const isAxReadable = axRole !== 'no-focus' && axRole !== 'script-error'
@@ -859,8 +864,14 @@ export async function runDictationPipeline(
 
     if (surface.register === 'reformat') {
       effectiveCategory = 'ai_prompt'
+      promptDestination = surface.destination ?? 'chat'
       logInfo('Routed to ai_prompt (reformat)', {
+        // cli was captured but only ever logged on the faithful branch, so
+        // a prompt bound for Claude Code looked identical to one bound for
+        // Perplexity. Threading it is the prerequisite for shaping the two
+        // differently.
         bundleId: focusedApp.bundleId, axRole, reason: surface.reason,
+        cli: terminalAiCli.cli, destination: promptDestination,
       })
     } else if (surface.register === 'faithful_ai') {
       runFaithfulAi = true
@@ -950,6 +961,7 @@ export async function runDictationPipeline(
       settings.emojiInMessages,
       register,
       contextBlock,
+      promptDestination,
     ).replace('{text}', transcript)
     const cStart = Date.now()
     try {
