@@ -1,35 +1,68 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Reveal } from "./Reveal";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SectionHead } from "./SectionHead";
+import { Reveal } from "./Reveal";
 import { ScrollExpand } from "./ScrollExpand";
 
-// Section 4 — hardest to explain, so: show the artifact, show it change.
-// No metaphors, no diagram, no supporting bullet list.
+// Section 03 — the payoff, not the mechanism.
 //
-// Mechanic mirrors src/main/context/compactor.ts — the overview
-// re-compacts every 50 dictations while you're idle.
+// This used to show the app's Background-context settings panel: an
+// accurate picture of a feature nobody asked to see. What people actually
+// feel is the preamble tax — the five lines of setup you retype at the top
+// of every AI conversation before you get to the thing you wanted.
+//
+// So the prompt shrinks on screen. The setup strikes out and collapses,
+// leaving only the ask. The box getting shorter IS the argument; no copy
+// has to claim a time saving.
 
-const SEEDED = "I'm building Yappr, a macOS dictation app. Electron + TypeScript. Groq for inference.";
-
-const LEARNED = [
+const PREAMBLE = [
+  "I'm building Yappr, a macOS dictation app.",
+  "Stack is Electron + TypeScript, Groq for inference.",
   "Transcription runs locally on whisper-large-v3-turbo.",
   "The polish pipeline lives in src/main/pipeline.ts.",
-  "Working with Søren on the streaming refactor.",
+  "I'm working with Søren on the streaming refactor.",
 ];
 
+const ASK = "The pipeline drops chunks when Groq 429s — why?";
+
+type Phase = "full" | "striking" | "collapsed";
+
 export function PersistentContext() {
-  const [grown, setGrown] = useState(false);
+  const [phase, setPhase] = useState<Phase>("full");
+  const [struck, setStruck] = useState(0);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const clear = useCallback(() => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+  }, []);
+
+  const run = useCallback(() => {
+    clear();
+    setPhase("full");
+    setStruck(0);
+    const at = (fn: () => void, ms: number) => timers.current.push(setTimeout(fn, ms));
+
+    at(() => setPhase("striking"), 1400);
+    PREAMBLE.forEach((_, i) => at(() => setStruck(i + 1), 1600 + i * 260));
+    const done = 1600 + PREAMBLE.length * 260 + 500;
+    at(() => setPhase("collapsed"), done);
+    at(run, done + 4200);
+  }, [clear]);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setGrown(true);
+      setPhase("collapsed");
+      setStruck(PREAMBLE.length);
       return;
     }
-    const id = window.setInterval(() => setGrown((g) => !g), 5200);
-    return () => window.clearInterval(id);
+    run();
+    return clear;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const collapsed = phase === "collapsed";
 
   return (
     <section id="context" className="section section--warm">
@@ -43,58 +76,37 @@ export function PersistentContext() {
               Stop re-explaining your <em>project</em>.
             </>
           }
-          lede={
-            <>
-              Claude gets a context window. Dictation never did — it starts
-              blank every time you press the key. Yours won&rsquo;t.
-            </>
-          }
+          lede="Every conversation starts with the same five lines of setup. Yappr already knows them, so you skip to the question."
         />
 
-        {/* Drawn as the app's real settings panel — "Background context" in
-            AITab.tsx: heading, opt-in toggle, the overview textarea, then a
-            status row with Refresh. A generic white card was pretending to
-            be a product surface without matching one. */}
-        <ScrollExpand from={0.94}>
-          <div className="pc-panel">
-            <div className="pc-panel-head">
-              <div>
-                <p className="pc-panel-title">Background context</p>
-                <p className="pc-panel-desc">
-                  Passed to cleanup so your polish sounds like you.
-                </p>
+        <ScrollExpand from={0.95}>
+          <div className="px-stage">
+            <div className={`px-doc ${collapsed ? "is-collapsed" : ""}`}>
+              <span className="px-label">
+                {collapsed ? "what you say now" : "what you type every time"}
+              </span>
+
+              <div className="px-lines">
+                {PREAMBLE.map((line, i) => (
+                  <p
+                    key={i}
+                    className={`px-pre ${i < struck ? "struck" : ""} ${
+                      collapsed ? "gone" : ""
+                    }`}
+                  >
+                    {line}
+                  </p>
+                ))}
+                <p className="px-ask">{ASK}</p>
               </div>
-              <span className="pc-toggle" role="img" aria-label="Enabled">
-                <span className="pc-toggle-knob" />
-              </span>
             </div>
 
-            <div className="pc-field">
-              <span className="pc-seed">{SEEDED}</span>{" "}
-              {LEARNED.map((clause, i) => (
-                <span
-                  key={i}
-                  className={`pc-learned ${grown ? "in" : ""}`}
-                  style={{ transitionDelay: grown ? `${i * 300}ms` : "0ms" }}
-                >
-                  {clause}{" "}
-                </span>
-              ))}
-              <span className="pc-caret" aria-hidden="true" />
-            </div>
-
-            <div className="pc-panel-foot">
-              <span className={`pc-status ${grown ? "on" : ""}`}>
-                {grown ? "Refreshed just now" : "Auto-updates every 50 dictations"}
-              </span>
-              <span className="pc-btn">Refresh now</span>
-            </div>
+            <p className={`px-caption ${collapsed ? "in" : ""}`}>
+              Yappr already told it the rest.
+            </p>
           </div>
         </ScrollExpand>
 
-        {/* The oblique competitor line. Accurate as written: other voice
-            tools do persist a personal dictionary — that's vocabulary, not
-            project state. Don't sharpen this into "they have no memory". */}
         <Reveal delay={140}>
           <p className="pc-versus">
             Other voice tools learn your <em>vocabulary</em>. This one learns

@@ -1,67 +1,86 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CursorShell, type CodeLine } from "./shells/CursorShell";
-import { Reveal } from "./Reveal";
-import { ScrollExpand } from "./ScrollExpand";
 import { SectionHead } from "./SectionHead";
-import { NotchIndicator } from "./NotchIndicator";
+import { ScrollExpand } from "./ScrollExpand";
+import { Reveal } from "./Reveal";
 
-// One surface, done properly, instead of three generic windows on a
-// carousel. Range ("works anywhere") is a line of copy — the per-app
-// polish section further down carries the visual proof for other apps.
+// Section 02 — rewritten around what this is actually for.
+//
+// It used to demo turning .then() into async/await in an editor. That's a
+// thing it CAN do and a thing nobody reaches for a microphone to do — you'd
+// just type it, or ask the AI already in your editor.
+//
+// The real uses are the two below: topping up a prompt you're about to
+// send, and amending an email you've already written. Both are cases where
+// the text exists, you know the one change you want, and saying it is
+// genuinely faster than re-typing the sentence around it.
 
-type Beat = "rest" | "select" | "speak" | "rewritten";
+type Scene = {
+  app: "claude" | "gmail";
+  chrome: string;
+  /** Text before the selection. */
+  head: string;
+  /** The selected run. */
+  sel: string;
+  /** Text after the selection. */
+  tail: string;
+  said: string;
+  /** What the selection becomes. */
+  after: string;
+};
 
-const BEFORE: CodeLine[] = [
-  { n: 37, tokens: [{ t: "// cleanup runs once transcription settles", c: "cmt" }] },
-  { n: 38, tokens: [{ t: "" }] },
-  { n: 39, tokens: [{ t: "async function ", c: "kw" }, { t: "polish", c: "fn" }, { t: "(chunks) {" }] },
-  { n: 40, tokens: [{ t: "  return", c: "kw" }, { t: " groq." }, { t: "clean", c: "fn" }, { t: "(chunks)." }, { t: "then", c: "fn" }, { t: "((r) => {" }] },
-  { n: 41, tokens: [{ t: "    if", c: "kw" }, { t: " (!r.ok) " }, { t: "return", c: "kw" }, { t: " " }, { t: "fallback", c: "fn" }, { t: "(chunks)" }] },
-  { n: 42, tokens: [{ t: "    return", c: "kw" }, { t: " r.text" }] },
-  { n: 43, tokens: [{ t: "  })" }] },
-  { n: 44, tokens: [{ t: "}" }] },
-  { n: 45, tokens: [{ t: "" }] },
-  { n: 46, tokens: [{ t: "export", c: "kw" }, { t: " { polish }" }] },
+const SCENES: Scene[] = [
+  {
+    app: "claude",
+    chrome: "Claude Code — ~/Dev/yappr",
+    head: "Add a retry wrapper around the Groq call. ",
+    sel: "Back off exponentially and cap it at three attempts.",
+    tail: "",
+    said: "also say it should only retry on 429 and 5xx, never 4xx",
+    after:
+      "Back off exponentially, cap it at three attempts, and only retry on 429 and 5xx — never other 4xx.",
+  },
+  {
+    app: "gmail",
+    chrome: "Re: launch timing",
+    head: "Hi Priya — quick update before Thursday.\n\n",
+    sel: "We're on track for the beta and I'll send numbers once they're in.",
+    tail: "\n\nThanks,\nNoan",
+    said: "mention the landing page is live and ask if she wants a walkthrough",
+    after:
+      "We're on track for the beta, and the landing page is live now if you want a look. I'll send numbers once they're in — happy to walk you through it if that's easier.",
+  },
 ];
 
-const AFTER: CodeLine[] = [
-  { n: 37, tokens: [{ t: "// cleanup runs once transcription settles", c: "cmt" }] },
-  { n: 38, tokens: [{ t: "" }] },
-  { n: 39, tokens: [{ t: "async function ", c: "kw" }, { t: "polish", c: "fn" }, { t: "(chunks) {" }] },
-  { n: 40, tokens: [{ t: "  const", c: "kw" }, { t: " r = " }, { t: "await", c: "kw" }, { t: " groq." }, { t: "clean", c: "fn" }, { t: "(chunks)" }] },
-  { n: 41, tokens: [{ t: "  if", c: "kw" }, { t: " (!r.ok) " }, { t: "return", c: "kw" }, { t: " " }, { t: "fallback", c: "fn" }, { t: "(chunks)" }] },
-  { n: 42, tokens: [{ t: "  return", c: "kw" }, { t: " r.text" }] },
-  { n: 43, tokens: [{ t: "}" }] },
-  { n: 44, tokens: [{ t: "" }] },
-  { n: 45, tokens: [{ t: "export", c: "kw" }, { t: " { polish }" }] },
-];
-
-// The .then block — lines 40-43, i.e. rows 4-7 of BEFORE.
-const SELECTED = [4, 5, 6, 7];
+type Beat = "rest" | "select" | "speak" | "done";
 
 export function SelectRewrite() {
+  const [scene, setScene] = useState(0);
   const [beat, setBeat] = useState<Beat>("rest");
-  const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const clear = useCallback(() => {
-    timeouts.current.forEach(clearTimeout);
-    timeouts.current = [];
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
   }, []);
 
   const run = useCallback(() => {
     clear();
     setBeat("rest");
-    timeouts.current.push(setTimeout(() => setBeat("select"), 900));
-    timeouts.current.push(setTimeout(() => setBeat("speak"), 1900));
-    timeouts.current.push(setTimeout(() => setBeat("rewritten"), 3400));
-    timeouts.current.push(setTimeout(run, 8200));
+    const at = (fn: () => void, ms: number) => timers.current.push(setTimeout(fn, ms));
+    at(() => setBeat("select"), 900);
+    at(() => setBeat("speak"), 1900);
+    at(() => setBeat("done"), 3500);
+    at(() => {
+      setScene((s) => (s + 1) % SCENES.length);
+      run();
+    }, 7600);
   }, [clear]);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setBeat("rewritten");
+      setBeat("done");
       return;
     }
     run();
@@ -69,7 +88,9 @@ export function SelectRewrite() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const rewritten = beat === "rewritten";
+  const s = SCENES[scene];
+  const done = beat === "done";
+  const selecting = beat === "select" || beat === "speak";
 
   return (
     <section id="rewrite" className="section section--dark">
@@ -80,37 +101,40 @@ export function SelectRewrite() {
           pro
           title={
             <>
-              Highlight it. <em>Say the fix.</em>
+              Highlight it. <em>Say the change.</em>
             </>
           }
-          lede="Any text you can select, in any app. The rewrite replaces it where it sits."
+          lede="A prompt you're about to send. An email you've already written. Select the part that's wrong and say what it should be instead."
         />
 
-        {/* Runs wide of the text column and grows into that width as you
-            scroll — a dark section with edge-to-edge media is the single
-            biggest "premium" lever available without photography. */}
-        <ScrollExpand from={0.88}>
-          <div className="sr-stage bleed">
-            <CursorShell
-              lines={rewritten ? AFTER : BEFORE}
-              selected={beat === "select" || beat === "speak" ? SELECTED : []}
-              flashing={rewritten}
-            />
+        <ScrollExpand from={0.9}>
+          <div className="sr2" key={scene}>
+            <div className={`sr2-win sr2-win--${s.app}`}>
+              <div className="sr2-chrome">
+                <span className="tl r" /><span className="tl y" /><span className="tl g" />
+                <span className="sr2-title">{s.chrome}</span>
+              </div>
 
-            <div className={`sr-say ${beat === "speak" ? "in" : ""}`} aria-hidden="true">
-              &ldquo;make this async/await&rdquo;
+              <div className="sr2-body">
+                <span className="sr2-static">{s.head}</span>
+                <span
+                  className={`sr2-run ${selecting ? "sel" : ""} ${done ? "new" : ""}`}
+                >
+                  {done ? s.after : s.sel}
+                </span>
+                <span className="sr2-static">{s.tail}</span>
+              </div>
             </div>
 
-            {/* Menu bar + notch: the indicator can't float in the middle of
-                an editor window — it lives at the top of the screen. Giving
-                the mockup a menu bar is what makes that placement honest. */}
-            <div className="sr-menubar" aria-hidden="true" />
-            <div className="sr-notch" aria-hidden="true">
-              <NotchIndicator
-                state={beat === "speak" ? "recording" : beat === "rewritten" ? "done" : "idle"}
-                notchWidth={120}
-              />
+            <div className={`sr2-said ${beat === "speak" ? "in" : ""}`} aria-hidden="true">
+              &ldquo;{s.said}&rdquo;
             </div>
+
+            <ul className="sr2-dots" aria-hidden="true">
+              {SCENES.map((sc, n) => (
+                <li key={sc.app} className={n === scene ? "on" : ""} />
+              ))}
+            </ul>
           </div>
         </ScrollExpand>
 

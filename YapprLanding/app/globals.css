@@ -4164,29 +4164,7 @@ body {
 }
 
 /* Menu-bar strips: the notch's fillets are drawn to blend into a bar. */
-.sr-menubar, .ws-menubar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 26px;
-  background: rgba(10, 11, 15, 0.5);
-  -webkit-backdrop-filter: saturate(140%) blur(8px);
-  backdrop-filter: saturate(140%) blur(8px);
-  z-index: 5;
-  pointer-events: none;
-  border-radius: 12px 12px 0 0;
-}
-.sr-notch, .ws-notch {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 6;
-  pointer-events: none;
-}
 /* The scene's windows must clear the bar they now hang from. */
-.sr-stage { padding-top: 26px; }
 .ws-win--editor { top: 26px; }
 .ws-win--browser { top: 22px; }
 
@@ -4659,36 +4637,8 @@ body {
    Select and rewrite — Cursor editor + selection + spoken fix
    ============================================================ */
 
-.sr-stage {
-  position: relative;
-  max-width: 1000px;
-  margin: 0 auto;
-}
 /* When it bleeds, the .bleed width wins */
-.sr-stage.bleed { max-width: none; }
 
-.sr-say {
-  position: absolute;
-  left: 50%;
-  bottom: 92px;
-  transform: translate(-50%, 10px);
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: 19px;
-  color: var(--cream);
-  background: rgba(20, 22, 30, 0.94);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  padding: 9px 20px;
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.32);
-  opacity: 0;
-  transition: opacity 0.35s ease, transform 0.35s ease;
-  pointer-events: none;
-  white-space: nowrap;
-}
-.sr-say.in { opacity: 1; transform: translate(-50%, 0); }
 
 @keyframes sr-bar {
   0%, 100% { height: 4px; }
@@ -4832,109 +4782,178 @@ body {
 
 
 /* Modelled on the app's Background-context panel (AITab.tsx). */
-.pc-panel {
-  max-width: 720px;
-  margin: 0 auto;
+
+/* The opt-in switch — context memory is off by default in the app. */
+
+/* The overview textarea */
+
+
+
+/* --- 03: the preamble tax, shrinking --- */
+.px-stage { max-width: 760px; margin: 0 auto; }
+
+.px-doc {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 16px;
-  padding: 22px 24px 18px;
+  padding: 30px 32px 28px;
   box-shadow: 0 30px 60px -34px rgba(20, 30, 50, 0.22);
+  transition: box-shadow 0.6s ease;
 }
-.pc-panel-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 14px;
-}
-.pc-panel-title { font-size: 13.5px; font-weight: 600; margin: 0; line-height: 1.2; }
-.pc-panel-desc {
-  font-size: 12px;
+.px-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--muted);
-  margin: 5px 0 0;
-  line-height: 1.5;
-  max-width: 420px;
+  margin-bottom: 18px;
 }
+.px-lines { font-size: 16.5px; line-height: 1.6; }
 
-/* The opt-in switch — context memory is off by default in the app. */
-.pc-toggle {
-  flex: none;
-  width: 38px;
-  height: 22px;
-  border-radius: 999px;
-  background: var(--cobalt);
-  position: relative;
-  transition: background 0.3s ease;
-}
-.pc-toggle-knob {
-  position: absolute;
-  top: 3px;
-  left: 19px;
-  width: 16px;
-  height: 16px;
-  border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-}
-
-/* The overview textarea */
-.pc-field {
-  background: var(--paper);
-  border: 1px solid var(--line-soft);
-  border-radius: 10px;
-  padding: 13px 14px;
-  font-size: 13.5px;
-  line-height: 1.65;
+/* Strike, then collapse — max-height and opacity together, so the box
+   visibly shortens. The shrink IS the argument; no copy claims a saving. */
+.px-pre {
+  margin: 0;
   color: var(--ink-2);
-  /* Reserved so clauses fade in without growing the panel. */
-  min-height: 132px;
+  overflow: hidden;
+  max-height: 42px;
+  opacity: 1;
+  transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.4s ease, color 0.3s ease;
 }
-.pc-caret {
-  display: inline-block;
-  width: 1.5px;
-  height: 14px;
-  background: var(--cobalt);
-  vertical-align: -2px;
-  animation: cc-blink 1.1s step-end infinite;
+.px-pre.struck {
+  color: #b8705f;
+  text-decoration: line-through;
+  text-decoration-color: rgba(184, 112, 95, 0.5);
 }
+.px-pre.gone { max-height: 0; opacity: 0; }
 
-.pc-panel-foot {
+.px-ask {
+  margin: 14px 0 0;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--ink);
+  font-weight: 500;
+  transition: margin 0.5s ease;
+}
+.px-doc.is-collapsed .px-ask { margin-top: 0; }
+
+.px-caption {
+  margin: 18px 0 0;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 19px;
+  color: var(--muted);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.px-caption.in { opacity: 1; transform: none; }
+
+/* --- 02: select and rewrite, in a prompt and an email --- */
+.sr2 { position: relative; max-width: 900px; margin: 0 auto; }
+
+.sr2-win {
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 40px 80px -34px rgba(0, 0, 0, 0.6);
+  animation: ws-fade 0.5s ease-out both;
+}
+.sr2-win--claude { background: #1f1d1c; border: 1px solid #322f2d; }
+.sr2-win--gmail { background: #fff; border: 1px solid var(--line); }
+
+.sr2-chrome {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-top: 12px;
+  gap: 6px;
+  padding: 11px 14px;
 }
-.pc-status {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  transition: color 0.35s ease;
-}
-.pc-status.on { color: var(--cobalt); }
-.pc-btn {
+.sr2-win--claude .sr2-chrome { background: #3a3735; }
+.sr2-win--gmail .sr2-chrome { background: #f1f3f4; }
+.sr2-chrome .tl { width: 10px; height: 10px; border-radius: 999px; }
+.sr2-chrome .tl.r { background: #ff5f57; }
+.sr2-chrome .tl.y { background: #febc2e; }
+.sr2-chrome .tl.g { background: #28c840; }
+.sr2-title {
+  margin: 0 auto;
+  padding-right: 48px;
+  font-family: var(--font-sans);
   font-size: 11.5px;
-  color: var(--ink-2);
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 5px 11px;
-  background: var(--paper);
 }
+.sr2-win--claude .sr2-title { color: #cccccc; }
+.sr2-win--gmail .sr2-title { color: #5f6368; }
 
-.pc-seed { color: var(--ink); }
-.pc-learned {
-  opacity: 0;
-  transition: opacity 0.6s ease;
-  background: var(--cobalt-soft);
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-  border-radius: 4px;
-  padding: 1px 4px;
-  color: var(--ink);
+.sr2-body {
+  padding: 28px 30px 34px;
+  font-size: 16px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  min-height: 190px;
 }
-.pc-learned.in { opacity: 1; }
+.sr2-win--claude .sr2-body { font-family: var(--font-mono); font-size: 14px; color: #c0bdba; }
+.sr2-win--gmail .sr2-body { font-family: var(--font-sans); color: var(--ink-2); }
+
+.sr2-static { opacity: 0.65; }
+
+/* The selected run. Native-blue while selected, then swapped for the
+   rewrite — no diff colours: in the real thing it just changes. */
+.sr2-run {
+  border-radius: 3px;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+.sr2-run.sel { background: rgba(38, 105, 209, 0.85); color: #fff; }
+.sr2-win--gmail .sr2-run.sel { background: rgba(38, 105, 209, 0.28); color: var(--ink); }
+.sr2-run.new { animation: ws-fade 0.45s ease-out both; }
+.sr2-win--claude .sr2-run.new { color: #f0ece2; }
+.sr2-win--gmail .sr2-run.new { color: var(--ink); }
+
+.sr2-said {
+  position: absolute;
+  left: 50%;
+  bottom: -18px;
+  transform: translate(-50%, 8px);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--cream);
+  background: rgba(20, 22, 30, 0.94);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 9px 20px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  pointer-events: none;
+  max-width: 88%;
+  text-align: center;
+}
+.sr2-said.in { opacity: 1; transform: translate(-50%, 0); }
+
+.sr2-dots {
+  list-style: none;
+  margin: 34px 0 0;
+  padding: 0;
+  display: flex;
+  gap: 7px;
+  justify-content: center;
+}
+.sr2-dots li {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  transition: background 0.35s ease, transform 0.35s ease;
+}
+.sr2-dots li.on { background: #f3a08f; transform: scale(1.25); }
+
+@media (max-width: 780px) {
+  .sr2-body { padding: 20px 18px 26px; font-size: 14.5px; }
+  .sr2-said { font-size: 15px; bottom: -14px; }
+}
 
 /* The vocabulary-vs-project line under the context card */
 .pc-versus {
@@ -4999,8 +5018,7 @@ body {
   .cur2-rail-ico { width: 18px; height: 18px; }
   .cur2-status { gap: 10px; font-size: 10.5px; }
 
-  .sr-say { font-size: 15px; white-space: normal; max-width: 82%; text-align: center; }
-
+  
       
   .price-card { padding: 28px 24px 26px; }
   .price-num { font-size: 64px; }
