@@ -128,6 +128,7 @@ export default function GeneralTab() {
 
       <GroupLabel className="mt-6">Cleanup key</GroupLabel>
       <CleanupKey />
+      <OldModelCleanup />
     </div>
   )
 }
@@ -141,6 +142,55 @@ export default function GeneralTab() {
 // This field stays because the managed key isn't live yet, so a key has to
 // come from somewhere for cleanup to run at all. When the key ships with
 // the licence, delete this component and the row that mounts it.
+// Weights left behind by retired model tiers. Yappr shipped four Whisper
+// tiers before Parakeet replaced them, and their files stayed on disk with
+// nothing able to reclaim them — the tier list they were selectable from
+// is gone. Shown only when there is something to reclaim, so this row
+// disappears for good once used.
+function OldModelCleanup() {
+  const [info, setInfo] = useState<{ count: number; bytes: number } | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    window.yappr.getOrphanedModels?.().then(setInfo).catch(() => setInfo(null))
+  }, [])
+
+  if (!info || info.count === 0) return null
+
+  const size = info.bytes >= 1_000_000_000
+    ? `${(info.bytes / 1_000_000_000).toFixed(1)} GB`
+    : `${Math.round(info.bytes / 1_000_000)} MB`
+
+  async function remove() {
+    setBusy(true)
+    await window.yappr.removeOrphanedModels?.()
+    const next = await window.yappr.getOrphanedModels?.().catch(() => null)
+    setInfo(next ?? { count: 0, bytes: 0 })
+    setBusy(false)
+  }
+
+  return (
+    <Panel>
+      <div className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4">
+        <div>
+          <div className="text-[13px] font-semibold leading-tight">Old speech models</div>
+          <div className="text-[11px] text-ink-45 mt-0.5">
+            {size} from earlier versions of Yappr. Not used any more — transcription runs on
+            the current on-device model. Safe to remove.
+          </div>
+        </div>
+        <button
+          onClick={remove}
+          disabled={busy}
+          className="text-[11px] font-mono px-3 py-1.5 rounded-input border border-ink-08 hover:border-ink-45 disabled:opacity-50"
+        >
+          {busy ? 'Removing…' : `Reclaim ${size}`}
+        </button>
+      </div>
+    </Panel>
+  )
+}
+
 function CleanupKey() {
   const [key, setKey] = useState<string | null>(null)
   const [testing, setTesting] = useState(false)

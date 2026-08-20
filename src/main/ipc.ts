@@ -1,7 +1,7 @@
 import { app, ipcMain, systemPreferences, shell } from 'electron'
 import { IPC } from '../shared/types'
 import type { DictationResult, LocalModelId } from '../shared/types'
-import { localModelDownloaded, localModelPath, LOCAL_MODELS } from './local-models'
+import { localModelDownloaded, localModelPath, LOCAL_MODELS, listOrphanedModels, removeOrphanedModels } from './local-models'
 import { prewarmWhisper } from './whisper-host'
 import { prewarmModelId } from './providers/local'
 import { getSettings, setSettings } from './store'
@@ -21,6 +21,7 @@ import {
 } from './history-store'
 import { getUserOverview, setUserOverview } from './context/store'
 import { forceCompaction, getCompactionStatus } from './context/compactor'
+import { logInfo } from './log'
 
 // Hot in-memory cache for paste-last + indicator lookups. Always
 // reflects the most recent N entries (N = HISTORY_LIMIT). On startup
@@ -187,6 +188,20 @@ export function registerIpcHandlers(hooks: IpcHooks = {}): void {
 
   ipcMain.handle(IPC.LOCAL_MODEL_CANCEL, () => {
     cancelDownload()
+  })
+
+  // Weights left behind by retired model tiers. Reported rather than
+  // swept automatically: they are large, re-downloadable, and deleting
+  // hundreds of megabytes without being asked is not ours to decide.
+  ipcMain.handle(IPC.ORPHANED_MODELS_GET, () => {
+    const files = listOrphanedModels()
+    return { count: files.length, bytes: files.reduce((n, f) => n + f.bytes, 0) }
+  })
+
+  ipcMain.handle(IPC.ORPHANED_MODELS_REMOVE, () => {
+    const result = removeOrphanedModels()
+    logInfo('Removed orphaned model weights', result)
+    return result
   })
 
   ipcMain.handle(IPC.LOCAL_MODEL_UNINSTALL, async (_e, modelId: LocalModelId) => {

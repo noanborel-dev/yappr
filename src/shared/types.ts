@@ -18,7 +18,7 @@ export type Provider = 'groq' | 'local'
 // The three Whisper tiers remain named because installs from before the
 // picker was removed may still have those files on disk, and the
 // uninstall path has to be able to address them.
-export type LocalModelId = 'base' | 'small' | 'large-v3-turbo' | 'parakeet-tdt-0.6b-v3'
+export type LocalModelId = 'parakeet-tdt-0.6b-v3'
 
 export interface ProviderSettings {
   provider: Provider
@@ -174,6 +174,8 @@ export const IPC = {
   LOCAL_MODEL_STATUS: 'local-model:status',
   LOCAL_MODEL_DOWNLOAD: 'local-model:download',
   LOCAL_MODEL_CANCEL: 'local-model:cancel',
+  ORPHANED_MODELS_GET: 'orphaned-models:get',
+  ORPHANED_MODELS_REMOVE: 'orphaned-models:remove',
   LOCAL_MODEL_UNINSTALL: 'local-model:uninstall',
   LOCAL_MODEL_PROGRESS: 'local-model:progress',
   // Idle-pill quick actions — fired from the persistent pill at the
