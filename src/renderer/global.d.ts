@@ -67,6 +67,8 @@ declare global {
       setLaunchAtLogin: (enabled: boolean) => Promise<void>
       onStateChange: (cb: (state: string) => void) => () => void
       getLocalModelStatus: () => Promise<LocalModelStatus>
+      getOrphanedModels: () => Promise<{ count: number; bytes: number }>
+      removeOrphanedModels: () => Promise<{ removed: number; bytes: number }>
       downloadLocalModel: (modelId: LocalModelId) => Promise<{ ok: boolean; error?: string }>
       cancelLocalModel: () => Promise<void>
       uninstallLocalModel: (modelId: LocalModelId) => Promise<void>

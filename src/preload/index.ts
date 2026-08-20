@@ -63,6 +63,8 @@ contextBridge.exposeInMainWorld('yappr', {
 
   // Local Whisper model management.
   getLocalModelStatus: () => ipcRenderer.invoke(IPC.LOCAL_MODEL_STATUS),
+  getOrphanedModels: () => ipcRenderer.invoke(IPC.ORPHANED_MODELS_GET),
+  removeOrphanedModels: () => ipcRenderer.invoke(IPC.ORPHANED_MODELS_REMOVE),
   downloadLocalModel: (modelId: string) => ipcRenderer.invoke(IPC.LOCAL_MODEL_DOWNLOAD, modelId),
   cancelLocalModel: () => ipcRenderer.invoke(IPC.LOCAL_MODEL_CANCEL),
   uninstallLocalModel: (modelId: string) => ipcRenderer.invoke(IPC.LOCAL_MODEL_UNINSTALL, modelId),
