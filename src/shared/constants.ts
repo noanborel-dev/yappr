@@ -245,7 +245,7 @@ export const IDE_EDITORS: Record<string, IdeEditor> = {
   'com.microsoft.VSCode': 'vscode',
 }
 
-export const MODELS: Record<Provider, { transcription: string; cleanup: string }> = {
+export const MODELS: Record<Provider, { transcription: string; cleanup: string; reformat?: string }> = {
   groq: {
     // whisper-large-v3-turbo (NOT v3). Same accuracy on clean
     // dictation audio (2.2% vs 2.4% WER per Groq's public eval),
@@ -268,6 +268,20 @@ export const MODELS: Record<Provider, { transcription: string; cleanup: string }
     // qwen3.6-27b 3524ms and leaks <think> reasoning into the output.
     // 20b over 120b: same latency, smaller and cheaper.
     cleanup: 'openai/gpt-oss-20b',
+    // Reformat (the ai_prompt register) is a different job: restructure a
+    // rambling sentence into ## Goal / ## Context / ## Tasks. Measured
+    // 2026-08-20 against the real ~3,300-token reformat prompt, gpt-oss
+    // simply WILL NOT do it — 20b and 120b both returned the input lightly
+    // tidied and no markdown sections at all, and 20b at high reasoning
+    // effort returned nothing. compound-mini is the only model on the
+    // account that actually produces the sections.
+    //
+    // It is slower (one clean sample at ~3.2s vs ~1s), which is why it is
+    // scoped to this register instead of becoming the default: plain
+    // cleanup runs on every dictation and has to stay quick, while a
+    // reformat only fires on a 12+ word dictation aimed at an AI tool,
+    // where the user is composing something substantial anyway.
+    reformat: 'groq/compound-mini',
   },
   local: {
     // whisper.cpp model filename (without path). The model lives in

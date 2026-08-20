@@ -253,12 +253,18 @@ function detectLoopbackAnswer(rawOutput: string, originalTranscript: string): bo
 
 export function createGroqCleanupProvider(
   apiKey: string,
-  model: string
+  model: string,
+  // Optional model for the ai_prompt (reformat) register. Reformatting is
+  // a harder task than cleanup and not every model will do it at all —
+  // see the note on MODELS.groq.reformat. Falls back to `model` when not
+  // supplied, so callers that don't care are unaffected.
+  reformatModel?: string,
 ): CleanupProvider {
   return {
     name: 'Groq',
     async cleanup(text, { systemPrompt, appCategory, mode = 'cleanup', fallbackText }) {
       const client = getClient(apiKey)
+      const activeModel = appCategory === 'ai_prompt' && reformatModel ? reformatModel : model
       // max_tokens budget:
       //
       // - rewrite: 3× input + headroom. A rewrite EXPANDS ("turn these
@@ -283,7 +289,7 @@ export function createGroqCleanupProvider(
           ? Math.max(160, Math.min(2048, inputTokens * 3 + 120))
           : Math.max(80, Math.min(1024, Math.ceil(inputTokens * 1.5) + 80))
       const response = await client.chat.completions.create({
-        model,
+        model: activeModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: text },
@@ -298,7 +304,10 @@ export function createGroqCleanupProvider(
         // before our withRetry sees a rejection. Cleanup normally
         // takes 500-900ms; if Groq stalls, fail fast and let the
         // pipeline's withRetry try once on a fresh connection.
-        timeout: 8000,
+        // Reformat runs a deliberately heavier model and takes ~3s
+        // against ~1s for cleanup. The 8s cleanup budget would turn a
+        // slow-but-correct reformat into a timeout and a raw paste.
+        timeout: activeModel === model ? 8000 : 20000,
         maxRetries: 0,
       })
       // In rewrite mode the safe fallback is the user's selection, not

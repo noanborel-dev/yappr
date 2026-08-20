@@ -105,7 +105,7 @@ function buildProviders(
     return {
       transcription: createLocalWhisperProvider(),
       cleanup: hasKey
-        ? createGroqCleanupProvider(groqKey, MODELS.groq.cleanup)
+        ? createGroqCleanupProvider(groqKey, MODELS.groq.cleanup, MODELS.groq.reformat)
         : createLocalCleanupProvider(),
       cleanupAvailable: hasKey,
     }
@@ -113,7 +113,7 @@ function buildProviders(
 
   return {
     transcription: createGroqTranscriptionProvider(groqKey, transcriptionModel),
-    cleanup: createGroqCleanupProvider(groqKey, cleanupModel),
+    cleanup: createGroqCleanupProvider(groqKey, cleanupModel, MODELS.groq.reformat),
     cleanupAvailable: groqKey.trim().length > 0,
   }
 }
