@@ -268,20 +268,23 @@ export const MODELS: Record<Provider, { transcription: string; cleanup: string; 
     // qwen3.6-27b 3524ms and leaks <think> reasoning into the output.
     // 20b over 120b: same latency, smaller and cheaper.
     cleanup: 'openai/gpt-oss-20b',
-    // Reformat (the ai_prompt register) is a different job: restructure a
-    // rambling sentence into ## Goal / ## Context / ## Tasks. Measured
-    // 2026-08-20 against the real ~3,300-token reformat prompt, gpt-oss
-    // simply WILL NOT do it — 20b and 120b both returned the input lightly
-    // tidied and no markdown sections at all, and 20b at high reasoning
-    // effort returned nothing. compound-mini is the only model on the
-    // account that actually produces the sections.
+    // Reformat (the ai_prompt register) restructures a rambling sentence
+    // into ## Goal / ## Context / ## Tasks.
     //
-    // It is slower (one clean sample at ~3.2s vs ~1s), which is why it is
-    // scoped to this register instead of becoming the default: plain
-    // cleanup runs on every dictation and has to stay quick, while a
-    // reformat only fires on a 12+ word dictation aimed at an AI tool,
-    // where the user is composing something substantial anyway.
-    reformat: 'groq/compound-mini',
+    // This was briefly groq/compound-mini, on a test that concluded gpt-oss
+    // "will not shape". That test was wrong: it never set reasoning_effort,
+    // so the model spent its output budget reasoning internally and
+    // returned little or nothing. With reasoning_effort:'low' the SAME
+    // model shapes correctly in ~630ms with 33 characters of reasoning.
+    //
+    // compound-mini did work, but it routes to llama-3.3-70b-versatile:
+    // 8x the input price, 2.6x the output price, ~5x slower, and capped
+    // per DAY (100k tokens) rather than per minute — which is what made
+    // shaping die for hours at a time.
+    //
+    //   gpt-oss-20b   ~630ms   $0.075/$0.30 per 1M   TPM cap, resets in 60s
+    //   compound-mini ~3240ms  $0.59 /$0.79 per 1M   TPD cap, resets in hours
+    reformat: 'openai/gpt-oss-20b',
   },
   local: {
     // whisper.cpp model filename (without path). The model lives in

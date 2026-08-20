@@ -317,8 +317,18 @@ export function createGroqCleanupProvider(
         : appCategory === 'ai_prompt'
           ? Math.max(160, Math.min(2048, inputTokens * 3 + 120))
           : Math.max(80, Math.min(1024, Math.ceil(inputTokens * 1.5) + 80))
-      const response = await client.chat.completions.create({
-        model: activeModel,
+      // Reformat runs a model with a TOKENS-PER-DAY cap (100k), and the
+      // prompt is ~4.2k tokens a call — about 21 shaped dictations before
+      // it is gone for the rest of the day. When that wall is hit, falling
+      // straight back to the raw transcript throws away the cleanup too,
+      // which is a much worse outcome than simply not shaping.
+      //
+      // The cleanup model is capped per-MINUTE instead, so it is usually
+      // available again within a minute even when the daily budget is
+      // spent. Retry there once: unshaped-but-clean beats raw.
+      const runCompletion = (m: string): Promise<{ choices: Array<{ message?: { content?: string | null } }> }> =>
+        client.chat.completions.create({
+        model: m,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: text },
@@ -328,7 +338,14 @@ export function createGroqCleanupProvider(
         // creatively without going off-prompt.
         temperature: 0.2,
         max_tokens: maxTokens,
-      }, {
+        // gpt-oss models reason before answering, and that reasoning is
+        // billed as output AND competes with max_tokens. Left at the
+        // default the model can spend the whole budget thinking and return
+        // an empty or unshaped answer — which is exactly what made an
+        // earlier test conclude it could not reformat at all. 'low' keeps
+        // the reasoning to a few dozen characters and the sections appear.
+        ...(activeModel.startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
+      } as never, {
         // SDK defaults: timeout 60s, maxRetries 2 → worst case ~3min
         // before our withRetry sees a rejection. Cleanup normally
         // takes 500-900ms; if Groq stalls, fail fast and let the
@@ -336,13 +353,32 @@ export function createGroqCleanupProvider(
         // Reformat runs a deliberately heavier model and takes ~3s
         // against ~1s for cleanup. The 8s cleanup budget would turn a
         // slow-but-correct reformat into a timeout and a raw paste.
-        timeout: activeModel === model ? 8000 : 20000,
+        timeout: m === model ? 8000 : 20000,
         maxRetries: 0,
       })
       // In rewrite mode the safe fallback is the user's selection, not
       // `text` — `text` there is the selection wrapped up with the
       // dictated command, and pasting THAT over their selection is the
       // worst possible outcome.
+      let response
+      try {
+        response = await runCompletion(activeModel)
+      } catch (err) {
+        // Only the reformat model has a daily cap worth working around,
+        // and only a rate limit is worth retrying elsewhere — a bad
+        // request would fail identically on the other model.
+        const isRateLimited = (err as { status?: number })?.status === 429
+        if (activeModel !== model && isRateLimited) {
+          logInfo('Reformat model rate-limited, falling back to the cleanup model', {
+            reformatModel: activeModel,
+            fallbackModel: model,
+          })
+          response = await runCompletion(model)
+        } else {
+          throw err
+        }
+      }
+
       const fallback = fallbackText ?? text
       const raw = response.choices[0]?.message?.content?.trim() ?? fallback
       const cleaned = stripLLMArtifacts(raw, fallback)
