@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest'
 // pure routing.
 vi.mock('./log', () => ({ logInfo: () => {}, logError: () => {} }))
 
-const { parseFocusLine, resolveSurface } = await import('./focused-app')
+import { parseFocusLine, resolveSurface } from './focused-app'
 
 describe('parseFocusLine', () => {
   it('parses an ordinary reply', () => {

@@ -125,6 +125,25 @@ export function createGroqTranscriptionProvider(
 // and there's no recoverable cleaned text, we return the original
 // transcript untouched — better to paste raw Whisper than to paste
 // the LLM's clarifying question.
+// Vocabulary that only shows up when the model is describing its own
+// edit. Deliberately nouns about TEXT rather than verbs like "removed"
+// or "added", which appear in ordinary content all the time.
+const EDIT_META_VOCAB =
+  /\b(fillers?|capitaliz\w*|punctuat\w*|grammar|transcript|dictation|stutters?|verbatim|rephras\w*|restructur\w*|typos?|wording)\b/i
+
+// Drop a trailing list ONLY when it is the model narrating its edit.
+// A list of the user's actual content stays.
+function stripMetaListTail(s: string): string {
+  const blocks = s.split(/\n\s*\n/)
+  if (blocks.length < 2) return s
+  const last = blocks[blocks.length - 1]
+  const isList = /^\s*(?:\d+\.|[-*])\s+\S/.test(last)
+  if (isList && EDIT_META_VOCAB.test(last)) {
+    return blocks.slice(0, -1).join('\n\n').trimEnd()
+  }
+  return s
+}
+
 // LLM artifact stripper. The 8B cleanup model has several stubborn
 // ways of leaking non-output text into its response. We catch each.
 //
@@ -157,6 +176,16 @@ function stripLLMArtifacts(raw: string, fallback: string): string {
     'i',
   )
   s = s.replace(META_AFTER_BLANK, '')
+
+  // 1b. A trailing LIST is the other rules-echo shape ("1. Removed
+  // filler words / 2. Fixed capitalization"). It used to be part of the
+  // hard cut above as a bare "\n\n- word" / "\n\n1. word" pattern —
+  // which also deleted every list the prompts explicitly ask for. The
+  // list-formatting rules tell the model to emit bullets for enumerated
+  // speech, and an email of asks is mostly bullets, so the shape alone
+  // cannot be the signal. Cut only when the trailing list talks about
+  // the EDIT rather than the content.
+  s = stripMetaListTail(s)
 
   // 2. Single-line trailing meta (no blank line) — model appends one
   // line directly below: "...dinner at 7 p.m.\nI removed the fillers"

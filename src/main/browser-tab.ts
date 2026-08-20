@@ -75,10 +75,6 @@ export interface BrowserTab {
   title: string
 }
 
-export function isSupportedBrowser(bundleId: string): boolean {
-  return bundleId in CHROMIUM_APP_NAMES || bundleId in WEBKIT_APP_NAMES
-}
-
 // One log line per bundle per session. A user who declines the
 // automation prompt would otherwise get a line on every dictation.
 const loggedFailures = new Set<string>()

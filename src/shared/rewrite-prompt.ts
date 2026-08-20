@@ -31,7 +31,10 @@ const EMAIL_RULES = `EMAIL FORMAT — the command asks for an email, so follow t
 - The subject is plain text: no markdown, no asterisks, no quotes, no trailing period. Sentence case ("Pushing tomorrow's sync to Thursday"), not Title Case. Keep it under 60 characters and make it specific to the content — never a generic "Update" or "Following up".
 - NEVER write bracketed placeholders. No [Recipient], no [Name], no [Your Name], no [Company]. If you do not know the recipient's name, the greeting is exactly "Hi," on its own line. If you do not know how to sign off, end with the sign-off line only (e.g. "Best,") and the user's own name if it appears in the context block — otherwise stop after the sign-off word.
 - Keep the greeting and sign-off short: "Hi," / "Hi <name>," and "Best," / "Thanks," — no "Dear Sir or Madam", no "I hope this email finds you well".
-- The body says what the selected text says. Every fact, name, date, number, and ask in the selection appears in the email. Do not pad it out with filler sentences that add no information.`
+- Sign off with the user's own first name on the line after the sign-off word ("Best,\\nNoan") whenever the context block tells you what it is. A bare "Best," with nothing under it reads unfinished.
+- The email is ADDRESSED TO the recipient, so speak to them directly: "can they confirm when it goes out" becomes "could you confirm when it goes out", "they need the PO by Friday" stays third-person only when "they" is someone other than the reader.
+- The body says what the selected text says. Every fact, name, date, number, and ask in the selection appears in the email. Do not pad it out with filler sentences that add no information.
+- Turn the notes into real email sentences. The selection is dictated speech: fix comma splices, finish fragments, and drop lead-ins like "quick note:" or "ok so". Do not paste it back verbatim under a subject line.`
 
 export interface RewritePromptOptions {
   // Markdown-preservation rule chosen by the caller from the shape of
