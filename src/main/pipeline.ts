@@ -1,4 +1,10 @@
 import { buildCleanupPrompt, type Register } from '../shared/prompts'
+import {
+  looksLikeEmailRewrite,
+  buildRewriteSystemPrompt,
+  buildRewriteUserMessage,
+  normalizeEmailRewrite,
+} from '../shared/rewrite-prompt'
 import { buildContextBlock } from './context/prompt-injector'
 import { MODELS, BUILTIN_DICTIONARY, IDE_EDITORS } from '../shared/constants'
 import type { AppCategory, DictationResult, Settings, Strictness } from '../shared/types'
@@ -78,34 +84,37 @@ function isLikelySilence(transcript: string): boolean {
 
 function buildProviders(
   settings: Settings
-): { transcription: TranscriptionProvider; cleanup: CleanupProvider } {
+): { transcription: TranscriptionProvider; cleanup: CleanupProvider; cleanupAvailable: boolean } {
   const { provider, groqKey, transcriptionModel, cleanupModel } = settings.provider
 
   if (provider === 'local') {
-    // Local Whisper for transcription. Cleanup is conditional:
-    //   - If the user has a Groq key configured, use it for LLM
-    //     polish (filler removal at Light, prose restructure at
-    //     Strict, list formatting, self-correction handling,
-    //     optional emoji injection).
-    //   - If NOT, fall back to a no-op cleanup so Local stays fully
-    //     offline. The pipeline's regex passes (Light cleanup +
-    //     QUICK_FIXES brand-name fixes) still apply.
+    // Transcription is always on-device. Cleanup always needs Groq.
     //
-    // This matches the "Local means local" promise: a user who
-    // picks Local and never configures Groq must never see a network
-    // call (and must never see Groq's "Invalid API Key" error).
-    const cleanup = groqKey.trim().length > 0
-      ? createGroqCleanupProvider(groqKey, MODELS.groq.cleanup)
-      : createLocalCleanupProvider()
+    // The no-op fallback below used to serve a "Local means local"
+    // promise: a user who chose the Local PROVIDER and never configured
+    // Groq should never see a network call. That choice no longer exists
+    // — there is one transcription engine and cleanup is the only thing
+    // the key buys — so the fallback stopped protecting a preference and
+    // started silently disabling the product. Dictations transcribed fine
+    // and pasted raw, with no cleanup and no prompt shaping, and nothing
+    // anywhere said why.
+    //
+    // Keep the no-op (losing the user's words would be far worse) but
+    // report that cleanup is unavailable so the caller can SAY so.
+    const hasKey = groqKey.trim().length > 0
     return {
       transcription: createLocalWhisperProvider(),
-      cleanup,
+      cleanup: hasKey
+        ? createGroqCleanupProvider(groqKey, MODELS.groq.cleanup)
+        : createLocalCleanupProvider(),
+      cleanupAvailable: hasKey,
     }
   }
 
   return {
     transcription: createGroqTranscriptionProvider(groqKey, transcriptionModel),
     cleanup: createGroqCleanupProvider(groqKey, cleanupModel),
+    cleanupAvailable: groqKey.trim().length > 0,
   }
 }
 
@@ -773,11 +782,11 @@ export async function runDictationPipeline(
   //      because by now the user may be somewhere else entirely and
   //      pasting would dump text into the wrong window.
   replay?: { focus: FocusedApp },
-): Promise<DictationResult & { pasteMethod: 'paste' | 'clipboard' | 'deferred' }> {
+): Promise<DictationResult & { pasteMethod: 'paste' | 'clipboard' | 'deferred'; cleanupUnavailable: boolean }> {
   const start = Date.now()
   onState('processing')
 
-  const { transcription, cleanup } = buildProviders(settings)
+  const { transcription, cleanup, cleanupAvailable } = buildProviders(settings)
   const dictionary = buildDictionary(settings)
 
   // Refresh the focused-app cache CONCURRENTLY with transcription. The
@@ -924,6 +933,7 @@ export async function runDictationPipeline(
 
   const effectiveStrictness = strictnessFor(focusedApp, settings)
   const skipReason = cleanupSkipReason(transcript, effectiveCategory)
+  let cleanupUnavailable = false
   if (settings.pauseCleanup) {
     // User-controlled hard bypass. Skip the LLM entirely. The
     // downstream regex passes (brand names, dictionary, self-
@@ -945,6 +955,21 @@ export async function runDictationPipeline(
       words: countWords(transcript),
       chars: transcript.trim().length,
     })
+  } else if (!cleanupAvailable) {
+    // Cleanup was wanted here — not skipped by policy — but there is no
+    // credential, so the "cleanup provider" is a no-op that hands the raw
+    // transcript straight back. That used to happen silently: text pasted,
+    // unpolished, unshaped, with nothing to indicate the product's main
+    // pass had been switched off.
+    //
+    // Still paste (losing dictated words would be worse), but say so, and
+    // return a flag so the caller can put it in front of the user rather
+    // than leaving it in a log nobody reads.
+    cleanupUnavailable = true
+    logError('Cleanup unavailable — no key configured, pasting raw', new Error(
+      'Set a cleanup key in Settings → General. Transcription is unaffected; '
+      + 'filler removal, tone matching and prompt shaping are off until then.'
+    ))
   } else {
     const editor = IDE_EDITORS[focusedApp.bundleId]
     const strictness = strictnessFor(focusedApp, settings)
@@ -1089,6 +1114,7 @@ export async function runDictationPipeline(
     appCategory: effectiveCategory,
     timestamp: Date.now(),
     pasteMethod,
+    cleanupUnavailable,
   }
 }
 
@@ -1137,12 +1163,12 @@ export async function runCommandPipeline(
 ): Promise<string> {
   // Command mode ("rewrite my selection with this voice instruction")
   // fundamentally requires an LLM — there's no regex-able way to
-  // "make this paragraph shorter" or "translate to French". On Local
-  // with no Groq key configured the cleanup provider is a no-op,
-  // which would silently paste the raw spoken command instead of
-  // the rewritten selection. Surface the requirement instead.
-  if (settings.provider.provider === 'local' && settings.provider.groqKey.trim().length === 0) {
-    throw new Error('Command mode (rewrite selection) requires a cloud LLM. Add a Groq key in Settings → AI Provider, or use plain dictation by pressing the hotkey without a text selection.')
+  // "make this paragraph shorter" or "translate to French". Transcription
+  // is on-device, but with no cleanup key the cleanup provider is a no-op
+  // and this would silently paste the raw spoken command instead of the
+  // rewritten selection. Surface the requirement instead.
+  if (settings.provider.groqKey.trim().length === 0) {
+    throw new Error('Rewriting a selection needs the cleanup service. Add a key in Settings → General, or press the hotkey with nothing selected to dictate normally.')
   }
   const { transcription, cleanup } = buildProviders(settings)
   const dictionary = buildDictionary(settings)
@@ -1181,29 +1207,36 @@ The selected text is plain prose. Output as plain prose. Do not introduce markdo
   // my internship" using facts from the stored overview. Empty when
   // context memory is off or no overview exists.
   const contextBlock = buildContextBlock({ enabled: settings.useContextMemory, mode: 'command' })
-  const systemPrompt = `You are a text editing assistant. The user has selected the following text and dictated an editing command. Apply the command and return ONLY the modified text, nothing else (no preamble, no explanation, no quotes around the output).
-
-${formatRule}
-${contextBlock}
-Selected text:
-${selectedText}
-
-Editing command: ${command}
-
-Output the modified text now:`
+  // "Turn this into an email" needs rules the generic rewrite prompt
+  // has no business carrying (subject line on top, no [Recipient]
+  // placeholders). Detected from the command, NOT from the focused app:
+  // "make this shorter" in Gmail is not a request for a subject line.
+  const emailMode = looksLikeEmailRewrite(command)
+  const systemPrompt = buildRewriteSystemPrompt({ formatRule, contextBlock, emailMode })
+  // The selection goes in the USER message, with the command. Sending
+  // the bare command as the user message (and burying the selection in
+  // the system prompt, below a ~1.9k-char context block) is what made
+  // the model write a brand-new email out of the context and ignore the
+  // text the user had highlighted.
+  const userMessage = buildRewriteUserMessage(selectedText, command)
 
   logInfo('Command pipeline', {
     chars: selectedText.length,
     markdown: isMarkdown,
+    emailMode,
     command: command.slice(0, 60),
   })
 
   const result = await withCleanupRetry(() =>
-    cleanup.cleanup(command, {
+    cleanup.cleanup(userMessage, {
       appName: focusedApp.name,
       appCategory: focusedApp.category,
       systemPrompt,
+      mode: 'rewrite',
+      // Anything unusable comes back as the user's own selection —
+      // never the dictated command, and never the delimited scaffold.
+      fallbackText: selectedText,
     }))
 
-  return result
+  return emailMode ? normalizeEmailRewrite(result) : result
 }

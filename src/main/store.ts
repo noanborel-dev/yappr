@@ -44,6 +44,11 @@ export const store = new ElectronStore<Settings>({ defaults, name: 'yappr-settin
 // gets force-upgraded to the current MODELS.<provider>.cleanup default.
 const STALE_CLEANUP_MODELS: Record<string, string> = {
   'llama-3.3-70b-versatile': MODELS.groq.cleanup,
+  // Decommissioned by Groq — returns 404, so cleanup silently fell back
+  // to the raw transcript on every dictation. Anyone with it persisted
+  // must be moved off it or they stay broken.
+  'llama-3.1-8b-instant': MODELS.groq.cleanup,
+  'llama-3.1-70b-versatile': MODELS.groq.cleanup,
 }
 
 // Same idea for transcription: users persisted from when we used

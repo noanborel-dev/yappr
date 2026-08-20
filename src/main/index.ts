@@ -682,7 +682,16 @@ function setupAudioIpc(): void {
 
       if (stillLatest()) {
         const isClipboard = result.pasteMethod === 'clipboard'
-        broadcastState(isClipboard ? 'clipboard' : 'done')
+        // Cleanup was wanted but no credential exists. The text pasted —
+        // raw — so this is not a failure of the dictation, but the user
+        // must be told the polish pass is off rather than quietly getting
+        // unshaped output forever. Shown instead of 'done' precisely
+        // because 'done' is the thing that would be a lie here.
+        if (result.cleanupUnavailable) {
+          broadcastState('error:Cleanup is off — add a key in Settings → General')
+        } else {
+          broadcastState(isClipboard ? 'clipboard' : 'done')
+        }
         // Clipboard fallback (Accessibility denied or paste failed) gets
         // a dedicated popup window with a click-to-insert affordance.
         // The pill itself dismisses on its normal short timer; the

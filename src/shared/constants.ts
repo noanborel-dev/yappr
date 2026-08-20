@@ -259,7 +259,15 @@ export const MODELS: Record<Provider, { transcription: string; cleanup: string }
     // 8B-instant runs roughly 3× faster than 70B-versatile on Groq;
     // for "remove fillers + fix capitalization" tasks the quality
     // delta is negligible while the latency win is large.
-    cleanup: 'llama-3.1-8b-instant',
+    // Groq decommissioned the entire llama-3.x line; llama-3.1-8b-instant
+    // started returning 404 and every cleanup fell back to the raw
+    // transcript. Chosen from what Groq actually serves, measured on a
+    // real dictation and on a dictation that READS like an instruction
+    // (the classic failure is a model answering it instead of cleaning
+    // it): gpt-oss-20b 566ms clean, gpt-oss-120b 553ms clean,
+    // qwen3.6-27b 3524ms and leaks <think> reasoning into the output.
+    // 20b over 120b: same latency, smaller and cheaper.
+    cleanup: 'openai/gpt-oss-20b',
   },
   local: {
     // whisper.cpp model filename (without path). The model lives in
