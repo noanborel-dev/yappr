@@ -21,6 +21,7 @@ import {
 } from './history-store'
 import { getUserOverview, setUserOverview } from './context/store'
 import { forceCompaction, getCompactionStatus } from './context/compactor'
+import { listBuckets, deleteFact, deleteBucket } from './context/facts'
 import { logInfo } from './log'
 
 // Hot in-memory cache for paste-last + indicator lookups. Always
@@ -114,6 +115,15 @@ export function registerIpcHandlers(hooks: IpcHooks = {}): void {
   })
   ipcMain.handle(IPC.CONTEXT_REFRESH_NOW, () => forceCompaction())
   ipcMain.handle(IPC.CONTEXT_STATUS_GET, () => getCompactionStatus())
+
+  // Spec §1.4. Read + delete only — deliberately no edit or merge
+  // handler, so there is no path by which the UI can rewrite what the
+  // user actually said.
+  ipcMain.handle(IPC.CONTEXT_FACTS_LIST, () => listBuckets())
+  ipcMain.handle(IPC.CONTEXT_FACT_DELETE, (_e, id: number) =>
+    typeof id === 'number' ? deleteFact(id) : false)
+  ipcMain.handle(IPC.CONTEXT_BUCKET_DELETE, (_e, key: string) =>
+    typeof key === 'string' ? deleteBucket(key) : 0)
 
   ipcMain.handle(IPC.MIC_PERMISSION, async () => {
     if (process.platform === 'darwin') {

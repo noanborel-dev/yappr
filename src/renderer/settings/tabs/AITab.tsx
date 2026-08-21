@@ -5,6 +5,7 @@ import { Panel, StackRow, SettingRow } from '../../shared/ui/Panel'
 import { Pill } from '../../shared/ui/Pill'
 import { Toggle } from '../../shared/ui/Toggle'
 import { PromptShapingStage } from '../../shared/ui/PromptShapingStage'
+import { ProjectCards } from '../ProjectCards'
 
 // What this tab used to be: a hero chat mock, then ~450 lines of
 // pixel-recreated iMessage / Gmail / Notion windows — invented contact
@@ -264,7 +265,6 @@ function ContextMemoryCard() {
             title={hasGroqKey ? undefined : 'Add a Groq key in Provider to enable'}
           />
         }
-        last
       >
         <div className="flex items-center justify-between gap-3">
           <div className="text-[10.5px] font-mono text-ink-45">
@@ -285,6 +285,16 @@ function ContextMemoryCard() {
           </Pill>
         </div>
         {refreshError && <p className="text-[10.5px] text-danger mt-2">{refreshError}</p>}
+      </StackRow>
+
+      {/* Spec §1.4. Sits below the overview because it answers the
+          question the overview provokes: "what else does it know?" */}
+      <StackRow
+        title="What Yappr knows"
+        desc="Rules you mentioned while dictating, kept per project. Global ones go into every dictation; project ones only when you're working on that project. Delete anything that's wrong."
+        last
+      >
+        <ProjectCards />
       </StackRow>
     </Panel>
   )

@@ -20,7 +20,8 @@
 //
 // Pure — no electron, no store.
 
-export type FactScope = 'global' | 'project'
+import type { FactScope } from '../../shared/types'
+export type { FactScope }
 
 export interface StandingPreference {
   /** The rule, in the user's own words. */

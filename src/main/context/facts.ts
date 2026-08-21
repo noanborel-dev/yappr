@@ -10,12 +10,8 @@
 
 import { getDb } from './store'
 import { logError, logInfo } from '../log'
-import type { FactScope } from './fact-scope'
-import {
-  normalizeFactText,
-  MAX_FACTS_PER_BUCKET,
-  type StoredFact,
-} from './facts-format'
+import type { FactScope, StoredFact, FactBucket } from '../../shared/types'
+import { normalizeFactText, MAX_FACTS_PER_BUCKET } from './facts-format'
 import { GLOBAL_SCOPE, UNSORTED_BUCKET } from './project-key'
 
 interface FactRow {
@@ -129,13 +125,6 @@ export function getFactsFor(projectKey: string | null): { global: StoredFact[]; 
     global: readBucket('global', ''),
     project: projectKey ? readBucket('project', projectKey) : [],
   }
-}
-
-export interface FactBucket {
-  /** GLOBAL_SCOPE, a project key, or UNSORTED_BUCKET. */
-  key: string
-  scope: FactScope
-  facts: StoredFact[]
 }
 
 /**
