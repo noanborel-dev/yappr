@@ -5,16 +5,14 @@ import { SectionHead } from "./SectionHead";
 import { Reveal } from "./Reveal";
 import { ScrollExpand } from "./ScrollExpand";
 
-// Section 03 — the payoff, not the mechanism.
+// Section 03 — the payoff, then what's behind it.
 //
-// This used to show the app's Background-context settings panel: an
-// accurate picture of a feature nobody asked to see. What people actually
-// feel is the preamble tax — the five lines of setup you retype at the top
-// of every AI conversation before you get to the thing you wanted.
+// Left: what Yappr is holding — how you write, and what you're building.
+// Right: the preamble tax disappearing because it's holding it.
 //
-// So the prompt shrinks on screen. The setup strikes out and collapses,
-// leaving only the ask. The box getting shorter IS the argument; no copy
-// has to claim a time saving.
+// The cards come first in reading order on purpose. "Stop re-explaining your
+// project" is an abstract promise until you can see the two things it
+// remembers written down.
 
 const PREAMBLE = [
   "I'm building Yappr, a macOS dictation app.",
@@ -25,6 +23,8 @@ const PREAMBLE = [
 ];
 
 const ASK = "The pipeline drops chunks when Groq 429s — why?";
+
+const STACK = ["TypeScript", "Electron", "Groq", "macOS"];
 
 type Phase = "full" | "striking" | "collapsed";
 
@@ -81,29 +81,64 @@ export function PersistentContext() {
 
         <ScrollExpand from={0.95}>
           <div className="px-stage">
-            <div className={`px-doc ${collapsed ? "is-collapsed" : ""}`}>
-              <span className="px-label">
-                {collapsed ? "what you say now" : "what you type every time"}
-              </span>
+            <div className="px-mem">
+              {/* Preferences sits above the project card: it's the smaller,
+                  more personal of the two, and it's what makes the output
+                  sound like you rather than like a model. */}
+              <div className="px-card px-card--pref">
+                <span className="px-card-label">How you write</span>
+                <p>Short prompts. No preamble, no pleasantries.</p>
+                <p>
+                  You say <em>&ldquo;the pipeline&rdquo;</em> and mean{" "}
+                  <code>src/main/pipeline.ts</code>
+                </p>
+              </div>
 
-              <div className="px-lines">
-                {PREAMBLE.map((line, i) => (
-                  <p
-                    key={i}
-                    className={`px-pre ${i < struck ? "struck" : ""} ${
-                      collapsed ? "gone" : ""
-                    }`}
-                  >
-                    {line}
-                  </p>
-                ))}
-                <p className="px-ask">{ASK}</p>
+              <div className="px-card px-card--proj">
+                <span className="px-card-label">What you&rsquo;re building</span>
+                <p className="px-proj-name">Yappr</p>
+                <p className="px-proj-desc">
+                  macOS dictation app. Transcription on-device, polish on Groq.
+                </p>
+                <div className="px-stack">
+                  {STACK.map((t) => (
+                    <span key={t} className="px-chip">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+                <span className="px-saved">
+                  <i aria-hidden="true" />
+                  Saved on this Mac. Kept up to date as you work.
+                </span>
               </div>
             </div>
 
-            <p className={`px-caption ${collapsed ? "in" : ""}`}>
-              Yappr already told it the rest.
-            </p>
+            <div className="px-right">
+              <div className={`px-doc ${collapsed ? "is-collapsed" : ""}`}>
+                <span className="px-label">
+                  {collapsed ? "what you say now" : "what you type every time"}
+                </span>
+
+                <div className="px-lines">
+                  {PREAMBLE.map((line, i) => (
+                    <p
+                      key={i}
+                      className={`px-pre ${i < struck ? "struck" : ""} ${
+                        collapsed ? "gone" : ""
+                      }`}
+                    >
+                      {line}
+                    </p>
+                  ))}
+                  <p className="px-ask">{ASK}</p>
+                </div>
+              </div>
+
+              <p className={`px-caption ${collapsed ? "in" : ""}`}>
+                Yappr already told it the rest.
+              </p>
+            </div>
           </div>
         </ScrollExpand>
 

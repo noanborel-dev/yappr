@@ -3507,7 +3507,10 @@ body {
 /* Tall track; the panel inside pins while you scroll past it. Three beats
    across ~2.4 viewports is enough dwell to read each line without feeling
    like the page is stuck. */
-.bfb-track { position: relative; height: 320vh; z-index: 1; }
+/* 320vh meant ~73vh of scrolling per beat — long enough that people
+   thought the page had ended. 185vh gives ~28vh per beat: the line
+   changes while you're still moving. */
+.bfb-track { position: relative; height: 185vh; z-index: 1; }
 .bfb-pin {
   position: sticky;
   top: 0;
@@ -4789,8 +4792,153 @@ body {
 
 
 
+/* --- 02: Gmail compose, with a macOS text selection --- */
+.gm {
+  max-width: 780px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 12px 12px 8px 8px;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  color: #202124;
+  box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.55);
+}
+
+/* Gmail's compose header is dark grey with the title left-aligned. */
+.gm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #404040;
+  color: #fff;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+}
+/* Minimize / maximize / close, drawn the way Gmail draws them:
+   thin white strokes, not macOS traffic lights. */
+.gm-head-ctl { display: flex; align-items: center; gap: 15px; opacity: 0.8; }
+.gm-head-ctl i { display: block; width: 10px; height: 1.5px; background: #fff; }
+.gm-head-ctl i:nth-child(2) {
+  width: 9px; height: 9px; background: none;
+  border: 1.5px solid #fff; border-radius: 1px;
+}
+.gm-head-ctl i:nth-child(3) {
+  width: 11px; height: 11px; background: none;
+  background-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+  background-size: 11px 1.5px, 11px 1.5px;
+  background-repeat: no-repeat;
+  background-position: center, center;
+  transform: rotate(45deg);
+}
+.gm-head-ctl i:nth-child(3)::after {
+  content: ""; display: block; width: 11px; height: 11px;
+  background: #fff; height: 1.5px; margin-top: 4.75px;
+  transform: rotate(90deg);
+}
+
+.gm-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+  border-bottom: 1px solid #f1f3f4;
+  font-size: 13.5px;
+}
+.gm-label { color: #5f6368; width: 52px; flex: none; }
+.gm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #e8eaed;
+  border-radius: 999px;
+  padding: 3px 11px 3px 3px;
+  font-size: 12.5px;
+}
+.gm-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #7b61ff;
+  color: #fff;
+  font-size: 10.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gm-subject { color: #202124; }
+
+.gm-body {
+  padding: 20px 16px 26px;
+  font-size: 14.5px;
+  line-height: 1.62;
+  min-height: 190px;
+}
+.gm-body p { margin: 0 0 15px; }
+.gm-sign { white-space: pre-line; color: #202124; }
+
+/* The selection, extended word by word. Each word carries its own
+   background so the highlight wraps with the text — a single scaled
+   rectangle fills line one halfway and line two entirely, which is not
+   what dragging through a paragraph looks like. */
+.gm-w {
+  background: transparent;
+  transition: background-color 0.12s linear;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 1px 0;
+}
+.gm-w.sel { background-color: #b3d4fd; }   /* macOS selection blue on white */
+.gm-text.swapped { animation: gm-swap 0.45s ease-out both; }
+@keyframes gm-swap {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.gm-foot {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid #f1f3f4;
+}
+.gm-send {
+  background: #0b57d0;
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 9px 22px;
+  border-radius: 999px;
+  flex: none;
+}
+.gm-said {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15.5px;
+  color: #5f6368;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.gm-said.in { opacity: 1; transform: none; }
+
+@media (max-width: 780px) {
+  .gm-body { font-size: 13.5px; padding: 16px 14px 20px; }
+  .gm-said { font-size: 13.5px; }
+  .gm-foot { flex-direction: column; align-items: flex-start; gap: 10px; }
+}
+
 /* --- 03: the preamble tax, shrinking --- */
-.px-stage { max-width: 760px; margin: 0 auto; }
+.px-stage {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+.px-right { display: flex; flex-direction: column; justify-content: center; min-height: 360px; }
+.px-mem { display: flex; flex-direction: column; gap: 14px; }
 
 .px-doc {
   background: #fff;
@@ -4852,108 +5000,82 @@ body {
 }
 .px-caption.in { opacity: 1; transform: none; }
 
-/* --- 02: select and rewrite, in a prompt and an email --- */
-.sr2 { position: relative; max-width: 900px; margin: 0 auto; }
-
-.sr2-win {
+/* What Yappr is holding. Two cards, small then large: how you write, then
+   what you're building. Written as notes rather than as a settings panel —
+   this is a memory, not a form the user has to fill in. */
+.px-card {
+  background: #fff;
+  border: 1px solid var(--line);
   border-radius: 14px;
-  overflow: hidden;
-  box-shadow: 0 40px 80px -34px rgba(0, 0, 0, 0.6);
-  animation: ws-fade 0.5s ease-out both;
+  padding: 18px 20px 17px;
+  box-shadow: 0 18px 40px -30px rgba(20, 30, 50, 0.28);
 }
-.sr2-win--claude { background: #1f1d1c; border: 1px solid #322f2d; }
-.sr2-win--gmail { background: #fff; border: 1px solid var(--line); }
+.px-card p { margin: 0 0 6px; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
+.px-card p:last-of-type { margin-bottom: 0; }
+.px-card em { font-style: italic; color: var(--ink); }
+.px-card code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: rgba(20, 30, 50, 0.05);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.px-card-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 11px;
+}
 
-.sr2-chrome {
+.px-proj-name {
+  font-family: var(--font-serif);
+  font-size: 26px !important;
+  line-height: 1.1 !important;
+  color: var(--ink) !important;
+  margin-bottom: 5px !important;
+}
+.px-proj-desc { margin-bottom: 13px !important; }
+
+.px-stack { display: flex; flex-wrap: wrap; gap: 6px; }
+.px-chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  color: var(--ink-2);
+  background: rgba(20, 30, 50, 0.045);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+/* The always-saved signal. A steady dot, not a spinner — the point is that
+   it's already done, not that something is syncing. */
+.px-saved {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 11px 14px;
-}
-.sr2-win--claude .sr2-chrome { background: #3a3735; }
-.sr2-win--gmail .sr2-chrome { background: #f1f3f4; }
-.sr2-chrome .tl { width: 10px; height: 10px; border-radius: 999px; }
-.sr2-chrome .tl.r { background: #ff5f57; }
-.sr2-chrome .tl.y { background: #febc2e; }
-.sr2-chrome .tl.g { background: #28c840; }
-.sr2-title {
-  margin: 0 auto;
-  padding-right: 48px;
-  font-family: var(--font-sans);
-  font-size: 11.5px;
-}
-.sr2-win--claude .sr2-title { color: #cccccc; }
-.sr2-win--gmail .sr2-title { color: #5f6368; }
-
-.sr2-body {
-  padding: 28px 30px 34px;
-  font-size: 16px;
-  line-height: 1.65;
-  white-space: pre-wrap;
-  min-height: 190px;
-}
-.sr2-win--claude .sr2-body { font-family: var(--font-mono); font-size: 14px; color: #c0bdba; }
-.sr2-win--gmail .sr2-body { font-family: var(--font-sans); color: var(--ink-2); }
-
-.sr2-static { opacity: 0.65; }
-
-/* The selected run. Native-blue while selected, then swapped for the
-   rewrite — no diff colours: in the real thing it just changes. */
-.sr2-run {
-  border-radius: 3px;
-  transition: background 0.3s ease, color 0.3s ease;
-}
-.sr2-run.sel { background: rgba(38, 105, 209, 0.85); color: #fff; }
-.sr2-win--gmail .sr2-run.sel { background: rgba(38, 105, 209, 0.28); color: var(--ink); }
-.sr2-run.new { animation: ws-fade 0.45s ease-out both; }
-.sr2-win--claude .sr2-run.new { color: #f0ece2; }
-.sr2-win--gmail .sr2-run.new { color: var(--ink); }
-
-.sr2-said {
-  position: absolute;
-  left: 50%;
-  bottom: -18px;
-  transform: translate(-50%, 8px);
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: 18px;
-  color: var(--cream);
-  background: rgba(20, 22, 30, 0.94);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  padding: 9px 20px;
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.4);
-  opacity: 0;
-  transition: opacity 0.35s ease, transform 0.35s ease;
-  pointer-events: none;
-  max-width: 88%;
-  text-align: center;
-}
-.sr2-said.in { opacity: 1; transform: translate(-50%, 0); }
-
-.sr2-dots {
-  list-style: none;
-  margin: 34px 0 0;
-  padding: 0;
-  display: flex;
   gap: 7px;
-  justify-content: center;
+  margin-top: 15px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
 }
-.sr2-dots li {
+.px-saved i {
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.22);
-  transition: background 0.35s ease, transform 0.35s ease;
+  background: #4a9d6e;
+  flex: none;
+  box-shadow: 0 0 0 3px rgba(74, 157, 110, 0.16);
 }
-.sr2-dots li.on { background: #f3a08f; transform: scale(1.25); }
 
-@media (max-width: 780px) {
-  .sr2-body { padding: 20px 18px 26px; font-size: 14.5px; }
-  .sr2-said { font-size: 15px; bottom: -14px; }
+@media (max-width: 900px) {
+  .px-stage { grid-template-columns: 1fr; gap: 18px; max-width: 620px; }
 }
+
 
 /* The vocabulary-vs-project line under the context card */
 .pc-versus {
