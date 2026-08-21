@@ -53,6 +53,10 @@ export interface NotchGeometryIPC {
   width: number
   height: number
   displayWidth: number
+  /** What to draw when there is no notch. Ignored when hasNotch. */
+  noNotchIndicator?: 'hidden' | 'placeholder'
+  /** Placeholder band width in points; null uses the default. */
+  placeholderWidth?: number | null
 }
 
 export interface RecentDictation {
@@ -100,6 +104,12 @@ const FALLBACK_GEOMETRY: NotchGeometryIPC = {
   width: 220,
   height: 38,
   displayWidth: 1728,
+  // 'placeholder' rather than 'hidden' deliberately: this value is used
+  // only before the real geometry arrives over IPC, and a fallback that
+  // hides the indicator would flash it out of existence on every launch
+  // for the split second before the answer comes back.
+  noNotchIndicator: 'placeholder',
+  placeholderWidth: null,
 }
 
 export default function NotchIndicator() {
@@ -411,7 +421,10 @@ export default function NotchIndicator() {
   // is nearest it: the record dot, the first waveform bars, the start of
   // the label. Since width is the one dimension we cannot read, the margin
   // buys tolerance for being wrong in the direction that costs content.
-  const { width: bandWidth, height: bandHeight } = bandGeometry(geometry)
+  const { width: bandWidth, height: bandHeight } = bandGeometry(geometry, {
+    enabled: geometry.noNotchIndicator === 'placeholder',
+    width: geometry.placeholderWidth ?? null,
+  })
 
   const v = resolve({
     state,
@@ -428,6 +441,19 @@ export default function NotchIndicator() {
   useEffect(() => {
     prevWidthRef.current = v.width
   }, [v.width])
+
+  // No notch and no placeholder asked for → draw nothing at all.
+  //
+  // This is the one case where unmounting is correct. The note below
+  // explains why the non-notched shape stays mounted at idle: it is the
+  // only thing the pointer hit-tests against, so removing it kills hover
+  // and peek. That reasoning does not apply here — the user has said they
+  // want no indicator on this display, and losing the hover target is
+  // part of what they asked for rather than a regression.
+  //
+  // Placed after every hook so the hook order never changes between
+  // renders; React would otherwise tear on the first geometry update.
+  if (!geometry.hasNotch && geometry.noNotchIndicator === 'hidden') return null
 
   // On a Mac with no notch there is no housing to hide in, so a permanent
   // black bar would just be a black bar. Idle renders nothing; the wings

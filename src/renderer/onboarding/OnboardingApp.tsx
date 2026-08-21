@@ -4,6 +4,8 @@ import { Pill } from '../shared/ui/Pill'
 import { Toggle } from '../shared/ui/Toggle'
 import { Wordmark } from '../shared/ui/Wordmark'
 import { MenuBar, NotchMark } from '../shared/ui/NotchMark'
+import { DisplayStep } from './DisplayStep'
+import { ContextStep } from './ContextStep'
 
 // Setup, in the same language as the app it sets up: cream paper, one
 // italic serif line per screen, the real notch indicator, one thing to do.
@@ -19,7 +21,7 @@ import { MenuBar, NotchMark } from '../shared/ui/NotchMark'
 // what genuinely belongs to the user: their permissions, their key, and
 // how much clean-up they want.
 
-const STEPS = ['Welcome', 'Permissions', 'Hotkey', 'Polish', 'Done'] as const
+const STEPS = ['Welcome', 'Permissions', 'Hotkey', 'Display', 'Polish', 'Context', 'Done'] as const
 type Step = number
 
 function eventToSingleKey(e: KeyboardEvent): string | null {
@@ -181,7 +183,8 @@ export default function OnboardingApp() {
             onNext={next}
           />
         )}
-        {step === 3 && (
+        {step === 3 && <DisplayStep onNext={next} />}
+        {step === 4 && (
           <PolishStep
             value={strictness}
             onChange={setStrictness}
@@ -190,7 +193,8 @@ export default function OnboardingApp() {
             onNext={next}
           />
         )}
-        {step === 4 && <Done hotkey={hotkey} onFinish={finish} />}
+        {step === 5 && <ContextStep onNext={next} />}
+        {step === 6 && <Done hotkey={hotkey} onFinish={finish} />}
       </main>
     </div>
   )

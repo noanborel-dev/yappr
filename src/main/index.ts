@@ -964,6 +964,9 @@ function setupIpcListeners(): void {
       widthPt: target.bounds.width,
       boundsY: target.bounds.y,
       workAreaY: target.workArea.y,
+      // Without this a Windows taskbar docked to the top of the screen
+      // measures ~40px and reads as a notch.
+      isMac: process.platform === 'darwin',
     }, getSettings().notchWidthOverride ?? null)
     // The width is the one value we estimate rather than read, so log
     // what we resolved. If the centre band doesn't line up with the
@@ -976,11 +979,18 @@ function setupIpcListeners(): void {
       displayWidth: target.bounds.width,
       source: geometry.widthIsOverride ? 'override' : 'estimate',
     })
+    const settings = getSettings()
     return {
       hasNotch: geometry.hasNotch,
       width: geometry.width,
       height: geometry.height,
       displayWidth: target.bounds.width,
+      // Only meaningful when hasNotch is false; sent unconditionally so
+      // the indicator needs one IPC round-trip rather than two, and so a
+      // window dragged onto a non-notched external display already has
+      // the answer.
+      noNotchIndicator: settings.noNotchIndicator,
+      placeholderWidth: settings.placeholderWidth,
     }
   })
 

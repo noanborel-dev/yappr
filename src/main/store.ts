@@ -35,6 +35,8 @@ const defaults: Settings = {
   useContextMemory: false,
   autoContextUpdate: true,
   notchWidthOverride: null,
+  noNotchIndicator: 'hidden',
+  placeholderWidth: null,
 }
 
 export const store = new ElectronStore<Settings>({ defaults, name: 'yappr-settings' })
@@ -119,9 +121,16 @@ export function getSettings(): Settings {
 
   // Migrate stale cleanup model. Persist the new value so the next
   // read sees it without re-running this branch.
+  // A BLANK value is stale too. The map only rewrites ids we know are
+  // dead, so an empty string — which is what some installs persisted —
+  // passed straight through and then hit whatever fallback the caller
+  // happened to hardcode. That is exactly how compaction ended up
+  // calling a decommissioned llama model every 60 seconds.
   const persisted = merged.provider.cleanupModel
-  const replacement = STALE_CLEANUP_MODELS[persisted]
-  if (replacement) {
+  const replacement = !persisted || !persisted.trim()
+    ? MODELS.groq.cleanup
+    : STALE_CLEANUP_MODELS[persisted]
+  if (replacement && replacement !== persisted) {
     merged.provider.cleanupModel = replacement
     store.set('provider', merged.provider)
   }

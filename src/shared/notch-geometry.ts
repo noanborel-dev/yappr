@@ -26,6 +26,21 @@ export interface DisplayMetrics {
   boundsY: number
   /** workArea.y — top of the usable area, i.e. immediately below the menu bar. */
   workAreaY: number
+  /**
+   * Whether this is macOS. Only Apple ships a notch, so everywhere else
+   * the answer is no regardless of what the metrics say.
+   *
+   * This is not defensive tidiness. The height test below reads the gap
+   * between the display top and the usable area, which on macOS is the
+   * menu bar. On Windows that same gap is the TASKBAR — and a taskbar
+   * docked to the top of the screen is ~40px, comfortably over the 29pt
+   * threshold. Without this flag, moving the Windows taskbar to the top
+   * makes Yappr draw a notch shape on hardware that has no notch.
+   *
+   * Defaults to true when omitted so existing macOS callers are
+   * unaffected.
+   */
+  isMac?: boolean
 }
 
 export interface NotchGeometry {
@@ -61,6 +76,7 @@ export function menuBarHeight(m: DisplayMetrics): number {
 export const NOTCHED_MENUBAR_MIN_PT = 29
 
 export function hasNotch(m: DisplayMetrics): boolean {
+  if (m.isMac === false) return false
   return menuBarHeight(m) >= NOTCHED_MENUBAR_MIN_PT
 }
 

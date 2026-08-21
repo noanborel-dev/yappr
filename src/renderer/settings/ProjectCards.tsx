@@ -15,6 +15,7 @@
 import { useEffect, useState } from 'react'
 import { Card } from '../shared/ui/Card'
 import type { FactBucket } from '../../shared/types'
+import { bucketMetricLine } from '../../shared/fact-metrics'
 
 // Bucket keys that are not project names and need explaining.
 const GLOBAL_KEY = 'global'
@@ -36,9 +37,21 @@ function bucketBlurb(key: string): string {
   return 'Added only when you are working on this project.'
 }
 
+function ScopeChip({ scope }: { scope: string }) {
+  const label = scope === GLOBAL_KEY ? 'global' : scope === UNSORTED_KEY ? 'unsorted' : 'project'
+  return (
+    <span className="shrink-0 text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 border border-ink-08 rounded-full px-1.5 py-px">
+      {label}
+    </span>
+  )
+}
+
 export function ProjectCards() {
   const [buckets, setBuckets] = useState<FactBucket[] | null>(null)
   const [confirmingKey, setConfirmingKey] = useState<string | null>(null)
+  // Captured once per mount rather than read per row, so every card on
+  // the screen dates from the same instant.
+  const [now] = useState(() => Date.now())
 
   async function reload() {
     try {
@@ -80,9 +93,18 @@ export function ProjectCards() {
       {buckets.map(bucket => (
         <Card key={bucket.key} className="p-4">
           <div className="flex items-baseline justify-between gap-3">
-            <div>
-              <h4 className="text-sm font-medium">{bucketTitle(bucket.key)}</h4>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-medium truncate">{bucketTitle(bucket.key)}</h4>
+                <ScopeChip scope={bucket.key} />
+              </div>
               <p className="text-xs text-ink-60 mt-0.5">{bucketBlurb(bucket.key)}</p>
+              {/* At-a-glance read: how much is in here, and is it stale?
+                  Most useful on a project the user stopped working on
+                  months ago that is still feeding prompts. */}
+              <p className="text-[10.5px] font-mono text-ink-45 mt-1.5 tabular-nums">
+                {bucketMetricLine(bucket.facts, now)}
+              </p>
             </div>
             {confirmingKey === bucket.key ? (
               <div className="flex items-center gap-2 shrink-0">

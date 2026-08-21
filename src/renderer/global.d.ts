@@ -35,6 +35,8 @@ export interface NotchGeometry {
   width: number
   height: number
   displayWidth: number
+  noNotchIndicator?: 'hidden' | 'placeholder'
+  placeholderWidth?: number | null
 }
 
 declare global {
