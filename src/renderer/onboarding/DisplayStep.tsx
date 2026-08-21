@@ -33,14 +33,21 @@ export function DisplayStep({ onNext }: { onNext: () => void }) {
 
   useEffect(() => {
     let alive = true
-    Promise.all([window.yappr.getNotchGeometry(), window.yappr.getSettings()]).then(
-      ([g, s]) => {
+    Promise.all([window.yappr.getNotchGeometry(), window.yappr.getSettings()])
+      .then(([g, s]) => {
         if (!alive) return
         setGeometry(g)
         setMode(s.noNotchIndicator)
         setWidth(s.placeholderWidth)
-      },
-    )
+      })
+      .catch(() => {
+        // Never strand the user on "Reading your screen…". If the probe
+        // fails, fall through to the no-notch branch: it offers a real
+        // choice and a Continue button, where the loading state offers
+        // neither and would block onboarding entirely.
+        if (!alive) return
+        setGeometry({ hasNotch: false, width: 0, height: 0, displayWidth: 0 })
+      })
     return () => { alive = false }
   }, [])
 

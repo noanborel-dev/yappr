@@ -45,19 +45,28 @@ export function ContextStep({ onNext }: { onNext: () => void }) {
   async function save() {
     if (!text.trim()) return
     setSaving(true)
-    const parsed = parseOnboardingImport(text)
-    if (isOverviewOnly(parsed)) {
-      // No headings — the user pasted a plain paragraph, or wrote their
-      // own. Keep it whole as the overview rather than discarding it.
-      await window.yappr.setContextOverview(parsed.overview)
-      setStored(0)
-    } else {
-      const { stored: n } = await window.yappr.importContext(parsed)
-      setStored(n)
+    try {
+      const parsed = parseOnboardingImport(text)
+      if (isOverviewOnly(parsed)) {
+        // No headings — the user pasted a plain paragraph, or wrote their
+        // own. Keep it whole as the overview rather than discarding it.
+        await window.yappr.setContextOverview(parsed.overview)
+        setStored(0)
+      } else {
+        const { stored: n } = await window.yappr.importContext(parsed)
+        setStored(n)
+      }
+      setText('')
+      setCardsKey(k => k + 1)
+    } catch {
+      // Leave the text in place so nothing the user pasted is lost, and
+      // let them try again. This step is optional — a failure here must
+      // not become a dead end in the middle of onboarding.
+    } finally {
+      // In a finally so a throw cannot leave the button stuck on
+      // "Sorting…" with no way forward.
+      setSaving(false)
     }
-    setText('')
-    setCardsKey(k => k + 1)
-    setSaving(false)
   }
 
   return (
