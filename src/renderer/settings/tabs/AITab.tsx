@@ -6,6 +6,7 @@ import { Pill } from '../../shared/ui/Pill'
 import { Toggle } from '../../shared/ui/Toggle'
 import { PromptShapingStage } from '../../shared/ui/PromptShapingStage'
 import { ProjectCards } from '../ProjectCards'
+import { parseOnboardingImport, isOverviewOnly } from '../../../shared/onboarding-import'
 
 // What this tab used to be: a hero chat mock, then ~450 lines of
 // pixel-recreated iMessage / Gmail / Notion windows — invented contact
@@ -79,7 +80,24 @@ Style rules for the paragraph:
 - Write it as one flowing paragraph, third-person factual ("Noan works on…", or use whatever name I gave). NOT a bulleted list.
 - Keep it under ${OVERVIEW_TARGET_WORDS} words. Shorter is fine.
 - No filler like "this person is..." or "based on the above..."
-- OUTPUT ONLY the paragraph. No preamble, no quotes around it, no commentary after. I'm going to paste your response directly into a settings field.`
+- No filler like "this person is..." or "based on the above..."
+
+Then, AFTER the paragraph, list anything specific you can pull out, using EXACTLY these headings:
+
+GLOBAL
+- one bullet per preference that is true of me everywhere, regardless of what I'm working on (e.g. "I always use TypeScript for new projects")
+
+PROJECT: <name>
+- one bullet per fact about that specific project (its stack, its conventions, what it does). Repeat this heading for each project you can identify.
+
+UNSORTED
+- anything you can't confidently attach to a project. Put it here rather than guessing which project it belongs to.
+
+Rules for the bullets:
+- One fact per bullet, one sentence, under 25 words.
+- Only include a PROJECT section if you actually know the project's name. Do not invent one.
+- Skip any heading you have nothing for.
+- OUTPUT ONLY the paragraph followed by these sections. No preamble and no commentary after — I'm pasting your response straight into a settings field.`
 }
 
 interface ContextStatus {
@@ -100,6 +118,7 @@ function ContextMemoryCard() {
   const [refreshing, setRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [refreshedFlash, setRefreshedFlash] = useState(false)
+  const [importedCount, setImportedCount] = useState<number | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -171,9 +190,26 @@ function ContextMemoryCard() {
 
   async function save() {
     setSaving(true)
-    const trimmed = overview.slice(0, OVERVIEW_MAX_CHARS)
-    await window.yappr.setContextOverview(trimmed)
-    setPersisted(trimmed)
+    // Spec §1.3: the paste is split into tiers rather than stored as one
+    // blob. A paste with no headings — the old prompt, or a paragraph the
+    // user wrote themselves — parses to overview-only, which is exactly
+    // the previous behaviour.
+    const parsed = parseOnboardingImport(overview)
+    if (isOverviewOnly(parsed)) {
+      const trimmed = overview.slice(0, OVERVIEW_MAX_CHARS)
+      await window.yappr.setContextOverview(trimmed)
+      setPersisted(trimmed)
+    } else {
+      const trimmed = parsed.overview.slice(0, OVERVIEW_MAX_CHARS)
+      const { stored } = await window.yappr.importContext({ ...parsed, overview: trimmed })
+      // The textarea now shows the paragraph alone: the bullets have
+      // moved into the cards below, and leaving them here would imply
+      // they are still stored as prose.
+      setOverview(trimmed)
+      setPersisted(trimmed)
+      setImportedCount(stored)
+      window.setTimeout(() => setImportedCount(null), 4000)
+    }
     setSaving(false)
     setSavedFlash(true)
     window.setTimeout(() => setSavedFlash(false), 1500)
@@ -245,6 +281,14 @@ function ContextMemoryCard() {
             </Pill>
           </div>
         </div>
+
+        {importedCount !== null && (
+          <p className="text-[10.5px] font-mono text-ink-45 mt-3">
+            {importedCount > 0
+              ? `Sorted ${importedCount} ${importedCount === 1 ? 'fact' : 'facts'} into the cards below.`
+              : 'Nothing new to sort — those facts were already stored.'}
+          </p>
+        )}
 
         {!enabled && persisted.length > 0 && (
           <p className="text-[10.5px] font-mono text-ink-45 mt-3">

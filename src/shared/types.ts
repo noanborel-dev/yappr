@@ -189,6 +189,9 @@ export const IPC = {
   CONTEXT_FACTS_LIST: 'context:facts:list',
   CONTEXT_FACT_DELETE: 'context:fact:delete',
   CONTEXT_BUCKET_DELETE: 'context:bucket:delete',
+  // Spec §1.3 — the onboarding paste, split into buckets rather than
+  // stored as one blob that loads for every project.
+  CONTEXT_IMPORT: 'context:import',
   // Version / build / arch, read from the running app rather than
   // hardcoded in the About tab — which shipped "Build 218 · arm64" as
   // string literals that were wrong the moment either changed.

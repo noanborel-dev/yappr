@@ -1,4 +1,5 @@
 import type { Settings, LocalModelId, DictationResult, FactBucket } from '../shared/types'
+import type { OnboardingImport } from '../shared/onboarding-import'
 
 export interface LocalModelReadiness {
   ready: boolean
@@ -54,6 +55,7 @@ declare global {
       listContextFacts: () => Promise<FactBucket[]>
       deleteContextFact: (id: number) => Promise<boolean>
       deleteContextBucket: (key: string) => Promise<number>
+      importContext: (payload: OnboardingImport) => Promise<{ stored: number }>
       getContextStatus: () => Promise<{
         count: number
         threshold: number

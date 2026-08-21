@@ -21,7 +21,8 @@ import {
 } from './history-store'
 import { getUserOverview, setUserOverview } from './context/store'
 import { forceCompaction, getCompactionStatus } from './context/compactor'
-import { listBuckets, deleteFact, deleteBucket } from './context/facts'
+import { listBuckets, deleteFact, deleteBucket, addFact } from './context/facts'
+import type { OnboardingImport } from '../shared/onboarding-import'
 import { logInfo } from './log'
 
 // Hot in-memory cache for paste-last + indicator lookups. Always
@@ -124,6 +125,32 @@ export function registerIpcHandlers(hooks: IpcHooks = {}): void {
     typeof id === 'number' ? deleteFact(id) : false)
   ipcMain.handle(IPC.CONTEXT_BUCKET_DELETE, (_e, key: string) =>
     typeof key === 'string' ? deleteBucket(key) : 0)
+
+  // Spec §1.3. The renderer parses the paste (the parser is shared and
+  // tested); this just files the result. addFact already rejects
+  // unstorable text and duplicates, so re-importing is idempotent rather
+  // than accumulating a second copy of everything.
+  ipcMain.handle(IPC.CONTEXT_IMPORT, (_e, payload: OnboardingImport) => {
+    if (!payload || typeof payload !== 'object') return { stored: 0 }
+    let stored = 0
+    if (typeof payload.overview === 'string' && payload.overview.trim()) {
+      setUserOverview(payload.overview)
+    }
+    for (const text of payload.global ?? []) {
+      if (addFact({ scope: 'global', text })) stored++
+    }
+    for (const [projectKey, facts] of Object.entries(payload.projects ?? {})) {
+      for (const text of facts) {
+        if (addFact({ scope: 'project', projectKey, text })) stored++
+      }
+    }
+    // Unsorted is a real bucket, not a discard pile: the user can see it
+    // in the cards and delete what does not belong.
+    for (const text of payload.unsorted ?? []) {
+      if (addFact({ scope: 'project', projectKey: 'unsorted', text })) stored++
+    }
+    return { stored }
+  })
 
   ipcMain.handle(IPC.MIC_PERMISSION, async () => {
     if (process.platform === 'darwin') {
