@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client'
-import Indicator from './Indicator'
+import NotchIndicator from './NotchIndicator'
 import '../../shared/index.css'
 
-createRoot(document.getElementById('root')!).render(<Indicator />)
+createRoot(document.getElementById('root')!).render(<NotchIndicator />)

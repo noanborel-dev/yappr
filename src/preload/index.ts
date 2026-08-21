@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/types'
-import type { Settings } from '../shared/types'
+import type { Settings, FactBucket } from '../shared/types'
+import type { OnboardingImport } from '../shared/onboarding-import'
 
 contextBridge.exposeInMainWorld('yappr', {
   getSettings: (): Promise<Settings> =>
@@ -21,6 +22,14 @@ contextBridge.exposeInMainWorld('yappr', {
     ipcRenderer.invoke(IPC.CONTEXT_OVERVIEW_SET, text),
   refreshContextNow: (): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke(IPC.CONTEXT_REFRESH_NOW),
+  listContextFacts: (): Promise<FactBucket[]> =>
+    ipcRenderer.invoke(IPC.CONTEXT_FACTS_LIST),
+  deleteContextFact: (id: number): Promise<boolean> =>
+    ipcRenderer.invoke(IPC.CONTEXT_FACT_DELETE, id),
+  deleteContextBucket: (key: string): Promise<number> =>
+    ipcRenderer.invoke(IPC.CONTEXT_BUCKET_DELETE, key),
+  importContext: (payload: OnboardingImport): Promise<{ stored: number }> =>
+    ipcRenderer.invoke(IPC.CONTEXT_IMPORT, payload),
   getContextStatus: (): Promise<{
     count: number
     threshold: number
@@ -35,6 +44,21 @@ contextBridge.exposeInMainWorld('yappr', {
   isAccessibilityTrusted: (): Promise<boolean> =>
     ipcRenderer.invoke(IPC.ACCESSIBILITY_CHECK),
   revealLog: () => ipcRenderer.invoke(IPC.REVEAL_LOG),
+  getAppInfo: (): Promise<{
+    version: string
+    arch: string
+    electron: string
+    packaged: boolean
+  }> => ipcRenderer.invoke(IPC.APP_INFO),
+  // Notch dimensions as the app currently resolves them, so the
+  // calibration control in General can show what it's correcting and
+  // whether the value came from the estimate or an override.
+  getNotchGeometry: (): Promise<{
+    hasNotch: boolean
+    width: number
+    height: number
+    displayWidth: number
+  }> => ipcRenderer.invoke(IPC.INDICATOR_NOTCH_GEOMETRY),
   reloadHotkeys: () => ipcRenderer.send(IPC.HOTKEYS_RELOAD),
   openOnboarding: () => ipcRenderer.send(IPC.OPEN_ONBOARDING),
   getLaunchAtLogin: (): Promise<boolean> => ipcRenderer.invoke(IPC.LAUNCH_AT_LOGIN_GET),
@@ -48,6 +72,8 @@ contextBridge.exposeInMainWorld('yappr', {
 
   // Local Whisper model management.
   getLocalModelStatus: () => ipcRenderer.invoke(IPC.LOCAL_MODEL_STATUS),
+  getOrphanedModels: () => ipcRenderer.invoke(IPC.ORPHANED_MODELS_GET),
+  removeOrphanedModels: () => ipcRenderer.invoke(IPC.ORPHANED_MODELS_REMOVE),
   downloadLocalModel: (modelId: string) => ipcRenderer.invoke(IPC.LOCAL_MODEL_DOWNLOAD, modelId),
   cancelLocalModel: () => ipcRenderer.invoke(IPC.LOCAL_MODEL_CANCEL),
   uninstallLocalModel: (modelId: string) => ipcRenderer.invoke(IPC.LOCAL_MODEL_UNINSTALL, modelId),

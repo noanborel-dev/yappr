@@ -20,7 +20,9 @@
 //
 //   worker → main:
 //     { type: 'ready' }
-//     { type: 'loaded', ms: number }
+//     { type: 'loaded', ms: number, cached: boolean }
+//         Sent exactly once per 'load', hit or miss — the host blocks
+//         on it, so a cache hit must still reply.
 //     { type: 'partial', id: number, text: string }    ← streaming
 //     { type: 'result', id: number, text: string, segments: [...], ms: number }
 //     { type: 'error', id: number | null, message: string }
@@ -39,8 +41,10 @@
 // Node IPC serializes payloads as JSON, so PCM travels as base64.
 // Worker decodes back to Buffer → ArrayBuffer before calling fugood.
 
-import { initWhisper, toggleNativeLog } from '@fugood/whisper.node'
-import type { WhisperContext, TranscribeOptions } from '@fugood/whisper.node'
+import { initWhisper, initParakeet, toggleNativeLog } from '@fugood/whisper.node'
+import type { WhisperContext, ParakeetContext, TranscribeOptions } from '@fugood/whisper.node'
+import { chooseEvictionVictim } from './model-cache-policy'
+import { engineForModel } from './transcribe-core'
 
 interface LoadMsg {
   type: 'load'
@@ -57,9 +61,39 @@ interface FreeMsg {
 }
 type IncomingMsg = LoadMsg | TranscribeMsg | FreeMsg
 
-let ctx: WhisperContext | null = null
-let loadingPromise: Promise<WhisperContext> | null = null
-let currentModelPath: string | null = null
+// Resident model cache.
+//
+// Previously the worker held exactly ONE context and released it
+// whenever a different model was requested, so every tier switch paid a
+// full re-init (~150-290ms warm, and a Metal shader recompile on top).
+// That matters now that model tier varies per dictation by audio length
+// — short clips stay on the user's tier, longer ones elevate to
+// Accurate — which makes base↔large alternation the common case rather
+// than a rarity.
+//
+// Two resident contexts covers that: the user's tier plus Accurate.
+// Cost is RAM — roughly 60MB for base + 574MB for large-v3-turbo q5_0.
+// A third distinct model evicts the least recently used, never the one
+// currently transcribing and never the active one.
+const MAX_RESIDENT_MODELS = 2
+
+// Either engine's context. Both expose transcribeData()/release(); only
+// the accepted options differ, which the host resolves before sending.
+type AnyContext = WhisperContext | ParakeetContext
+
+interface CacheEntry {
+  ctx: AnyContext | null
+  loading: Promise<AnyContext> | null
+  lastUsed: number
+}
+
+const models = new Map<string, CacheEntry>()
+// The model `transcribe` should use — set by the most recent `load`.
+// The wire protocol has no model field on transcribe, so the host's
+// load→transcribe ordering defines it, exactly as before.
+let activeModelPath: string | null = null
+// Guards against a prewarm `load` evicting the model mid-transcribe.
+let inFlightModelPath: string | null = null
 
 void toggleNativeLog(false).catch(() => { /* ignore */ })
 
@@ -69,36 +103,90 @@ function send(msg: Record<string, unknown>): void {
   }
 }
 
-async function load(modelPath: string): Promise<WhisperContext> {
-  if (ctx && currentModelPath === modelPath) return ctx
-  if (loadingPromise && currentModelPath === modelPath) return loadingPromise
-  if (ctx) {
-    try { await ctx.release() } catch { /* best-effort */ }
-    ctx = null
+// Only ever reached on a cache MISS — a hit returns before this, which
+// is why steady-state base↔large alternation never releases anything.
+async function evictIfNeeded(keepPath: string): Promise<void> {
+  for (;;) {
+    const victimPath = chooseEvictionVictim(
+      [...models].map(([path, e]) => ({
+        path,
+        loading: e.loading !== null,
+        lastUsed: e.lastUsed,
+      })),
+      {
+        keepPath,
+        activePath: activeModelPath,
+        inFlightPath: inFlightModelPath,
+        maxResident: MAX_RESIDENT_MODELS,
+      },
+    )
+    if (!victimPath) return  // at or under budget, or nothing safe to drop
+    const victim = models.get(victimPath)
+    models.delete(victimPath)
+    if (victim?.ctx) {
+      try { await victim.ctx.release() } catch { /* best-effort */ }
+    }
   }
-  currentModelPath = modelPath
-  const start = Date.now()
-  loadingPromise = initWhisper({
-    filePath: modelPath,
-    useGpu: true,
-    useFlashAttn: true,
-  }).then((c) => {
-    ctx = c
-    loadingPromise = null
-    send({ type: 'loaded', ms: Date.now() - start })
+}
+
+// Returns [context, wasCached]. NEVER sends the 'loaded' message — the
+// host blocks on exactly one 'loaded' per 'load' it sends, so that reply
+// is the caller's responsibility (see handle()). Sending it from in here
+// would skip the reply on a cache hit and hang the host forever.
+async function load(modelPath: string): Promise<[AnyContext, boolean]> {
+  activeModelPath = modelPath
+  const existing = models.get(modelPath)
+  if (existing) {
+    existing.lastUsed = Date.now()
+    if (existing.ctx) return [existing.ctx, true]
+    if (existing.loading) return [await existing.loading, true]
+  }
+
+  await evictIfNeeded(modelPath)
+
+  const entry: CacheEntry = { ctx: null, loading: null, lastUsed: Date.now() }
+  // Parakeet is a separate context type in the binding, not a whisper
+  // checkpoint — it needs initParakeet and rejects whisper's options.
+  const wantsParakeet = engineForModel(modelPath) === 'parakeet'
+  // The Parakeet entry points only exist in @fugood/whisper.node >= 1.1.1.
+  // On an older INSTALLED binary (package.json can say 1.1.1 while
+  // node_modules still holds 1.0.18 until `npm install` runs) the import
+  // is simply undefined, and calling it produced a bare
+  // "initParakeet is not a function" that killed every dictation and got
+  // retried twice. Fail once, with something the user can act on.
+  if (wantsParakeet && typeof initParakeet !== 'function') {
+    throw new Error(
+      'The Instant (Parakeet) model needs @fugood/whisper.node 1.1.1 or newer, '
+      + 'but the installed binary does not have it. Run `npm install` and restart, '
+      + 'or pick another model tier in Settings.'
+    )
+  }
+  const init = wantsParakeet
+    ? initParakeet({ filePath: modelPath, useGpu: true })
+    : initWhisper({ filePath: modelPath, useGpu: true, useFlashAttn: true })
+  entry.loading = init.then((c) => {
+    entry.ctx = c
+    entry.loading = null
+    entry.lastUsed = Date.now()
     return c
   }).catch((err: unknown) => {
-    loadingPromise = null
-    currentModelPath = null
+    // Drop the failed entry so a later attempt can retry cleanly.
+    models.delete(modelPath)
+    if (activeModelPath === modelPath) activeModelPath = null
     throw err
   })
-  return loadingPromise
+  models.set(modelPath, entry)
+  return [await entry.loading, false]
 }
 
 async function handle(msg: IncomingMsg): Promise<void> {
   if (msg.type === 'load') {
+    const start = Date.now()
     try {
-      await load(msg.modelPath)
+      const [, cached] = await load(msg.modelPath)
+      // Exactly one 'loaded' per 'load', cache hit or miss — the host
+      // blocks until it arrives.
+      send({ type: 'loaded', ms: Date.now() - start, cached })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       send({ type: 'error', id: null, message })
@@ -106,19 +194,31 @@ async function handle(msg: IncomingMsg): Promise<void> {
     return
   }
   if (msg.type === 'free') {
-    if (ctx) {
-      try { await ctx.release() } catch { /* ignore */ }
-      ctx = null
-      currentModelPath = null
+    // Release everything resident — 'free' is the host telling us it
+    // wants the memory back, so honouring it partially would defeat it.
+    const entries = [...models.values()]
+    models.clear()
+    activeModelPath = null
+    for (const entry of entries) {
+      if (entry.ctx) {
+        try { await entry.ctx.release() } catch { /* ignore */ }
+      }
     }
     return
   }
   if (msg.type === 'transcribe') {
     const { id, pcmBase64, options } = msg
+    const modelPath = activeModelPath
     try {
-      if (!ctx || !currentModelPath) {
+      const entry = modelPath ? models.get(modelPath) : undefined
+      // The context may still be loading if the host pipelined a
+      // transcribe straight after its load; await rather than fail.
+      const ctx = entry?.ctx ?? (entry?.loading ? await entry.loading : null)
+      if (!ctx || !modelPath) {
         throw new Error('Worker received transcribe before load')
       }
+      entry!.lastUsed = Date.now()
+      inFlightModelPath = modelPath
       // Decode base64 → Buffer → ArrayBuffer slice. The slice() is
       // important because Node's Buffer wraps a shared pool — passing
       // buf.buffer directly would hand fugood a reference to MUCH
@@ -131,12 +231,19 @@ async function handle(msg: IncomingMsg): Promise<void> {
       // indicator UI with the running transcript. The final result
       // still comes through `result` so callers can rely on a single
       // canonical "done" signal.
-      const result = await ctx.transcribeData(pcm, {
-        ...options,
-        onNewSegments: (r) => {
-          send({ type: 'partial', id, text: r.result })
-        },
-      }).promise
+      // The host has already built options for the right engine.
+      // Parakeet takes no onNewSegments, so only attach it for whisper.
+      const isParakeet = engineForModel(modelPath) === 'parakeet'
+      const result = isParakeet
+        ? await (ctx as ParakeetContext).transcribeData(
+            pcm, options as unknown as { maxThreads?: number },
+          ).promise
+        : await (ctx as WhisperContext).transcribeData(pcm, {
+            ...options,
+            onNewSegments: (r) => {
+              send({ type: 'partial', id, text: r.result })
+            },
+          }).promise
       send({
         type: 'result',
         id,
@@ -147,6 +254,8 @@ async function handle(msg: IncomingMsg): Promise<void> {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       send({ type: 'error', id, message })
+    } finally {
+      if (inFlightModelPath === modelPath) inFlightModelPath = null
     }
   }
 }

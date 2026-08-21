@@ -6,12 +6,13 @@ import { DEFAULT_LOCAL_MODEL } from './local-models'
 const defaults: Settings = {
   firstRun: true,
   provider: {
-    provider: 'groq',
+    // Transcription runs on-device on parakeet; cleanup goes to Groq.
+    // Neither is user-facing — see the coercion in getSettings().
+    provider: 'local',
     groqKey: '',
-    transcriptionModel: MODELS.groq.transcription,
+    transcriptionModel: MODELS.local.transcription,
     cleanupModel: MODELS.groq.cleanup,
     localModel: DEFAULT_LOCAL_MODEL,
-    localAutoAccurateInCode: true,
   },
   hotkeys: DEFAULT_HOTKEYS,
   perAppRules: [],
@@ -27,11 +28,15 @@ const defaults: Settings = {
   },
   inputDeviceId: null,
   audioCues: true,
+  pauseMediaWhileDictating: true,
   emojiInMessages: false,
   pauseCleanup: false,
   licenseKey: '',
   useContextMemory: false,
   autoContextUpdate: true,
+  notchWidthOverride: null,
+  noNotchIndicator: 'hidden',
+  placeholderWidth: null,
 }
 
 export const store = new ElectronStore<Settings>({ defaults, name: 'yappr-settings' })
@@ -41,6 +46,11 @@ export const store = new ElectronStore<Settings>({ defaults, name: 'yappr-settin
 // gets force-upgraded to the current MODELS.<provider>.cleanup default.
 const STALE_CLEANUP_MODELS: Record<string, string> = {
   'llama-3.3-70b-versatile': MODELS.groq.cleanup,
+  // Decommissioned by Groq — returns 404, so cleanup silently fell back
+  // to the raw transcript on every dictation. Anyone with it persisted
+  // must be moved off it or they stay broken.
+  'llama-3.1-8b-instant': MODELS.groq.cleanup,
+  'llama-3.1-70b-versatile': MODELS.groq.cleanup,
 }
 
 // Same idea for transcription: users persisted from when we used
@@ -85,16 +95,18 @@ export function getSettings(): Settings {
     strictness,
   }
 
-  // Migrate legacy .en model IDs to their multilingual equivalents.
-  // Earlier builds shipped base.en / small.en; we switched to the
-  // multilingual variants because they give better English brand-
-  // name capitalization AND multilingual capability at the same
-  // speed. The model file on disk has a different name so the user
-  // will need to re-download — that's surfaced naturally in the
-  // Settings card (showing "Download" instead of "✓ active").
-  const legacyModel = merged.provider.localModel as unknown as string
-  if (legacyModel === 'small.en') merged.provider.localModel = 'small'
-  if (legacyModel === 'base.en') merged.provider.localModel = 'base'
+  // Transcription is no longer a setting. The app runs parakeet
+  // on-device and sends cleanup to Groq, and neither is exposed or
+  // configurable — so whatever an older install persisted (a Whisper
+  // tier, cloud Groq transcription, a legacy `small.en` id) is coerced
+  // here rather than being honoured. This is the single point where that
+  // is enforced; every read of getSettings() goes through it.
+  //
+  // Deliberately not persisted back: leaving the user's old values in the
+  // file costs nothing, and rewriting them would make this irreversible
+  // for anyone we later hand a build with the picker restored.
+  merged.provider.provider = 'local'
+  merged.provider.localModel = DEFAULT_LOCAL_MODEL
 
   // Merge in any new devModeApps bundle IDs that didn't exist when the
   // user first persisted their settings. Without this, users upgrading
@@ -109,9 +121,16 @@ export function getSettings(): Settings {
 
   // Migrate stale cleanup model. Persist the new value so the next
   // read sees it without re-running this branch.
+  // A BLANK value is stale too. The map only rewrites ids we know are
+  // dead, so an empty string — which is what some installs persisted —
+  // passed straight through and then hit whatever fallback the caller
+  // happened to hardcode. That is exactly how compaction ended up
+  // calling a decommissioned llama model every 60 seconds.
   const persisted = merged.provider.cleanupModel
-  const replacement = STALE_CLEANUP_MODELS[persisted]
-  if (replacement) {
+  const replacement = !persisted || !persisted.trim()
+    ? MODELS.groq.cleanup
+    : STALE_CLEANUP_MODELS[persisted]
+  if (replacement && replacement !== persisted) {
     merged.provider.cleanupModel = replacement
     store.set('provider', merged.provider)
   }

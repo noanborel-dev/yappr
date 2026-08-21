@@ -13,25 +13,23 @@ export type DictationState = 'idle' | 'recording' | 'processing' | 'done' | 'err
 
 export type Provider = 'groq' | 'local'
 
-// On-device whisper model tier. See src/main/local-models.ts for the
-// full info per tier. Default `small` (multilingual) is the
-// speed/accuracy sweet spot — ~200ms warm, 181 MB, handles English
-// plus Spanish/French/etc. Users who want minimum size pick `base`;
-// users who want maximum accuracy pick `large-v3-turbo`.
-export type LocalModelId = 'base' | 'small' | 'large-v3-turbo'
+// On-device model ids. The product runs `parakeet-tdt-0.6b-v3` and
+// nothing else — see DEFAULT_LOCAL_MODEL in src/main/local-models.ts.
+// The three Whisper tiers remain named because installs from before the
+// picker was removed may still have those files on disk, and the
+// uninstall path has to be able to address them.
+export type LocalModelId = 'parakeet-tdt-0.6b-v3'
 
 export interface ProviderSettings {
   provider: Provider
   groqKey: string
   transcriptionModel: string
   cleanupModel: string
+  // Always DEFAULT_LOCAL_MODEL. Kept in the shape because the download
+  // and uninstall paths still address models by id; coerced on every
+  // read in store.ts, so a persisted value from an older install can't
+  // change which engine runs.
   localModel: LocalModelId
-  // When true (default), the local provider auto-elevates to
-  // large-v3-turbo (Accurate) for dictations into code/IDE contexts.
-  // Trade ~1s extra inference for noticeably better transcription
-  // of technical terms, camelCase, and brand names. Disable to lock
-  // the user's selected tier for every dictation regardless of app.
-  localAutoAccurateInCode?: boolean
 }
 
 export interface HotkeySettings {
@@ -80,6 +78,10 @@ export interface Settings {
   strictness: CategoryStrictness
   inputDeviceId: string | null   // mic deviceId picked by the user; null = system default
   audioCues: boolean   // play a subtle blip when recording starts and ends
+  // Pause Music.app / Spotify while dictating, resume afterwards. Keeps
+  // speakers out of the microphone, which matters more now that browser
+  // noise suppression is off.
+  pauseMediaWhileDictating: boolean
   // When true, the cleanup prompt for the 'messaging' category gets
   // an instruction to append at most ONE relevant emoji when the
   // message has an obvious concrete noun or feeling (food, plans,
@@ -114,6 +116,54 @@ export interface Settings {
   // AND a Groq key being configured). Toggle off to freeze the
   // overview at its current hand-edited value.
   autoContextUpdate: boolean
+  // Notch width in points, overriding the estimate in
+  // shared/notch-geometry.ts. Electron exposes neither
+  // NSScreen.safeAreaInsets nor auxiliaryTopLeftArea, so the width is
+  // derived from display metrics and calibrated against one machine.
+  // Null uses the estimate; set a value if the indicator's centre band
+  // doesn't line up with the physical notch on your Mac.
+  notchWidthOverride: number | null
+  // What the indicator does on a display with NO notch — a MacBook Air,
+  // an external monitor, any Windows machine.
+  //
+  // There is no housing to hide inside, so the notch shape would just be
+  // a black slab stuck to the top of the screen. Two honest options:
+  //   'hidden'      — nothing is drawn at all.
+  //   'placeholder' — a compact bar hangs from the top edge instead.
+  //
+  // Defaults to 'hidden' per spec. Note the trade-off: the indicator is
+  // the only signal that recording is live, so hiding it means the user
+  // dictates blind. Onboarding therefore ASKS rather than leaving people
+  // to discover the setting.
+  noNotchIndicator: 'hidden' | 'placeholder'
+  // Width in points of that placeholder bar. Unlike notchWidthOverride
+  // this calibrates nothing — there is no cutout to line up with — so it
+  // is pure preference. Null uses NO_NOTCH_PLACEHOLDER_DEFAULT_PT.
+  placeholderWidth: number | null
+}
+
+// Two-tier context (spec §1.2). Shared because the project-cards UI in
+// the renderer reads the same shapes the main process stores.
+//
+//   global  — about the USER, loaded for every dictation
+//   project — about one codebase, loaded only for its own project
+export type FactScope = 'global' | 'project'
+
+export interface StoredFact {
+  id: number
+  scope: FactScope
+  /** Empty string for global facts. */
+  projectKey: string
+  /** The rule, in the user's own words. */
+  text: string
+  createdAt: number
+}
+
+export interface FactBucket {
+  /** 'global', a project key, or 'unsorted'. */
+  key: string
+  scope: FactScope
+  facts: StoredFact[]
 }
 
 export interface DictationResult {
@@ -123,6 +173,18 @@ export interface DictationResult {
   appName: string
   appCategory: AppCategory
   timestamp: number
+  // True when "think really hard" was mapped onto Claude Code's
+  // `ultrathink` keyword (spec §2). Surfaced in the UI in one word so the
+  // user learns the mapping exists rather than wondering why their
+  // wording changed.
+  ultrathink?: boolean
+  // Which project this dictation belonged to, or null when it could not
+  // be derived (see context/project-key.ts — it never guesses).
+  //
+  // Persisted with history so background compaction can group past
+  // dictations by project and mine each group for project facts. Without
+  // it, compaction sees 50 dictations with no idea which belong together.
+  projectKey?: string | null
 }
 
 // IPC channel names — kept in shared so renderer and main stay in sync
@@ -145,6 +207,19 @@ export const IPC = {
   // Phase 3: force-compaction trigger + status read for the UI.
   CONTEXT_REFRESH_NOW: 'context:refresh-now',
   CONTEXT_STATUS_GET: 'context:status:get',
+  // Spec §1.4 — the project-cards trust surface. The user has to be able
+  // to see everything Yappr stored and remove anything wrong, so this is
+  // read + delete only: no editing, no merging, no manual creation.
+  CONTEXT_FACTS_LIST: 'context:facts:list',
+  CONTEXT_FACT_DELETE: 'context:fact:delete',
+  CONTEXT_BUCKET_DELETE: 'context:bucket:delete',
+  // Spec §1.3 — the onboarding paste, split into buckets rather than
+  // stored as one blob that loads for every project.
+  CONTEXT_IMPORT: 'context:import',
+  // Version / build / arch, read from the running app rather than
+  // hardcoded in the About tab — which shipped "Build 218 · arm64" as
+  // string literals that were wrong the moment either changed.
+  APP_INFO: 'app:info',
   OPEN_SETTINGS: 'open-settings',
   OPEN_ONBOARDING: 'open-onboarding',
   MIC_PERMISSION: 'mic:permission',
@@ -161,6 +236,8 @@ export const IPC = {
   LOCAL_MODEL_STATUS: 'local-model:status',
   LOCAL_MODEL_DOWNLOAD: 'local-model:download',
   LOCAL_MODEL_CANCEL: 'local-model:cancel',
+  ORPHANED_MODELS_GET: 'orphaned-models:get',
+  ORPHANED_MODELS_REMOVE: 'orphaned-models:remove',
   LOCAL_MODEL_UNINSTALL: 'local-model:uninstall',
   LOCAL_MODEL_PROGRESS: 'local-model:progress',
   // Idle-pill quick actions — fired from the persistent pill at the
@@ -169,4 +246,15 @@ export const IPC = {
   INDICATOR_TOGGLE_RECORD: 'indicator:toggle-record',
   INDICATOR_PASTE_LAST: 'indicator:paste-last',
   INDICATOR_POLISH_SELECTION: 'indicator:polish-selection',
+  // Notch indicator. Geometry is per-display, so the renderer re-reads it
+  // whenever the window moves; recent/copy back the peek state's
+  // click-to-copy transcript.
+  INDICATOR_NOTCH_GEOMETRY: 'indicator:notch-geometry',
+  // Pushed when a setting that changes the shape lands — today only
+  // notchWidthOverride. The indicator otherwise re-reads geometry on
+  // mount and on display change, so a calibration slider would appear
+  // to do nothing until the next launch.
+  INDICATOR_GEOMETRY_CHANGED: 'indicator:geometry-changed',
+  INDICATOR_RECENT: 'indicator:recent',
+  INDICATOR_COPY_RECENT: 'indicator:copy-recent',
 } as const

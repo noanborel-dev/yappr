@@ -1,4 +1,5 @@
-import type { Settings, LocalModelId, DictationResult } from '../shared/types'
+import type { Settings, LocalModelId, DictationResult, FactBucket } from '../shared/types'
+import type { OnboardingImport } from '../shared/onboarding-import'
 
 export interface LocalModelReadiness {
   ready: boolean
@@ -21,6 +22,23 @@ export interface LocalModelStatus {
   downloaded: Record<LocalModelId, boolean>
 }
 
+export interface AppInfo {
+  version: string
+  arch: string
+  electron: string
+  packaged: boolean
+}
+
+/** Notch dimensions for the display the indicator currently sits on. */
+export interface NotchGeometry {
+  hasNotch: boolean
+  width: number
+  height: number
+  displayWidth: number
+  noNotchIndicator?: 'hidden' | 'placeholder'
+  placeholderWidth?: number | null
+}
+
 declare global {
   interface Window {
     yappr: {
@@ -33,6 +51,13 @@ declare global {
       getContextOverview: () => Promise<string>
       setContextOverview: (text: string) => Promise<void>
       refreshContextNow: () => Promise<{ ok: boolean; error?: string }>
+      // Spec §1.4 — read + delete only. There is deliberately no edit or
+      // merge call: the cards show what the user actually said, and the
+      // only correction offered is removal.
+      listContextFacts: () => Promise<FactBucket[]>
+      deleteContextFact: (id: number) => Promise<boolean>
+      deleteContextBucket: (key: string) => Promise<number>
+      importContext: (payload: OnboardingImport) => Promise<{ stored: number }>
       getContextStatus: () => Promise<{
         count: number
         threshold: number
@@ -44,12 +69,16 @@ declare global {
       openAccessibilitySettings: () => Promise<void>
       isAccessibilityTrusted: () => Promise<boolean>
       revealLog: () => Promise<void>
+      getAppInfo: () => Promise<AppInfo>
+      getNotchGeometry: () => Promise<NotchGeometry>
       reloadHotkeys: () => void
       openOnboarding: () => void
       getLaunchAtLogin: () => Promise<boolean>
       setLaunchAtLogin: (enabled: boolean) => Promise<void>
       onStateChange: (cb: (state: string) => void) => () => void
       getLocalModelStatus: () => Promise<LocalModelStatus>
+      getOrphanedModels: () => Promise<{ count: number; bytes: number }>
+      removeOrphanedModels: () => Promise<{ removed: number; bytes: number }>
       downloadLocalModel: (modelId: LocalModelId) => Promise<{ ok: boolean; error?: string }>
       cancelLocalModel: () => Promise<void>
       uninstallLocalModel: (modelId: LocalModelId) => Promise<void>

@@ -41,7 +41,7 @@ const pcm = await audioToPcm16(INPUT)
 console.log(`audio: ${(pcm.byteLength / 2 / 16000).toFixed(2)}s`)
 console.log()
 
-const model = path.join(HOME, 'Library/Application Support/openflow/models/ggml-large-v3-turbo-q5_0.bin')
+const model = path.join(HOME, 'Library/Application Support/yappr/models/ggml-large-v3-turbo-q5_0.bin')
 const ctx = await initWhisper({ filePath: model, useGpu: true, useFlashAttn: true })
 
 // Warm up

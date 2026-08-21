@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
+import { findOrphanedModels, isModelFile, type OrphanFile } from './orphaned-models'
 
 // On-disk model storage. We use Electron's user-data dir so models
 // survive app updates and don't bloat the .app bundle.
@@ -27,16 +28,16 @@ export function modelsDir(): string {
 //   base   ~80ms   small but rough on names
 //   small  ~200ms  near-perfect English + multilingual capable
 //   large  ~970ms  best accuracy on multilingual + technical terms
-export type LocalModelId = 'base' | 'small' | 'large-v3-turbo'
+export type LocalModelId = 'parakeet-tdt-0.6b-v3'
 
-// Balanced (small, multilingual) is the default. It hits ~200ms
-// warm on M5 Pro for typical clips, transcribes English brand names
-// with proper capitalization (TypeScript, TRPC, Anthropic), AND
-// handles Spanish / French / German for users who occasionally speak
-// non-English. Users who want maximum accuracy on heavy multilingual
-// or technical content can opt into Accurate (large-v3-turbo) in
-// Settings — it's there, just ~5x slower.
-export const DEFAULT_LOCAL_MODEL: LocalModelId = 'small'
+// The model. Not "the default" — the only one the product runs.
+//
+// Parakeet is ~25ms warm against large-v3-turbo's ~900ms, at matching
+// English quality, and covers 24 European languages. The other three
+// entries in LOCAL_MODELS stay defined because installs from before this
+// change may still have their files on disk and we need to be able to
+// name and delete them; nothing selects them any more.
+export const DEFAULT_LOCAL_MODEL: LocalModelId = 'parakeet-tdt-0.6b-v3'
 
 interface LocalModelInfo {
   id: LocalModelId
@@ -49,33 +50,59 @@ interface LocalModelInfo {
 }
 
 export const LOCAL_MODELS: Record<LocalModelId, LocalModelInfo> = {
-  'base': {
-    id: 'base',
-    filename: 'ggml-base-q5_1.bin',
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin',
-    bytes: 60_000_000,
-    sizeLabel: '57 MB',
-    speedLabel: '~100 ms',
-    description: 'Tiny + ultra-fast. Multilingual. Some mistakes on technical terms.',
+  'parakeet-tdt-0.6b-v3': {
+    id: 'parakeet-tdt-0.6b-v3',
+    filename: 'ggml-parakeet-tdt-0.6b-v3-q4_0.bin',
+    url: 'https://huggingface.co/ggml-org/parakeet-GGUF/resolve/main/ggml-parakeet-tdt-0.6b-v3-q4_0.bin',
+    bytes: 355_615_679,
+    sizeLabel: '339 MB',
+    speedLabel: '~25 ms',
+    description: 'NVIDIA Parakeet. Near-instant. English + 24 European languages.',
   },
-  'small': {
-    id: 'small',
-    filename: 'ggml-small-q5_1.bin',
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin',
-    bytes: 190_085_487,
-    sizeLabel: '181 MB',
-    speedLabel: '~200 ms',
-    description: 'Sub-300ms warm. Multilingual. Near-perfect for English dictation.',
-  },
-  'large-v3-turbo': {
-    id: 'large-v3-turbo',
-    filename: 'ggml-large-v3-turbo-q5_0.bin',
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin',
-    bytes: 574_041_856,
-    sizeLabel: '547 MB',
-    speedLabel: '~1000 ms',
-    description: 'Highest accuracy on non-English and technical terms. Slower.',
-  },
+}
+
+// --- orphaned weights ------------------------------------------------
+
+// Scan the models directory for weights no current model claims.
+export function listOrphanedModels(): OrphanFile[] {
+  let entries: string[]
+  try {
+    entries = fs.readdirSync(modelsDir())
+  } catch {
+    return []   // directory may not exist yet on a fresh install
+  }
+  const onDisk: OrphanFile[] = []
+  for (const filename of entries) {
+    if (!isModelFile(filename)) continue
+    try {
+      onDisk.push({ filename, bytes: fs.statSync(path.join(modelsDir(), filename)).size })
+    } catch { /* vanished between readdir and stat */ }
+  }
+  return findOrphanedModels(onDisk, claimedModelFilenames())
+}
+
+// Delete them. Returns how many bytes came back.
+export function removeOrphanedModels(): { removed: number; bytes: number } {
+  const orphans = listOrphanedModels()
+  let removed = 0
+  let bytes = 0
+  for (const o of orphans) {
+    try {
+      fs.unlinkSync(path.join(modelsDir(), o.filename))
+      removed += 1
+      bytes += o.bytes
+    } catch { /* leave it; reporting a smaller number is the safe error */ }
+  }
+  return { removed, bytes }
+}
+
+// Filenames the app currently claims. Anything else matching the model
+// pattern in the models directory is an orphan — see orphaned-models.ts.
+// Retiring a tier therefore makes its weights reclaimable automatically,
+// which is why the retired Whisper ids no longer need to exist just so
+// uninstall can name them.
+export function claimedModelFilenames(): string[] {
+  return Object.values(LOCAL_MODELS).map(m => m.filename)
 }
 
 export function localModelInfo(id: LocalModelId): LocalModelInfo {

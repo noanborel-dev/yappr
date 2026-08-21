@@ -7,6 +7,7 @@ import {
   ipcMain,
   screen,
   shell,
+  clipboard,
 } from 'electron'
 
 // Chromium switches that affect on-device whisper inference. Set
@@ -23,20 +24,40 @@ app.commandLine.appendSwitch('force-high-performance-gpu')
 app.commandLine.appendSwitch('disable-features', 'MacUtilityProcessQoSPolicy')
 import { join } from 'path'
 import { registerIpcHandlers, addToHistory, getHistory } from './ipc'
-import { notifyDictationCompleted, markDictationActive } from './context/compactor'
+import { notifyDictationCompleted, markDictationActive, startCompactionRetries } from './context/compactor'
 import { closeContextStore } from './context/store'
 import { registerHotkey, unregisterAll } from './hotkeys'
 import { getSettings, setSettings } from './store'
 import { runCommandPipeline, runDictationPipeline } from './pipeline'
 import { captureFocusedApp, getFocusedApp } from './focused-app'
+import type { FocusedApp } from './focused-app'
+import {
+  initRecordingStore,
+  saveRecording,
+  readRecordingAudio,
+  deleteRecording,
+  listRecordings,
+  markAttempt,
+  sweepRecordings,
+  type RecordingContext,
+  type RecordingMeta,
+} from './recording-store'
+import {
+  retryDelayMs,
+  shouldAutoPaste,
+  MAX_STARTUP_RECOVERIES,
+} from './recording-recovery'
 import { captureSelectedText, clearSelectedText, getSelectedText } from './selection'
+import { pausePlayingMedia, resumePausedMedia } from './media-control'
 import { pasteText, prewarmPasteHelper, shutdownPasteHelper, captureAXRoleAtPress, getPressTimeAXRolePromise } from './paste'
 import { prewarmWhisper } from './whisper-host'
 import { localModelDownloaded, localModelPath } from './local-models'
+import { downloadWhisperModel } from './local-download'
 import { prewarmModelId } from './providers/local'
 import { toUserError } from './errors'
 import { logError, logInfo, getLogPath } from './log'
 import { IPC } from '../shared/types'
+import { readNotchGeometry } from '../shared/notch-geometry'
 
 let indicatorWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
@@ -54,33 +75,71 @@ const audioChunks: Buffer[] = []
 // callbacks check this against the ID they captured; if it has changed,
 // a newer session is in progress and the callback skips its hide.
 let sessionId = 0
+// The last sessionId whose audio has already been consumed by AUDIO_DONE.
+//
+// stillLatest() only rejects audio from a session OLDER than the current
+// one — two AUDIO_DONE messages for the SAME session both passed it, ran
+// the whole pipeline twice, and pasted twice. Observed in the wild: one
+// dictation produced two transcriptions 8ms apart ("Awesome looks great."
+// and "Awesome, looks great."), both pasted.
+//
+// Guarding here rather than chasing the duplicate upstream, because this
+// is the last point where "one dictation = one insertion" can be enforced
+// no matter which layer double-fires.
+let consumedSessionId = -1
 
 // Mirrors the last state broadcast to the indicator. Lets external
 // action triggers (idle-pill clicks, future MCP hooks) know whether to
 // start or stop without polling the renderer.
 let currentState: 'idle' | 'recording' | 'stopping' | 'processing' | 'done' | 'clipboard' | 'error' = 'idle'
 
+// Vertical room for the shape: a 36px wing row, the expanded panel
+// beneath it, and the drop shadow / ambient glow that bleed below both.
+const INDICATOR_WINDOW_HEIGHT = 260
+
+/**
+ * Minimum time the paste drawer stays open on a double-tap. A local paste
+ * can finish in under 200ms — faster than the drawer's own open
+ * animation — so without a floor the gesture produces a flicker instead
+ * of a readable result.
+ */
+const PASTING_MIN_MS = 1100
+
+/**
+ * How long the clipboard-fallback drawer stays up.
+ *
+ * This is the one outcome that asks the user to do something, and the
+ * drawer teaches the gesture with a 2.6s animation loop. The pipeline
+ * used to dismiss it after 2200ms — shorter than a single cycle, so the
+ * double-tap never played through even once and the whole instruction
+ * went by unread. Long enough here for three cycles plus reading time.
+ *
+ * The state it replaced was a popup that stayed until dismissed, so
+ * erring long is the right direction.
+ */
+const CLIPBOARD_HOLD_MS = 10000
+
+/** Success needs only an acknowledgement, not reading time. */
+const DONE_HOLD_MS = 1500
+
 function createIndicatorWindow(): BrowserWindow {
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize
-  // Initial bounds: bottom-center of the primary display. The window
-  // will be moved to whichever display the cursor is on by
-  // positionIndicatorOnActiveDisplay() at recording start. We
-  // deliberately ignore any persisted indicatorPosition — the pill
-  // is no longer draggable, so legacy saved positions are discarded.
-  const winW = 320
-  const winH = 200
-  const x = Math.round(width / 2 - winW / 2)
-  const y = Math.round(height - winH - 12)
+  const { x: dx, y: dy, width } = screen.getPrimaryDisplay().bounds
+  // Initial bounds: pinned to the top edge of the primary display,
+  // spanning its full width. positionIndicatorOnActiveDisplay() moves it
+  // to whichever display the cursor is on at recording start.
+  //
+  // Note this uses `bounds`, not `workArea`: the notch shape has to sit
+  // OVER the menu bar, so the window must start at the true top of the
+  // display rather than below the bar.
 
   const win = new BrowserWindow({
-    // Wider/taller than the pill itself so the renderer can paint a
-    // hover hit-zone around the idle pill and host a click menu above
-    // it without clipping. The pill itself stays small (~54×22 at idle
-    // / ~280×40 while recording) and is centered within this canvas.
-    width: winW,
-    height: winH,
-    x,
-    y,
+    // Full display width so the shape can be centred on the notch and
+    // its wings can extend toward the menu bar's edges without the
+    // window itself ever needing to resize.
+    width: width,
+    height: INDICATOR_WINDOW_HEIGHT,
+    x: dx,
+    y: dy,
     frame: false,
     transparent: true,
     // hasShadow: false eliminates the macOS native rectangular window
@@ -97,6 +156,13 @@ function createIndicatorWindow(): BrowserWindow {
     // surface is transparent and the cursor lands on a non-interactive
     // region — which is exactly what was making the pill drift.
     movable: false,
+    // THIS is what lets the window cover the menu bar. Without it macOS
+    // constrains window bounds to the display's visible frame — the work
+    // area — so a window asked for y = 0 is silently pushed down to
+    // y = menuBarHeight and the shape lands just under the notch instead
+    // of inside it. Nothing about the window level fixes that; the
+    // clamp happens before layering is considered.
+    enableLargerThanScreen: true,
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/indicator.js'),
@@ -106,6 +172,22 @@ function createIndicatorWindow(): BrowserWindow {
   })
 
   win.setIgnoreMouseEvents(true, { forward: true })
+
+  // Re-assert the bounds after construction. The constructor's x/y are
+  // advisory on macOS — setBounds on a window that already exists is what
+  // reliably lands it over the menu bar.
+  win.setBounds({ x: dx, y: dy, width, height: INDICATOR_WINDOW_HEIGHT })
+  logInfo('Indicator window bounds', {
+    requested: { x: dx, y: dy, width, height: INDICATOR_WINDOW_HEIGHT },
+    actual: win.getBounds(),
+  })
+
+  // Keep the overlay out of screen shares and screenshots. Without this
+  // the notch shape appears in every recording the user makes, which
+  // reads as a rendering artifact to anyone watching.
+  if (process.platform === 'darwin') {
+    win.setContentProtection(true)
+  }
 
   // Show the indicator on every macOS Space — including fullscreen apps.
   // Without this the window is pinned to the Space it was created on, so
@@ -125,22 +207,32 @@ function createIndicatorWindow(): BrowserWindow {
   return win
 }
 
-// Move the indicator to the display the cursor is currently on, centered
-// near the bottom. Called each time recording starts so the pill follows
-// the user across monitors/spaces.
+// Move the indicator to the display the cursor is currently on, pinned to
+// its top edge. Called each time recording starts so the shape follows the
+// user across monitors/spaces.
 function positionIndicatorOnActiveDisplay(): void {
   if (!indicatorWindow) return
   const cursor = screen.getCursorScreenPoint()
   const display = screen.getDisplayNearestPoint(cursor)
-  const { x: dx, y: dy, width, height } = display.workArea
-  const [winW, winH] = indicatorWindow.getSize()
-  const x = Math.round(dx + width / 2 - winW / 2)
-  // The pill is anchored to the bottom of the canvas. Place the
-  // window so its bottom edge sits ~12px above the work-area bottom —
-  // pill ends up visually near the bottom of the screen, and the
-  // empty canvas above the pill (~160px) hosts the popover menu.
-  const y = Math.round(dy + height - winH - 12)
-  indicatorWindow.setBounds({ x, y, width: winW, height: winH })
+  // `bounds`, not `workArea` — the shape sits over the menu bar, so the
+  // window has to start at the true top of the display. Spanning the full
+  // width keeps the window's centre aligned with the display's, which is
+  // what the renderer centres the notch band on.
+  const { x, y, width } = display.bounds
+  indicatorWindow.setBounds({ x, y, width, height: INDICATOR_WINDOW_HEIGHT })
+
+  // Verify the clamp didn't win. If actual.y is below the requested y the
+  // window got pushed under the menu bar and the shape will render below
+  // the notch rather than inside it — the single failure mode that makes
+  // this whole feature look broken, so it is worth a log line.
+  const actual = indicatorWindow.getBounds()
+  if (actual.y > y) {
+    logError('Indicator window clamped below the menu bar', {
+      requestedY: y,
+      actualY: actual.y,
+      display: display.id,
+    })
+  }
 
   // Re-assert visibility-on-all-spaces every show. macOS occasionally
   // loses the collectionBehavior flag after a window has been hidden,
@@ -173,7 +265,7 @@ function createSettingsWindow(): BrowserWindow {
     // strip — without this they collide with the Yappr wordmark in
     // the sidebar.
     trafficLightPosition: { x: 14, y: 14 },
-    backgroundColor: '#FAFAF5',
+    backgroundColor: '#F6F2E7',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -206,7 +298,7 @@ function createOnboardingWindow(): BrowserWindow {
     show: false,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 14, y: 14 },
-    backgroundColor: '#FAFAF5',
+    backgroundColor: '#F6F2E7',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -287,19 +379,21 @@ function createPasteFallbackWindow(): BrowserWindow {
   return win
 }
 
+// Paste fell back to the clipboard. The notch carries this now: the
+// pipeline already broadcasts the `clipboard` state, which shows
+// "copied — ⌘V" and offers Insert, so we only need to hold the text for
+// the retry handler.
+//
+// The bottom-right popup is deliberately not opened. One event should
+// produce one notification, and having it appear in the opposite corner
+// from the indicator meant the user's attention was split between two
+// places for the same outcome. Keeping it in the notch also avoids the
+// popup's focus problem — the indicator window is focusable: false, so
+// clicking Insert never takes focus off the user's text field, which is
+// what the retry handler's AX gate and focus-restore delay existed to
+// work around.
 function showPasteFallback(text: string): void {
   lastUnpastedText = text
-  const win = createPasteFallbackWindow()
-  const hotkey = getSettings().hotkeys.pushToTalk
-  // The renderer subscribes to 'show' events; we always push a fresh
-  // payload so a subsequent paste-failure reuses the same window.
-  const send = () => win.webContents.send(IPC.PASTE_FALLBACK_SHOW, { text, hotkey })
-  if (win.webContents.isLoading()) {
-    win.webContents.once('did-finish-load', send)
-  } else {
-    send()
-  }
-  if (!win.isVisible()) win.showInactive()
 }
 
 function dismissPasteFallback(): void {
@@ -364,6 +458,13 @@ function broadcastState(state: string): void {
       state === 'processing' || state === 'done' || state === 'clipboard') {
     currentState = state
   }
+  // Resume music from the single place every dictation ends up, rather
+  // than from each call site — that way aborts, paste failures and error
+  // banners all restore playback too. resumePausedMedia() is a no-op when
+  // we didn't pause anything, so the extra calls cost nothing.
+  if (state === 'done' || state === 'clipboard' || state === 'idle' || state.startsWith('error')) {
+    void resumePausedMedia()
+  }
   indicatorWindow?.webContents.send(IPC.STATE_CHANGE, state)
 }
 
@@ -371,6 +472,12 @@ function broadcastState(state: string): void {
 // the idle-pill's click menu. Keeps the two entry points consistent.
 function actionStartRecording(): void {
   sessionId++
+  // Fire-and-forget so the Apple Event round-trip never delays capture.
+  // Music already in the buffer can't be un-recorded, but every millisecond
+  // earlier is less of it landing in the microphone.
+  if (getSettings().pauseMediaWhileDictating) {
+    void pausePlayingMedia()
+  }
   audioChunks.length = 0
   captureFocusedApp()
   captureSelectedText()
@@ -406,13 +513,28 @@ function actionPasteLast(): void {
   // route to the clipboard fallback. The keystroke fires against
   // whatever the OS considers focused when it actually runs, which
   // settles back on the user's target.
+  // Drop the notch's drawer immediately, before the paste resolves, so
+  // the double-tap has a visible result showing WHAT is going in. Held a
+  // minimum time because the paste itself is often faster than the
+  // animation — without the floor the drawer opens and shuts in one
+  // frame, which reads as a glitch rather than as feedback.
+  positionIndicatorOnActiveDisplay()
+  broadcastState('pasting')
+  const shownAt = Date.now()
+
   pasteText(last.cleaned, { skipAxGate: true })
     .then(({ method }) => {
-      positionIndicatorOnActiveDisplay()
-      broadcastState(method === 'clipboard' ? 'clipboard' : 'done')
-      setTimeout(() => broadcastState('idle'), method === 'clipboard' ? 6000 : 1500)
+      const remaining = Math.max(0, PASTING_MIN_MS - (Date.now() - shownAt))
+      setTimeout(() => {
+        positionIndicatorOnActiveDisplay()
+        broadcastState(method === 'clipboard' ? 'clipboard' : 'done')
+        setTimeout(() => broadcastState('idle'), method === 'clipboard' ? CLIPBOARD_HOLD_MS : DONE_HOLD_MS)
+      }, remaining)
     })
-    .catch(err => logError('Paste-last failed', err))
+    .catch(err => {
+      logError('Paste-last failed', err)
+      broadcastState('idle')
+    })
 }
 
 function setupHotkeys(): void {
@@ -439,6 +561,11 @@ function setupAudioIpc(): void {
 
   ipcMain.on(IPC.AUDIO_DONE, async () => {
     const mySession = sessionId
+    if (mySession === consumedSessionId) {
+      logInfo('Ignoring duplicate AUDIO_DONE', { sessionId: mySession })
+      return
+    }
+    consumedSessionId = mySession
     const audioBuffer = Buffer.concat(audioChunks)
     audioChunks.length = 0
 
@@ -458,6 +585,30 @@ function setupAudioIpc(): void {
     const selection = getSelectedText()
     const commandMode = selection.trim().length >= 5
     clearSelectedText()
+
+    // Persist BEFORE running the pipeline. Until this landed, a dead
+    // whisper worker — the single most common failure in the wild — took
+    // the recording with it and there was nothing left to retry from.
+    // Fired alongside the pipeline rather than awaited: a 30s opus clip is
+    // ~90KB and finishes writing long before transcription does.
+    //
+    // The context saved here is the PRESS-time focus. The pipeline also
+    // refreshes focus at release (to catch "started in iMessage, finished
+    // in Gmail"), but that value doesn't exist yet, and press-time is the
+    // right answer for a replay anyway — it's the app the user was looking
+    // at when they started talking.
+    const recordingId = crypto.randomUUID()
+    const pressFocus = getFocusedApp()
+    const context: RecordingContext = {
+      bundleId: pressFocus.bundleId,
+      name: pressFocus.name,
+      category: pressFocus.category,
+      pid: pressFocus.pid,
+      commandMode,
+      selection,
+    }
+    const saved = saveRecording(recordingId, audioBuffer, context, Date.now())
+      .catch((err) => { logError('Failed to persist recording', err) })
 
     try {
       if (commandMode) {
@@ -482,12 +633,18 @@ function setupAudioIpc(): void {
         // '(rewrite)' entries from its input list.
         markDictationActive()
         updateTrayMenu()
+        // Text delivered (a clipboard fallback still counts — it's on the
+        // clipboard, in history, and in the popup), so the audio has done
+        // its job. Await the write first so we can't race a half-written
+        // file into an undeletable orphan.
+        await saved
+        await deleteRecording(recordingId)
 
         if (stillLatest()) {
           const isClipboard = method === 'clipboard'
           broadcastState(isClipboard ? 'clipboard' : 'done')
           if (isClipboard) showPasteFallback(rewritten)
-          const dismissAfter = isClipboard ? 2200 : 1500
+          const dismissAfter = isClipboard ? CLIPBOARD_HOLD_MS : DONE_HOLD_MS
           setTimeout(() => {
             if (stillLatest()) broadcastState('idle')
           }, dismissAfter)
@@ -520,10 +677,21 @@ function setupAudioIpc(): void {
         markDictationActive()
       }
       updateTrayMenu()
+      await saved
+      await deleteRecording(recordingId)
 
       if (stillLatest()) {
         const isClipboard = result.pasteMethod === 'clipboard'
-        broadcastState(isClipboard ? 'clipboard' : 'done')
+        // Cleanup was wanted but no credential exists. The text pasted —
+        // raw — so this is not a failure of the dictation, but the user
+        // must be told the polish pass is off rather than quietly getting
+        // unshaped output forever. Shown instead of 'done' precisely
+        // because 'done' is the thing that would be a lie here.
+        if (result.cleanupUnavailable) {
+          broadcastState('error:Cleanup is off — add a key in Settings → General')
+        } else {
+          broadcastState(isClipboard ? 'clipboard' : 'done')
+        }
         // Clipboard fallback (Accessibility denied or paste failed) gets
         // a dedicated popup window with a click-to-insert affordance.
         // The pill itself dismisses on its normal short timer; the
@@ -531,7 +699,7 @@ function setupAudioIpc(): void {
         if (isClipboard) {
           showPasteFallback(result.cleaned)
         }
-        const dismissAfter = isClipboard ? 2200 : 1500
+        const dismissAfter = isClipboard ? CLIPBOARD_HOLD_MS : DONE_HOLD_MS
         setTimeout(() => {
           if (stillLatest()) broadcastState('idle')
         }, dismissAfter)
@@ -544,6 +712,12 @@ function setupAudioIpc(): void {
       if (userErr.code !== 'NO_SPEECH') {
         logError('Pipeline error', err)
       }
+      // The audio survives this. Hand it to the retry machinery before
+      // touching the indicator so the recording is durable even if the
+      // window work throws.
+      await saved
+      await handleRecordingFailure(recordingId, err)
+
       if (stillLatest()) {
         broadcastState(`error:${userErr.userMessage}`)
         const dismissAfter = userErr.code === 'NO_SPEECH' ? 2200 : 4000
@@ -553,6 +727,154 @@ function setupAudioIpc(): void {
       }
     }
   })
+}
+
+// A pipeline run failed. Decide what happens to the audio on disk.
+async function handleRecordingFailure(id: string, err: unknown): Promise<void> {
+  const userErr = toUserError(err)
+
+  if (userErr.disposition === 'drop') {
+    await deleteRecording(id)
+    return
+  }
+
+  const meta = await markAttempt(id, userErr.code)
+  // Gone already — a concurrent success or a retention sweep won the race.
+  if (!meta) return
+
+  if (userErr.disposition === 'park') {
+    // Nothing to gain from spinning: the same audio will fail identically
+    // until the user adds or fixes a key. Kept on disk; the next launch
+    // gives it another go, by which time they may have fixed it.
+    logInfo('Recording parked for later recovery', { id, code: userErr.code, attempts: meta.attempts })
+    return
+  }
+
+  const delay = retryDelayMs(meta.attempts)
+  if (delay === null) {
+    logInfo('Recording retries exhausted — audio kept for next launch', {
+      id, attempts: meta.attempts, code: userErr.code,
+    })
+    return
+  }
+  logInfo('Recording retry scheduled', { id, attempts: meta.attempts, delayMs: delay, code: userErr.code })
+  setTimeout(() => { void retryRecording(id) }, delay)
+}
+
+// Re-run the pipeline against audio already on disk, replaying the focus
+// context it was recorded with.
+async function retryRecording(id: string): Promise<void> {
+  const meta = (await listRecordings()).find((m) => m.id === id)
+  if (!meta) return
+
+  const audio = await readRecordingAudio(id)
+  if (!audio) {
+    // Sidecar without audio can never be replayed — drop the pair.
+    await deleteRecording(id)
+    return
+  }
+
+  // No window title on a retry, and deliberately so: the title is user
+  // content (document names, chat subjects, browser tabs) and the
+  // recording sidecar is a file on disk, so it is not something to
+  // persist. The cost is that a replayed dictation cannot derive a
+  // project key and its facts land in the unsorted bucket — the right
+  // trade, and consistent with never guessing a project.
+  const focusOverride: FocusedApp = {
+    bundleId: meta.context.bundleId,
+    name: meta.context.name,
+    category: meta.context.category,
+    pid: meta.context.pid,
+    windowTitle: '',
+    surface: 'other',
+    tabTitle: null,
+  }
+
+  logInfo('Retrying recording', { id, attempts: meta.attempts, app: meta.context.name })
+  try {
+    let text: string
+    if (meta.context.commandMode) {
+      text = await runCommandPipeline(audio, meta.context.selection, getSettings(), focusOverride)
+      addToHistory({
+        id: crypto.randomUUID(),
+        transcript: '(rewrite)',
+        cleaned: text,
+        appName: meta.context.name,
+        appCategory: meta.context.category,
+        timestamp: Date.now(),
+      })
+    } else {
+      // No state/partial callbacks: a retry must never repaint the
+      // indicator, which may be mid-recording for a newer dictation.
+      // `replay` also suppresses the pipeline's internal paste so
+      // deliverRecovered's safety gate is the only thing that can insert.
+      const result = await runDictationPipeline(
+        audio, getSettings(), () => {}, undefined, { focus: focusOverride },
+      )
+      text = result.cleaned
+      addToHistory(result)
+    }
+    markDictationActive()
+    updateTrayMenu()
+    await deleteRecording(id)
+    await deliverRecovered(text, meta)
+  } catch (err) {
+    logError('Recording retry failed', err)
+    await handleRecordingFailure(id, err)
+  }
+}
+
+// Get recovered text to the user without ever pasting it somewhere they
+// didn't intend.
+async function deliverRecovered(text: string, meta: RecordingMeta): Promise<void> {
+  // Read CURRENT focus, not the cache — the cached value is from whenever
+  // the last pipeline ran and would defeat the whole point of the check.
+  await captureFocusedApp()
+  const current = getFocusedApp().bundleId
+  const elapsed = Date.now() - meta.timestamp
+
+  if (shouldAutoPaste(meta.context.bundleId, current, elapsed)) {
+    const { method } = await pasteText(text, { skipAxGate: true })
+    if (method === 'paste') {
+      logInfo('Recovered dictation pasted', { app: meta.context.name, elapsedMs: elapsed })
+      return
+    }
+  }
+
+  // Same affordance as a failed paste: click-to-insert, cannot land
+  // anywhere unintended, and the text is on the clipboard regardless.
+  logInfo('Recovered dictation offered via fallback', {
+    app: meta.context.name, elapsedMs: elapsed, chars: text.length,
+  })
+  showPasteFallback(text)
+}
+
+// Replay recordings orphaned by a hard crash or quit mid-pipeline. Runs
+// sequentially so a backlog can't stampede the whisper worker, and the
+// elapsed-time gate in deliverRecovered guarantees none of these can
+// auto-paste — they all land in the click-to-insert popup.
+async function recoverOrphansAtStartup(): Promise<void> {
+  try {
+    const swept = await sweepRecordings(Date.now())
+    if (swept > 0) logInfo('Recording retention sweep', { removed: swept })
+
+    const metas = await listRecordings()
+    if (metas.length === 0) return
+
+    // Newest first — those are the ones the user still cares about.
+    const ordered = [...metas].reverse()
+    const batch = ordered.slice(0, MAX_STARTUP_RECOVERIES)
+    const deferred = ordered.length - batch.length
+    logInfo('Recovering orphaned recordings', {
+      found: ordered.length, recovering: batch.length, deferred,
+    })
+
+    for (const meta of batch) {
+      await retryRecording(meta.id)
+    }
+  } catch (err) {
+    logError('Startup recording recovery failed', err)
+  }
 }
 
 function setupIpcListeners(): void {
@@ -629,6 +951,71 @@ function setupIpcListeners(): void {
       indicatorWindow.setIgnoreMouseEvents(true, { forward: true })
     }
   })
+
+  // Notch dimensions for whichever display the indicator currently sits
+  // on. Read per call rather than cached: the window follows the cursor
+  // across displays, and notch width and menu bar height differ between
+  // an internal panel and an external monitor.
+  ipcMain.handle(IPC.INDICATOR_NOTCH_GEOMETRY, () => {
+    const target = indicatorWindow && !indicatorWindow.isDestroyed()
+      ? screen.getDisplayNearestPoint(indicatorWindow.getBounds())
+      : screen.getPrimaryDisplay()
+    const geometry = readNotchGeometry({
+      widthPt: target.bounds.width,
+      boundsY: target.bounds.y,
+      workAreaY: target.workArea.y,
+      // Without this a Windows taskbar docked to the top of the screen
+      // measures ~40px and reads as a notch.
+      isMac: process.platform === 'darwin',
+    }, getSettings().notchWidthOverride ?? null)
+    // The width is the one value we estimate rather than read, so log
+    // what we resolved. If the centre band doesn't line up with the
+    // physical notch, this line says whether the estimate or the
+    // override produced it.
+    logInfo('Notch geometry resolved', {
+      hasNotch: geometry.hasNotch,
+      width: geometry.width,
+      height: geometry.height,
+      displayWidth: target.bounds.width,
+      source: geometry.widthIsOverride ? 'override' : 'estimate',
+    })
+    const settings = getSettings()
+    return {
+      hasNotch: geometry.hasNotch,
+      width: geometry.width,
+      height: geometry.height,
+      displayWidth: target.bounds.width,
+      // Only meaningful when hasNotch is false; sent unconditionally so
+      // the indicator needs one IPC round-trip rather than two, and so a
+      // window dragged onto a non-notched external display already has
+      // the answer.
+      noNotchIndicator: settings.noNotchIndicator,
+      placeholderWidth: settings.placeholderWidth,
+    }
+  })
+
+  // The most recent dictation, surfaced as the peek state's clickable
+  // transcript and in the expanded panel.
+  ipcMain.handle(IPC.INDICATOR_RECENT, () => {
+    const [latest] = getHistory()
+    if (!latest) return null
+    const text = latest.cleaned || latest.transcript
+    if (!text) return null
+    return {
+      text,
+      target: latest.appName || null,
+      wordCount: text.trim().split(/\s+/).filter(Boolean).length,
+      // DictationResult carries no recording length, so the panel
+      // caption drops the duration rather than inventing one.
+      durationSec: null,
+    }
+  })
+
+  ipcMain.on(IPC.INDICATOR_COPY_RECENT, () => {
+    const [latest] = getHistory()
+    const text = latest?.cleaned || latest?.transcript
+    if (text) clipboard.writeText(text)
+  })
 }
 
 app.whenReady().then(() => {
@@ -655,7 +1042,21 @@ app.whenReady().then(() => {
     app.dock?.hide()
   }
 
-  registerIpcHandlers()
+  // Must precede setupAudioIpc — the first AUDIO_DONE writes through it.
+  initRecordingStore(join(app.getPath('userData'), 'recordings'))
+
+  registerIpcHandlers({
+    onNotchGeometryChanged: () => {
+      indicatorWindow?.webContents.send(IPC.INDICATOR_GEOMETRY_CHANGED)
+    },
+  })
+  // A backlog can already exist from previous sessions — the counter is
+  // persisted. Without this kick, polling would only begin after the NEXT
+  // dictation, which is how a 316-dictation backlog sat uncompacted.
+  {
+    const s = getSettings()
+    if (s.useContextMemory && s.autoContextUpdate) startCompactionRetries()
+  }
   setupAudioIpc()
   setupIpcListeners()
 
@@ -679,31 +1080,44 @@ app.whenReady().then(() => {
   prewarmPasteHelper()
 
   const settings = getSettings()
-  // Prewarm the whisper utility process + selected model when Local
-  // is the active provider. Fire-and-forget — if the model isn't
-  // downloaded yet, the actual transcribe call surfaces the right
-  // error. Without this prewarm, the first dictation paid ~1s of
-  // worker fork + model load + Metal compile that we can hide behind
-  // app startup instead.
-  if (settings.provider.provider === 'local') {
+  // Get the model onto the machine, then warm it.
+  //
+  // Both halves used to be someone else's job: a Settings card offered a
+  // Download button, and onboarding made you pick a tier before it would
+  // let you continue. Neither surface exists now — transcription isn't a
+  // user-facing choice — so if the file isn't there, nothing else is
+  // going to fetch it and every dictation fails with a missing model.
+  //
+  // Fire-and-forget on purpose: it must not delay the tray, the hotkeys
+  // or the indicator. Progress still goes out on LOCAL_MODEL_PROGRESS for
+  // anything that wants to show it.
+  void (async () => {
     try {
-      // Prewarm the model most likely to be used FIRST. If smart-
-      // switch is on and Accurate is downloaded, prewarm Accurate
-      // (code/email/long dictations all elevate there; getting that
-      // hot first avoids paying ~1s of cold-load on the first
-      // important dictation). Otherwise prewarm user's picked tier.
       const modelId = prewarmModelId()
+      if (!localModelDownloaded(modelId)) {
+        logInfo('Model missing at startup — fetching', { modelId })
+        await downloadWhisperModel(modelId)
+      }
+      // Without this prewarm the first dictation pays ~1s of worker fork
+      // + model load + Metal compile, which we can hide behind startup.
       if (localModelDownloaded(modelId)) {
         prewarmWhisper(localModelPath(modelId))
       }
     } catch (err) {
-      logError('Whisper prewarm failed', { error: String(err) })
+      // A failed fetch is not fatal at launch — the next dictation
+      // surfaces the real error, and the next launch retries.
+      logError('Model fetch/prewarm failed', { error: String(err) })
     }
-  }
+  })()
 
   if (settings.firstRun) {
     createOnboardingWindow()
   }
+
+  // Sweep retention and replay anything a crash left behind. Deliberately
+  // last and un-awaited: it transcribes, so it must not delay the tray,
+  // hotkeys, or the indicator becoming usable.
+  void recoverOrphansAtStartup()
 })
 
 app.on('window-all-closed', () => {

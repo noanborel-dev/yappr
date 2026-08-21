@@ -1,6 +1,8 @@
 # Plan: detect "user is prompting an AI" in code editors → run faithful LLM cleanup
 
-**Status:** Phase 1 shipped. Phases 2–6 pending.
+**Status:** Phases 1–3 + 5 shipped. Phase 4 (faithful prompt/token wiring) and Phase 6 (browser-AI URL, JetBrains/Sublime/Nova) pending.
+
+> **Superseded 2026-07-29 — Option C.** A detected AI CLI now routes to **REFORMAT**, not FAITHFUL_AI. User decision: "when Claude Code is detected, it should start writing things in a clear way." This is a deliberate, scoped exception to the load-bearing invariant below — a process signal may now reach reformat; spoken words alone still may not, and that half remains enforced by test (`ai-intent.test.ts`, "SURVIVING INVARIANT"). Accepted cost: dictating into the editor pane while an agent runs in the integrated terminal gets restructured, since a process scan cannot see the caret. Revisit by gating on caret position if that becomes common. FAITHFUL_AI still exists and now serves the spoken-cue-only case.
 **Origin:** multi-agent design workflow `detect-ai-prompting-in-code` (run `wf_188a5906-b42`, 8 agents: map → design → adversarial-verify → synthesize). Adversarial review caught and fixed four blocking flaws in the first-draft design.
 
 ## Problem

@@ -11,3 +11,387 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .btn-ghost {
   @apply px-6 py-2 text-white/40 hover:text-white/70 text-sm transition-colors;
 }
+
+/* ============================================================
+   Design tokens — the same values as the landing page's
+   design-system/yappr-landing/MASTER.md. Tailwind reads them from
+   tailwind.config.js; these exist so the ported stage CSS below can use
+   var(--line) etc. exactly as it does on the site, instead of being
+   rewritten into utility classes and drifting.
+   ============================================================ */
+:root {
+  --cream:      #f6f2e7;
+  --cream-2:    #efe9d8;
+  --paper:      #fbf9f1;
+  --ink:        #15161a;
+  --ink-2:      #2a2c33;
+  --muted:      #6b6b6b;
+  --line:       #d9d2bd;
+  --line-soft:  #e9e2cb;
+  --accent:     #c8553d;
+  --accent-soft:#fff7f3;
+  --cobalt:     #5a8fe8;
+  --cobalt-soft: rgba(90, 143, 232, 0.18);
+
+  --font-sans:  -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-serif: "Instrument Serif", "Cormorant Garamond", Georgia, serif;
+  --font-mono:  "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+}
+
+/* ============================================================
+   Stages
+   ============================================================
+
+   Everything below is ported from the landing page — same class names,
+   same values, same choreography. It is deliberately NOT re-expressed in
+   Tailwind: these are the site's proof animations, and the rule in
+   YapprLanding/CLAUDE.md is to match the prototype rather than
+   reinvent it. Settings shows the product working, the way the site does.
+
+   When the site changes one of these, re-pull it rather than eyeballing
+   the difference. */
+
+/* --- A visual that escapes the text column ------------------
+   The landing's `.bleed`: a mockup may run wider than the measure it
+   sits in. Here it lets a stage span the full content pane while the
+   controls under it keep their 720px reading width. */
+.stage-bleed {
+  margin-left: -36px;
+  margin-right: -36px;
+}
+.stage-bleed > * { border-radius: 0; }
+
+/* === Claude Code shell ====================================== */
+.cc-window {
+  background: #1f1d1c;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.5);
+  font-family: var(--font-mono);
+  display: flex;
+  flex-direction: column;
+}
+.cc-titlebar {
+  padding: 9px 12px;
+  background: #3a3735;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cc-titlebar .tl { width: 10px; height: 10px; border-radius: 999px; }
+.cc-titlebar .r { background: #ff5f57; }
+.cc-titlebar .y { background: #febc2e; }
+.cc-titlebar .g { background: #28c840; }
+.cc-titlebar .cc-tab {
+  margin-left: auto;
+  margin-right: auto;
+  padding-right: 46px;
+  font-size: 11px;
+  color: #cccccc;
+  font-family: var(--font-sans);
+}
+
+.cc-content { padding: 14px 16px 0; color: #c0bdba; font-size: 12px; line-height: 1.55; }
+.cc-box {
+  position: relative;
+  border: 1px dashed #c8553d;
+  border-radius: 3px;
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.cc-header {
+  color: #c8553d;
+  font-size: 11px;
+  padding: 0 8px;
+  background: #1f1d1c;
+  position: absolute;
+  top: -8px;
+  left: 16px;
+}
+.cc-mascot { width: 40px; height: 30px; image-rendering: pixelated; flex: none; }
+.cc-meta { font-size: 11px; line-height: 1.5; color: #c0bdba; min-width: 0; }
+.cc-meta .welcome { color: #fff; font-size: 12px; }
+.cc-meta .dim { color: #8a8784; }
+
+/* The prompt box: where the shaped prompt lands. auto-top pins it to the
+   bottom of the window, the way a real terminal sits. */
+.cc-input {
+  margin: auto 16px 14px;
+  border: 1px solid #4a4744;
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-height: 130px;
+}
+.cc-chev { color: #c8553d; font-size: 12px; line-height: 1.62; flex: none; }
+.cc-md {
+  font-size: 11.5px;
+  line-height: 1.62;
+  color: #c0bdba;
+  min-width: 0;
+  flex: 1;
+}
+.cc-md .ln { opacity: 0; animation: cc-line-in 0.34s ease-out forwards; }
+.cc-md .ln.h { color: #c8553d; font-weight: 600; }
+.cc-md .ln.blank { height: 7px; }
+.cc-md .ln.li { padding-left: 13px; text-indent: -13px; }
+.cc-md .num { color: #81a2be; }
+@keyframes cc-line-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.cc-caret {
+  display: inline-block;
+  width: 6px;
+  height: 13px;
+  background: #c0bdba;
+  vertical-align: -2px;
+  animation: cc-blink 1.1s step-end infinite;
+}
+@keyframes cc-blink {
+  0%, 50%   { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* === Prompt shaping stage ===================================
+   Stacked rather than the site's three-column layout: the settings pane
+   is ~776px, and the site itself stacks below 1000px. */
+.ps-stage {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  align-items: start;
+}
+.ps-said {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 30px 24px 22px;
+  box-shadow: 0 22px 48px -34px rgba(20, 30, 50, 0.22);
+  /* Fixed, not min — the transcript types in, and a growing box makes
+     the whole pane jitter as it fills. Reserve the size up front. */
+  height: 132px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.4s ease;
+}
+.ps-said.dim { opacity: 0.55; }
+/* Inside the card, not straddling the border — the fixed height needs
+   overflow:hidden, which would clip a label hung outside it. */
+.ps-said-label {
+  position: absolute;
+  top: 12px;
+  left: 24px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ps-said p {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 19px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.ps-w {
+  transition: color 0.3s ease, opacity 0.45s ease, background 0.3s ease;
+  border-radius: 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+/* Filler doesn't just vanish — it strikes first, so you see it dropped */
+.ps-w.gone {
+  color: #b8705f;
+  text-decoration: line-through;
+  text-decoration-color: rgba(184, 112, 95, 0.55);
+  opacity: 0.4;
+}
+/* The phrase the currently-writing output line came from */
+.ps-w.lit {
+  background: var(--cobalt-soft);
+  color: var(--ink);
+  padding: 1px 2px;
+}
+.ps-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--accent);
+  vertical-align: -2px;
+  animation: cc-blink 1s step-end infinite;
+}
+.ps-mid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+}
+.ps-link {
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(180deg, transparent, var(--line), transparent);
+  opacity: 0.4;
+  transition: opacity 0.5s ease;
+}
+.ps-link.on {
+  opacity: 1;
+  background: linear-gradient(180deg, transparent, var(--cobalt), transparent);
+}
+.ps-out { height: 300px; display: flex; }
+.ps-out .cc-window { flex: 1; min-width: 0; }
+
+/* === Per-app polish fan-out ================================= */
+.pap-stage { position: relative; padding: 4px 0 0; }
+.pap-raw {
+  position: relative;
+  margin: 0 auto 44px;
+  padding: 18px 22px 20px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 12px 28px -18px rgba(20, 30, 50, 0.18);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.pap-raw.in { opacity: 1; transform: translateY(0); }
+.pap-raw-label {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.pap-raw-text {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 20px;
+  line-height: 1.35;
+  color: var(--ink);
+  margin: 0;
+}
+/* Three lines fan out from the raw card toward the three outputs. */
+.pap-raw-fanout {
+  position: absolute;
+  left: 50%;
+  bottom: -30px;
+  width: 1px;
+  height: 30px;
+  transform: translateX(-50%);
+  display: block;
+}
+.pap-raw-fanout span {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(to bottom, var(--line) 0%, transparent 100%);
+  transform-origin: top center;
+}
+.pap-raw-fanout span:nth-child(1) { transform: translateX(-50%) rotate(-22deg); }
+.pap-raw-fanout span:nth-child(2) { transform: translateX(-50%); }
+.pap-raw-fanout span:nth-child(3) { transform: translateX(-50%) rotate(22deg); }
+
+.pap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.pap-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-height: 176px;
+  box-shadow: 0 12px 28px -22px rgba(20, 30, 50, 0.15);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.7s ease, transform 0.7s ease, border-color 0.2s ease;
+}
+.pap-card--delay-0 { transition-delay: 0.25s; }
+.pap-card--delay-1 { transition-delay: 0.37s; }
+.pap-card--delay-2 { transition-delay: 0.49s; }
+.pap-card.in { opacity: 1; transform: translateY(0); }
+.pap-card-head { display: flex; align-items: center; gap: 7px; }
+.pap-card-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid var(--line-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex: none;
+}
+.pap-card-app {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--ink);
+}
+.pap-card-body {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  font-family: var(--font-sans);
+}
+.pap-card-body--personal { justify-content: flex-end; }
+.pap-card-body--work { justify-content: flex-start; }
+.pap-card-body--writing { display: block; }
+.pap-bubble {
+  position: relative;
+  display: inline-block;
+  font-size: 12.5px;
+  line-height: 1.4;
+  padding: 8px 12px;
+  border-radius: 15px;
+  max-width: 100%;
+}
+.pap-bubble--personal {
+  background: #34c759;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.pap-bubble--work {
+  background: #f5f4ef;
+  color: var(--ink);
+  border: 1px solid var(--line-soft);
+  border-bottom-left-radius: 4px;
+}
+.pap-prose {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink);
+  margin: 0;
+  white-space: pre-wrap;
+  background: var(--paper);
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  padding: 10px 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-md .ln { animation: none; opacity: 1; }
+  .cc-caret, .ps-cursor { animation: none; }
+  .pap-raw, .pap-card { transition: none; opacity: 1; transform: none; }
+}

@@ -73,7 +73,8 @@ mac:
       to your chosen API provider for transcription.
     NSAppleEventsUsageDescription: >-
       Yappr uses Apple Events to paste your dictated text into the
-      focused app.
+      focused app, and to read the address of the tab you're in so
+      dictation into a web app like Gmail gets formatted for it.
     # LSUIElement makes Yappr a tray-only app — no Dock icon, no
     # menu bar. The recording pill + tray menu are the entire surface.
     LSUIElement: true

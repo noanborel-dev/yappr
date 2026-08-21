@@ -12,39 +12,36 @@
 // the user about it.
 
 import { getUserOverview } from './store'
+import { formatContextBlock, type ContextMode } from './format'
+import { getFactsFor } from './facts'
+import { formatFactsBlock } from './facts-format'
 
-// Build the context block to splice into the cleanup system prompt.
-// Returns an empty string when there's nothing to inject — caller can
-// safely concat without any conditional wrapping.
+// Build the context block to splice into an LLM system prompt. Returns an
+// empty string when there's nothing to inject — caller can safely concat
+// without any conditional wrapping. `mode` selects the framing:
+//   'cleanup' (default) — dictation pipeline: resolve vague references.
+//   'command'           — select-and-rewrite: MAY add facts when the
+//                          editing command asks to elaborate/explain.
 //
 // Hot-path cost: ~1ms total (one cached read + string ops).
 export function buildContextBlock(opts: {
   enabled: boolean
+  mode?: ContextMode
+  // The project this dictation belongs to, or null for the unsorted
+  // case. Only this project's facts load — never another's. That is the
+  // whole point of the tier split (spec §1.2): a smaller, focused
+  // context both costs less and produces better output than a large one.
+  projectKey?: string | null
 }): string {
   if (!opts.enabled) return ''
+
   const overview = getUserOverview()
-  if (!overview || overview.trim().length === 0) return ''
+  const who = overview && overview.trim().length > 0
+    ? formatContextBlock(overview, opts.mode ?? 'cleanup')
+    : ''
 
-  // The wrapper frames the overview as RESOLUTION CONTEXT: the model
-  // should actively use it to disambiguate vague references in the
-  // dictation (e.g. "uni" → school name, "the internship" → company),
-  // while strict anti-echo rules prevent the 8B model from copying the
-  // overview into the output or addressing the user about it.
-  return `
+  const { global, project } = getFactsFor(opts.projectKey ?? null)
+  const facts = formatFactsBlock({ global, project, projectKey: opts.projectKey })
 
-USER CONTEXT — read this to understand who is speaking. Use it to:
-- Recognize and correctly spell names, places, projects, and people the user mentions ("uni" might mean their school; "my team" might mean a specific team named below).
-- Quietly fill in or clarify vague references in the dictation when doing so makes the message more informative and stays true to the user's intent (e.g. if the user dictates "I'm doing an internship" and the overview says they're interning at Anthropic, you may write "I'm doing an internship at Anthropic" — but only if the original message clearly invites that detail; never invent context).
-- Adjust register and tone to match the user's voice and domain.
-
-About the user:
-${overview.trim()}
-
-Strict rules (violating these is a fatal error):
-- Do NOT echo or summarize this context as a preamble or suffix.
-- Do NOT address the user about this context ("As you mentioned...", "Based on your background...").
-- Do NOT paraphrase the overview into the output.
-- Do NOT ask clarifying questions about who the user is.
-- This is a CLEANUP task: your output is ONLY the cleaned-up version of the user's dictation, written in the user's voice — not a summary of who they are.
-`
+  return who + facts
 }

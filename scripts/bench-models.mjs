@@ -10,7 +10,7 @@ import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
 
-const INPUT = process.argv[2] ?? '/tmp/openflow-smoke.webm'
+const INPUT = process.argv[2] ?? '/tmp/yappr-smoke.webm'
 
 function runProc(cmd, args) {
   return new Promise((resolve, reject) => {
@@ -47,7 +47,7 @@ console.log()
 
 const HOME = os.homedir()
 const models = [
-  { name: 'large-v3-turbo-q5_0 (current)', path: path.join(HOME, 'Library/Application Support/openflow/models/ggml-large-v3-turbo-q5_0.bin') },
+  { name: 'large-v3-turbo-q5_0 (current)', path: path.join(HOME, 'Library/Application Support/yappr/models/ggml-large-v3-turbo-q5_0.bin') },
   { name: 'small.en-q5_1 (181MB)',          path: '/tmp/whisper-models/small.en-q5_1.bin' },
   { name: 'base.en-q5_1 (57MB)',            path: '/tmp/whisper-models/base.en-q5_1.bin' },
 ]

@@ -40,13 +40,13 @@ await toggleNativeLog(false)
 
 const HOME = os.homedir()
 const models = [
-  { name: 'CURRENT large-v3-turbo-q5_0 (547MB)', path: path.join(HOME, 'Library/Application Support/openflow/models/ggml-large-v3-turbo-q5_0.bin') },
+  { name: 'CURRENT large-v3-turbo-q5_0 (547MB)', path: path.join(HOME, 'Library/Application Support/yappr/models/ggml-large-v3-turbo-q5_0.bin') },
   { name: 'distil-large-v3 fp16 (1449MB)',       path: '/tmp/whisper-models/ggml-distil-large-v3.bin' },
 ]
 
 // Reuse existing test clips. Add the long-paragraph clip if available.
 const clips = [
-  '/tmp/openflow-smoke.webm',
+  '/tmp/yappr-smoke.webm',
   '/tmp/test-brand2.webm',
   '/tmp/test-multi.webm',
   '/tmp/long.webm',

@@ -2,6 +2,7 @@ import Groq, { toFile } from 'groq-sdk'
 import type { TranscriptionProvider, CleanupProvider } from './types'
 import { NoSpeechError } from '../errors'
 import { logInfo } from '../log'
+import { cleanupMaxTokens } from './token-budget'
 
 // Cache the Groq SDK instance so the underlying HTTP agent (and its
 // keep-alive connection pool) is reused across pipeline runs. Rebuilding
@@ -125,6 +126,25 @@ export function createGroqTranscriptionProvider(
 // and there's no recoverable cleaned text, we return the original
 // transcript untouched — better to paste raw Whisper than to paste
 // the LLM's clarifying question.
+// Vocabulary that only shows up when the model is describing its own
+// edit. Deliberately nouns about TEXT rather than verbs like "removed"
+// or "added", which appear in ordinary content all the time.
+const EDIT_META_VOCAB =
+  /\b(fillers?|capitaliz\w*|punctuat\w*|grammar|transcript|dictation|stutters?|verbatim|rephras\w*|restructur\w*|typos?|wording)\b/i
+
+// Drop a trailing list ONLY when it is the model narrating its edit.
+// A list of the user's actual content stays.
+function stripMetaListTail(s: string): string {
+  const blocks = s.split(/\n\s*\n/)
+  if (blocks.length < 2) return s
+  const last = blocks[blocks.length - 1]
+  const isList = /^\s*(?:\d+\.|[-*])\s+\S/.test(last)
+  if (isList && EDIT_META_VOCAB.test(last)) {
+    return blocks.slice(0, -1).join('\n\n').trimEnd()
+  }
+  return s
+}
+
 // LLM artifact stripper. The 8B cleanup model has several stubborn
 // ways of leaking non-output text into its response. We catch each.
 //
@@ -143,8 +163,6 @@ function stripLLMArtifacts(raw: string, fallback: string): string {
       '\\n\\s*\\n',                                      // blank line
       '(?:',
       [
-        '\\d+\\.\\s+\\w',                                 // "1. word..."
-        '[-*]\\s+\\w',                                    // "- word..."
         '(?:note|here|the\\s+dictated|output|result|cleaned)\\b',
         'i\\s+(?:removed|cleaned|corrected|kept|fixed|added|made|left|did|polished|restructured|preserved|hope|tried|will|have|just|did|am|did|did)\\b',
         'this\\s+(?:is|version|output|response)\\b',
@@ -159,6 +177,16 @@ function stripLLMArtifacts(raw: string, fallback: string): string {
     'i',
   )
   s = s.replace(META_AFTER_BLANK, '')
+
+  // 1b. A trailing LIST is the other rules-echo shape ("1. Removed
+  // filler words / 2. Fixed capitalization"). It used to be part of the
+  // hard cut above as a bare "\n\n- word" / "\n\n1. word" pattern —
+  // which also deleted every list the prompts explicitly ask for. The
+  // list-formatting rules tell the model to emit bullets for enumerated
+  // speech, and an email of asks is mostly bullets, so the shape alone
+  // cannot be the signal. Cut only when the trailing list talks about
+  // the EDIT rather than the content.
+  s = stripMetaListTail(s)
 
   // 2. Single-line trailing meta (no blank line) — model appends one
   // line directly below: "...dinner at 7 p.m.\nI removed the fillers"
@@ -255,14 +283,26 @@ function detectLoopbackAnswer(rawOutput: string, originalTranscript: string): bo
 
 export function createGroqCleanupProvider(
   apiKey: string,
-  model: string
+  model: string,
+  // Optional model for the ai_prompt (reformat) register. Reformatting is
+  // a harder task than cleanup and not every model will do it at all —
+  // see the note on MODELS.groq.reformat. Falls back to `model` when not
+  // supplied, so callers that don't care are unaffected.
+  reformatModel?: string,
 ): CleanupProvider {
   return {
     name: 'Groq',
-    async cleanup(text, { systemPrompt, appCategory }) {
+    async cleanup(text, { systemPrompt, appCategory, mode = 'cleanup', fallbackText, expandsOutput }) {
       const client = getClient(apiKey)
-      // max_tokens budget per category:
+      const activeModel = appCategory === 'ai_prompt' && reformatModel ? reformatModel : model
+      // max_tokens budget:
       //
+      // - rewrite: 3× input + headroom. A rewrite EXPANDS ("turn these
+      //   notes into an email" adds a subject, a greeting, and a
+      //   sign-off), and until this case existed the budget was sized
+      //   off the whole user message anyway — which, when the message
+      //   was just the dictated command, meant ~90 tokens and an email
+      //   that stopped mid-sentence (finish_reason "length").
       // - ai_prompt: 3× input. The cleanup REFORMATS rambling speech
       //   into a structured prompt (headings, bullets, "Done when",
       //   "Constraints") and must preserve every detail — so output
@@ -272,12 +312,25 @@ export function createGroqCleanupProvider(
       //   length minus fillers, plus added punctuation.
       //
       // Each token is ~4 chars (rough).
-      const inputTokens = Math.ceil(text.length / 4)
-      const maxTokens = appCategory === 'ai_prompt'
-        ? Math.max(160, Math.min(2048, inputTokens * 3 + 120))
-        : Math.max(80, Math.min(1024, Math.ceil(inputTokens * 1.5) + 80))
-      const response = await client.chat.completions.create({
-        model,
+      const maxTokens = cleanupMaxTokens({
+        inputChars: text.length,
+        mode,
+        appCategory,
+        expandsOutput: expandsOutput === true,
+        model: activeModel,
+      })
+      // Reformat runs a model with a TOKENS-PER-DAY cap (100k), and the
+      // prompt is ~4.2k tokens a call — about 21 shaped dictations before
+      // it is gone for the rest of the day. When that wall is hit, falling
+      // straight back to the raw transcript throws away the cleanup too,
+      // which is a much worse outcome than simply not shaping.
+      //
+      // The cleanup model is capped per-MINUTE instead, so it is usually
+      // available again within a minute even when the daily budget is
+      // spent. Retry there once: unshaped-but-clean beats raw.
+      const runCompletion = (m: string): Promise<{ choices: Array<{ message?: { content?: string | null } }> }> =>
+        client.chat.completions.create({
+        model: m,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: text },
@@ -287,17 +340,57 @@ export function createGroqCleanupProvider(
         // creatively without going off-prompt.
         temperature: 0.2,
         max_tokens: maxTokens,
-      }, {
+        // gpt-oss models reason before answering, and that reasoning is
+        // billed as output AND competes with max_tokens. Left at the
+        // default the model can spend the whole budget thinking and return
+        // an empty or unshaped answer — which is exactly what made an
+        // earlier test conclude it could not reformat at all. 'low' keeps
+        // the reasoning to a few dozen characters and the sections appear.
+        ...(activeModel.startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
+      } as never, {
         // SDK defaults: timeout 60s, maxRetries 2 → worst case ~3min
         // before our withRetry sees a rejection. Cleanup normally
         // takes 500-900ms; if Groq stalls, fail fast and let the
         // pipeline's withRetry try once on a fresh connection.
-        timeout: 8000,
+        // Reformat runs a deliberately heavier model and takes ~3s
+        // against ~1s for cleanup. The 8s cleanup budget would turn a
+        // slow-but-correct reformat into a timeout and a raw paste.
+        timeout: m === model ? 8000 : 20000,
         maxRetries: 0,
       })
-      const raw = response.choices[0]?.message?.content?.trim() ?? text
-      const cleaned = stripLLMArtifacts(raw, text)
-      if (detectLoopbackAnswer(raw, text)) {
+      // In rewrite mode the safe fallback is the user's selection, not
+      // `text` — `text` there is the selection wrapped up with the
+      // dictated command, and pasting THAT over their selection is the
+      // worst possible outcome.
+      let response
+      try {
+        response = await runCompletion(activeModel)
+      } catch (err) {
+        // Only the reformat model has a daily cap worth working around,
+        // and only a rate limit is worth retrying elsewhere — a bad
+        // request would fail identically on the other model.
+        const isRateLimited = (err as { status?: number })?.status === 429
+        if (activeModel !== model && isRateLimited) {
+          logInfo('Reformat model rate-limited, falling back to the cleanup model', {
+            reformatModel: activeModel,
+            fallbackModel: model,
+          })
+          response = await runCompletion(model)
+        } else {
+          throw err
+        }
+      }
+
+      const fallback = fallbackText ?? text
+      const raw = response.choices[0]?.message?.content?.trim() ?? fallback
+      const cleaned = stripLLMArtifacts(raw, fallback)
+      // The loopback guard is a cleanup-mode rule: it assumes output
+      // much longer than input means the model answered the dictation
+      // instead of cleaning it. A rewrite is SUPPOSED to run longer
+      // than its input, and command-mode input often opens with "can
+      // you…" — which used to trip both gates and paste the user's own
+      // command back over their selection.
+      if (mode === 'cleanup' && detectLoopbackAnswer(raw, text)) {
         // Model answered the dictated question instead of cleaning it.
         // Return the raw transcript so deterministic post-passes in
         // pipeline.ts still run on the user's actual message.

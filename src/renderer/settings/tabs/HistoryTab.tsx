@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DictationResult } from '../../../shared/types'
 import { Pill } from '../../shared/ui/Pill'
-import { SectionHero } from '../../shared/ui/SectionHero'
+import { SectionHead } from '../../shared/ui/SectionHead'
 
 export default function HistoryTab() {
   const [items, setItems] = useState<DictationResult[] | null>(null)
@@ -43,42 +43,45 @@ export default function HistoryTab() {
   }
 
   return (
-    <div className="max-w-[760px]">
-      <SectionHero
-        label="DASHBOARD"
-        accent="cobalt"
-        headline={<>Every <em className="font-display italic">word</em>, kept.</>}
-        body="The last 50 dictations are saved locally so you can re-copy what you said and see how you're using Yappr. Stays on this Mac — never synced anywhere."
-        visual={<UsageSummary stats={stats} />}
+    <div className="max-w-[720px]">
+      <SectionHead
+        ord="01"
+        label="Dashboard"
+        headline={<>Every <em className="italic">word</em>, kept.</>}
+        body="The last 50 dictations, searchable. They stay on this Mac and are never synced."
       />
 
-      <QuickFacts stats={stats} />
+      {/* Two weeks of activity, then three numbers — all of them true of
+          the kept history and nothing more. The old strip added a streak,
+          a busiest hour, a longest dictation and a "time saved vs typing
+          at 40 wpm" — the last being both invented arithmetic and a speed
+          claim the product deliberately doesn't make. */}
+      {items.length > 0 && <Activity days={stats.days} />}
+      <StatRail stats={stats} />
 
-      <div className="bg-card border border-ink-08 rounded-[14px] px-4 py-4 mb-4 flex items-stretch gap-2">
+      <div className="flex items-stretch gap-2 mb-3">
         <input
           type="text"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Search transcriptions…"
-          className="flex-1 bg-paper border border-ink-08 rounded-[10px] px-3.5 py-2.5 text-[12.5px] focus:outline-none focus:border-volt focus:ring-2 focus:ring-volt-muted"
+          className="flex-1 bg-card border border-line rounded-input px-3.5 py-2.5 text-[12.5px] placeholder:text-ink-45 focus:outline-none focus:border-cobalt focus:ring-2 focus:ring-cobalt-soft"
         />
         {items.length > 0 && (
-          <Pill variant="secondary" onClick={clearAll}>
+          <Pill variant="secondary" size="sm" onClick={clearAll}>
             Clear all
           </Pill>
         )}
       </div>
 
       {items.length === 0 ? (
-        <div className="text-[11.5px] text-ink-45 px-2 py-8 text-center">
-          No transcriptions yet. Dictations show up here as soon as you make them.
-        </div>
+        <EmptyState />
       ) : filtered.length === 0 ? (
-        <div className="text-[11.5px] text-ink-45 px-2 py-8 text-center">
-          No matches for &ldquo;{filter}&rdquo;.
+        <div className="text-[11.5px] text-ink-45 px-2 py-10 text-center">
+          Nothing matches &ldquo;{filter}&rdquo;.
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
           {filtered.map((item) => (
             <HistoryItem
               key={item.id}
@@ -102,268 +105,213 @@ function HistoryItem({
   copied: boolean
   onCopy: () => void
 }) {
-  const when = formatRelativeTime(item.timestamp)
+  const [expanded, setExpanded] = useState(false)
   return (
-    <div className="bg-card border border-ink-08 rounded-[12px] px-4 py-3 flex items-start gap-3 group">
+    <div className="bg-card border border-line rounded-[12px] px-4 py-3 flex items-start gap-3 group hover:border-ink-45 transition-colors">
       <div className="flex-1 min-w-0">
-        <div className="text-[12.5px] leading-relaxed whitespace-pre-wrap break-words">
+        {/* Clamped: a dictated Claude Code prompt can run 40 lines, and
+            unclamped entries turned the list into one entry per screen.
+            Click to expand the one you're looking for. */}
+        <div
+          onClick={() => setExpanded((v) => !v)}
+          className={[
+            'text-[12.5px] leading-relaxed whitespace-pre-wrap break-words cursor-pointer',
+            expanded ? '' : 'line-clamp-4',
+          ].join(' ')}
+        >
           {item.cleaned}
         </div>
-        <div className="text-[10px] text-ink-45 mt-1.5 flex items-center gap-2 flex-wrap">
-          <span>{when}</span>
+        <div className="text-[10px] font-mono text-ink-45 mt-1.5 flex items-center gap-2 flex-wrap">
+          <span>{formatRelativeTime(item.timestamp)}</span>
           <span className="opacity-40">·</span>
           <span>{item.appName}</span>
           <span className="opacity-40">·</span>
-          <span className="capitalize">{item.appCategory}</span>
-          <span className="opacity-40">·</span>
-          <span>{wordCount(item.cleaned)} words</span>
+          <span>{wordCount(item.cleaned)}w</span>
         </div>
       </div>
       <button
         onClick={onCopy}
         aria-label="Copy to clipboard"
-        className={`shrink-0 text-[11px] font-medium rounded-[8px] px-2.5 py-1.5 transition-colors border ${
+        className={`shrink-0 text-[11px] font-medium rounded-pill px-3 py-1.5 transition-all border ${
           copied
-            ? 'bg-ok/15 text-ok border-ok/30'
-            : 'border-ink-08 text-ink-60 hover:text-ink hover:bg-ink-08 opacity-0 group-hover:opacity-100'
+            ? 'bg-ok/12 text-ok border-ok/30'
+            : 'border-line text-ink-60 hover:text-ink hover:bg-paper opacity-0 group-hover:opacity-100'
         }`}
       >
-        {copied ? 'Copied!' : 'Copy'}
+        {copied ? 'Copied' : 'Copy'}
       </button>
+    </div>
+  )
+}
+
+// The empty state teaches the gesture rather than apologising for having
+// no data — a fresh install lands here first.
+function EmptyState() {
+  return (
+    <div className="bg-card border border-line rounded-card px-6 py-12 text-center">
+      <div className="font-display text-[26px] leading-tight text-ink mb-2">
+        Nothing yet.
+      </div>
+      <p className="text-[12px] text-ink-60 max-w-[42ch] mx-auto leading-relaxed">
+        Hold your dictation key anywhere on the Mac and talk. What lands in the app
+        shows up here, ready to re-copy.
+      </p>
     </div>
   )
 }
 
 interface Stats {
   total: number
-  today: number
+  words: number
   thisWeek: number
-  totalWords: number
-  totalWordsThisWeek: number
+  apps: number
   topApps: Array<{ name: string; count: number }>
-  longestDictation: { words: number; preview: string } | null
-  busiestHour: { hour: number; count: number } | null
-  // Approximate minutes spent dictating, derived from word count at a
-  // typical 150 wpm sustained dictation pace.
-  approxMinutes: number
-  // Consecutive days ending today with at least one dictation.
-  streakDays: number
-  // Distinct apps used this week.
-  appsThisWeek: number
+  /** Dictations per day, oldest first, for the last DAYS days. */
+  days: Array<{ label: string; date: Date; count: number }>
 }
 
-function computeStats(items: DictationResult[]): Stats {
-  const dayMs = 24 * 60 * 60 * 1000
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
-  const now = Date.now()
-  const weekAgo = now - 7 * dayMs
+const DAYS = 14
 
-  let today = 0
-  let thisWeek = 0
-  let totalWords = 0
-  let totalWordsThisWeek = 0
+function computeStats(items: DictationResult[]): Stats {
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
   const byApp = new Map<string, number>()
-  const appsThisWeekSet = new Set<string>()
-  const byHour = new Map<number, number>()
-  let longest: { words: number; preview: string } | null = null
-  // Track unique days (yyyy-mm-dd in local time) with activity to
-  // compute the streak.
-  const activeDays = new Set<string>()
+  let words = 0
+  let thisWeek = 0
+
+  // Bucket by local calendar day so a dictation at 11pm counts for that
+  // day, not for a rolling 24h window nobody thinks in.
+  const buckets = new Map<string, number>()
+  const key = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 
   for (const i of items) {
-    const words = wordCount(i.cleaned)
-    totalWords += words
-    if (i.timestamp >= todayStart.getTime()) today++
-    if (i.timestamp >= weekAgo) {
-      thisWeek++
-      totalWordsThisWeek += words
-      appsThisWeekSet.add(i.appName)
-    }
+    words += wordCount(i.cleaned)
+    if (i.timestamp >= weekAgo) thisWeek++
     byApp.set(i.appName, (byApp.get(i.appName) ?? 0) + 1)
-
     const d = new Date(i.timestamp)
-    byHour.set(d.getHours(), (byHour.get(d.getHours()) ?? 0) + 1)
-    activeDays.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`)
+    buckets.set(key(d), (buckets.get(key(d)) ?? 0) + 1)
+  }
 
-    if (!longest || words > longest.words) {
-      longest = { words, preview: i.cleaned.slice(0, 60) }
-    }
+  const days: Stats['days'] = []
+  for (let back = DAYS - 1; back >= 0; back--) {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() - back)
+    days.push({
+      label: d.toLocaleDateString(undefined, { weekday: 'narrow' }),
+      date: d,
+      count: buckets.get(key(d)) ?? 0,
+    })
   }
 
   const topApps = [...byApp.entries()]
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 3)
+    .slice(0, 4)
 
-  // Busiest hour: max-count entry from byHour.
-  let busiestHour: { hour: number; count: number } | null = null
-  for (const [hour, count] of byHour) {
-    if (!busiestHour || count > busiestHour.count) busiestHour = { hour, count }
-  }
-
-  // Streak: walk back from today, day by day. Stop at the first gap.
-  let streakDays = 0
-  const cursor = new Date()
-  cursor.setHours(0, 0, 0, 0)
-  while (activeDays.has(`${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`)) {
-    streakDays++
-    cursor.setTime(cursor.getTime() - dayMs)
-  }
-
-  // ~150 wpm is a reasonable spoken-dictation pace.
-  const approxMinutes = Math.round(totalWords / 150)
-
-  return {
-    total: items.length,
-    today,
-    thisWeek,
-    totalWords,
-    totalWordsThisWeek,
-    topApps,
-    longestDictation: longest,
-    busiestHour,
-    approxMinutes,
-    streakDays,
-    appsThisWeek: appsThisWeekSet.size,
-  }
+  return { total: items.length, words, thisWeek, apps: byApp.size, topApps, days }
 }
 
-function UsageSummary({ stats }: { stats: Stats }) {
-  const empty = stats.total === 0
+// Dictations per day for the last two weeks.
+//
+// One series, so no legend — the heading says what's plotted. Columns are
+// capped rather than filling their slot, carry a 4px rounded cap and a
+// square baseline, and are separated by surface-colored gaps rather than
+// strokes. Only the busiest day is labelled: a number over every column is
+// noise, and the tooltip carries the rest.
+function Activity({ days }: { days: Stats['days'] }) {
+  const max = Math.max(...days.map((d) => d.count), 1)
+  const busiest = days.reduce((a, b) => (b.count > a.count ? b : a), days[0])
+
   return (
-    <div className="w-[320px] bg-white border border-ink-08 rounded-[14px] p-4 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-wider text-ink-45 font-medium">Lifetime</span>
-        <span className="text-[10px] text-ink-45">{stats.total} dictations</span>
-      </div>
-
-      {/* Hero number: total words across all kept history. */}
-      <div className="bg-paper border border-ink-08 rounded-[12px] px-4 py-3">
-        <div className="text-[34px] font-display leading-none tracking-tight">
-          {stats.totalWords.toLocaleString()}
+    <div className="bg-card border border-line rounded-card px-5 pt-4 pb-3 mb-2.5">
+      <div className="flex items-baseline justify-between mb-3">
+        <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-ink-45">
+          Last {DAYS} days
         </div>
-        <div className="text-[10px] uppercase tracking-wider text-ink-45 mt-1.5 font-medium">
-          words spoken {empty ? '— start dictating!' : `· ~${stats.approxMinutes} min of speech`}
-        </div>
+        {busiest.count > 0 && (
+          <div className="text-[10px] font-mono text-ink-45">
+            busiest {busiest.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+            {' · '}{busiest.count}
+          </div>
+        )}
       </div>
 
-      {/* Three short stat rows. */}
-      <div className="grid grid-cols-3 gap-2">
-        <StatCard label="Today" value={stats.today} />
-        <StatCard label="This week" value={stats.thisWeek} />
-        <StatCard label="Streak" value={stats.streakDays} suffix={stats.streakDays === 1 ? 'day' : 'days'} />
-      </div>
-
-      {stats.topApps.length > 0 && (
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-ink-45 font-medium mb-1.5">Top apps</div>
-          <div className="flex flex-col gap-1">
-            {stats.topApps.map((a) => {
-              const pct = Math.round((a.count / stats.total) * 100)
-              return (
-                <div key={a.name} className="text-[11px]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-ink truncate">{a.name}</span>
-                    <span className="text-ink-45 font-mono ml-2">{a.count}</span>
-                  </div>
-                  <div className="h-1 bg-ink-08 rounded-full mt-0.5 overflow-hidden">
-                    <div
-                      className="h-full bg-volt"
-                      style={{ width: `${Math.max(pct, 4)}%` }}
-                    />
-                  </div>
+      <div className="flex items-end gap-[2px] h-[68px]">
+        {days.map((d, i) => {
+          const pct = (d.count / max) * 100
+          const isMax = d.count === busiest.count && d.count > 0
+          return (
+            <div key={i} className="flex-1 h-full flex flex-col justify-end items-center group">
+              {isMax && (
+                <div className="text-[9.5px] font-mono text-ink-60 mb-1 leading-none">
+                  {d.count}
                 </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Quick-fact strip — shows playful, derived metrics below the hero so
-// the dashboard feels alive rather than just listing transcripts.
-function QuickFacts({ stats }: { stats: Stats }) {
-  if (stats.total === 0) return null
-  const facts: Array<{ label: string; value: string; sub?: string }> = []
-
-  if (stats.totalWordsThisWeek > 0) {
-    facts.push({
-      label: 'This week',
-      value: stats.totalWordsThisWeek.toLocaleString(),
-      sub: `words · across ${stats.appsThisWeek} app${stats.appsThisWeek === 1 ? '' : 's'}`,
-    })
-  }
-  if (stats.busiestHour) {
-    facts.push({
-      label: 'Busiest hour',
-      value: formatHour(stats.busiestHour.hour),
-      sub: `${stats.busiestHour.count} dictation${stats.busiestHour.count === 1 ? '' : 's'} fired in this hour`,
-    })
-  }
-  if (stats.longestDictation) {
-    facts.push({
-      label: 'Longest dictation',
-      value: `${stats.longestDictation.words}`,
-      sub: `words · "${stats.longestDictation.preview}${stats.longestDictation.preview.length >= 60 ? '…' : ''}"`,
-    })
-  }
-  if (stats.approxMinutes > 0) {
-    const hours = stats.approxMinutes / 60
-    facts.push({
-      label: 'Time saved',
-      value: hours >= 1 ? `${hours.toFixed(1)}h` : `${stats.approxMinutes}m`,
-      sub: 'vs. typing at 40 wpm',
-    })
-  }
-
-  if (facts.length === 0) return null
-
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4">
-      {facts.map((f) => (
-        <div
-          key={f.label}
-          className="bg-card border border-ink-08 rounded-[12px] px-3.5 py-3"
-        >
-          <div className="text-[10px] uppercase tracking-wider text-ink-45 font-medium">{f.label}</div>
-          <div className="text-[20px] font-display leading-tight tracking-tight mt-1.5">
-            {f.value}
-          </div>
-          {f.sub && (
-            <div className="text-[10px] text-ink-45 mt-1 leading-snug truncate">{f.sub}</div>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function formatHour(h: number): string {
-  if (h === 0) return '12 AM'
-  if (h === 12) return '12 PM'
-  if (h < 12) return `${h} AM`
-  return `${h - 12} PM`
-}
-
-function StatCard({
-  label,
-  value,
-  suffix,
-}: {
-  label: string
-  value: string | number
-  suffix?: string
-}) {
-  return (
-    <div className="bg-paper border border-ink-08 rounded-[10px] px-3 py-2">
-      <div className="text-[18px] font-semibold leading-none">
-        {value}
-        {suffix && <span className="text-[10px] text-ink-45 font-normal ml-1">{suffix}</span>}
+              )}
+              <div
+                title={`${d.date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })} — ${d.count} dictation${d.count === 1 ? '' : 's'}`}
+                style={{ height: `${Math.max(pct, d.count > 0 ? 6 : 1.5)}%` }}
+                className={[
+                  'w-full max-w-[22px] rounded-t-[4px] transition-colors',
+                  d.count > 0 ? 'bg-cobalt group-hover:bg-ink' : 'bg-ink/[0.10]',
+                ].join(' ')}
+              />
+            </div>
+          )
+        })}
       </div>
-      <div className="text-[9.5px] uppercase tracking-wider text-ink-45 mt-1">{label}</div>
+
+      {/* Hairline baseline, one step off the surface — recessive. */}
+      <div className="h-px bg-line mt-1.5 mb-1.5" />
+
+      <div className="flex justify-between text-[9px] font-mono text-ink-45">
+        <span>{days[0].date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+        <span>today</span>
+      </div>
+    </div>
+  )
+}
+
+function StatRail({ stats }: { stats: Stats }) {
+  if (stats.total === 0) return null
+  return (
+    <div className="grid grid-cols-[1fr_1fr_1fr_minmax(0,1.5fr)] gap-px bg-line border border-line rounded-card overflow-hidden mb-5">
+      <Stat value={stats.words.toLocaleString()} label="words" />
+      <Stat value={stats.total} label="dictations" />
+      <Stat value={stats.thisWeek} label="this week" />
+      <div className="bg-card px-4 py-3.5">
+        <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-ink-45 mb-2">
+          Where they went
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {stats.topApps.map((a) => (
+            <div key={a.name} className="text-[10.5px]">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-ink-60 truncate">{a.name}</span>
+                <span className="text-ink-45 font-mono tabular-nums">{a.count}</span>
+              </div>
+              <div className="h-[3px] bg-ink/[0.06] rounded-full mt-1 overflow-hidden">
+                <div
+                  className="h-full bg-cobalt rounded-full"
+                  style={{ width: `${Math.max((a.count / stats.total) * 100, 5)}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Stat({ value, label }: { value: string | number; label: string }) {
+  return (
+    <div className="bg-card px-4 py-3.5 flex flex-col justify-center">
+      <div className="font-display text-[30px] leading-none tracking-tight tabular-nums">
+        {value}
+      </div>
+      <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-ink-45 mt-2">
+        {label}
+      </div>
     </div>
   )
 }

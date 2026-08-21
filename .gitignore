@@ -11,7 +11,10 @@ __pycache__/
 *.pyc
 
 # Next.js build cache from the landing-page subproject
-OpenFlowLanding/.next/
+YapprLanding/.next/
 
 # TypeScript incremental build artifacts
 *.tsbuildinfo
+
+# Agent worktrees — scratch checkouts, never part of the project
+.claude/worktrees/

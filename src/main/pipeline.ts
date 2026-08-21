@@ -1,6 +1,17 @@
 import { buildCleanupPrompt, type Register } from '../shared/prompts'
+import {
+  looksLikeEmailRewrite,
+  buildRewriteSystemPrompt,
+  buildRewriteUserMessage,
+  normalizeEmailRewrite,
+  asksForEmailComposition,
+} from '../shared/rewrite-prompt'
 import { buildContextBlock } from './context/prompt-injector'
-import { MODELS, BUILTIN_DICTIONARY, IDE_EDITORS } from '../shared/constants'
+import { extractProjectKey } from './context/project-key'
+import { extractStandingPreferences } from './context/fact-scope'
+import { addFact } from './context/facts'
+import { applyUltrathink, isUltrathinkSurface } from './ultrathink'
+import { MODELS, BUILTIN_DICTIONARY, DICTIONARY_ALIASES, IDE_EDITORS, AGENTIC_AI_APP_NAMES } from '../shared/constants'
 import type { AppCategory, DictationResult, Settings, Strictness } from '../shared/types'
 import type { FocusedApp } from './focused-app'
 import type { TranscriptionProvider, CleanupProvider } from './providers/types'
@@ -13,8 +24,11 @@ import { createLocalWhisperProvider, createLocalCleanupProvider } from './provid
 import { captureFocusedApp, getFocusedApp } from './focused-app'
 import { pasteText, probeFocusedAXRole, getPressTimeAXRolePromise } from './paste'
 import { logInfo, logError } from './log'
-import { NoSpeechError } from './errors'
-import { focusedTerminalRunningAiCli, TERMINAL_BUNDLE_IDS } from './terminal-ai-cli'
+import { NoSpeechError, ModelUnsupportedError } from './errors'
+import { focusedAppRunningAiCli } from './terminal-ai-cli'
+import { classifyCodeSurface, isExplicitPromptRequest } from './ai-intent'
+import type { PromptDestination } from './ai-intent'
+import { cleanupSkipReason, cleanupRetryDecision, countWords } from './cleanup-policy'
 
 // Apps that are PRIMARILY AI chat surfaces. Dictation here is always
 // a prompt to an AI assistant — route to 'ai_prompt' regardless of
@@ -75,34 +89,37 @@ function isLikelySilence(transcript: string): boolean {
 
 function buildProviders(
   settings: Settings
-): { transcription: TranscriptionProvider; cleanup: CleanupProvider } {
+): { transcription: TranscriptionProvider; cleanup: CleanupProvider; cleanupAvailable: boolean } {
   const { provider, groqKey, transcriptionModel, cleanupModel } = settings.provider
 
   if (provider === 'local') {
-    // Local Whisper for transcription. Cleanup is conditional:
-    //   - If the user has a Groq key configured, use it for LLM
-    //     polish (filler removal at Light, prose restructure at
-    //     Strict, list formatting, self-correction handling,
-    //     optional emoji injection).
-    //   - If NOT, fall back to a no-op cleanup so Local stays fully
-    //     offline. The pipeline's regex passes (Light cleanup +
-    //     QUICK_FIXES brand-name fixes) still apply.
+    // Transcription is always on-device. Cleanup always needs Groq.
     //
-    // This matches the "Local means local" promise: a user who
-    // picks Local and never configures Groq must never see a network
-    // call (and must never see Groq's "Invalid API Key" error).
-    const cleanup = groqKey.trim().length > 0
-      ? createGroqCleanupProvider(groqKey, MODELS.groq.cleanup)
-      : createLocalCleanupProvider()
+    // The no-op fallback below used to serve a "Local means local"
+    // promise: a user who chose the Local PROVIDER and never configured
+    // Groq should never see a network call. That choice no longer exists
+    // — there is one transcription engine and cleanup is the only thing
+    // the key buys — so the fallback stopped protecting a preference and
+    // started silently disabling the product. Dictations transcribed fine
+    // and pasted raw, with no cleanup and no prompt shaping, and nothing
+    // anywhere said why.
+    //
+    // Keep the no-op (losing the user's words would be far worse) but
+    // report that cleanup is unavailable so the caller can SAY so.
+    const hasKey = groqKey.trim().length > 0
     return {
       transcription: createLocalWhisperProvider(),
-      cleanup,
+      cleanup: hasKey
+        ? createGroqCleanupProvider(groqKey, MODELS.groq.cleanup, MODELS.groq.reformat)
+        : createLocalCleanupProvider(),
+      cleanupAvailable: hasKey,
     }
   }
 
   return {
     transcription: createGroqTranscriptionProvider(groqKey, transcriptionModel),
-    cleanup: createGroqCleanupProvider(groqKey, cleanupModel),
+    cleanup: createGroqCleanupProvider(groqKey, cleanupModel, MODELS.groq.reformat),
+    cleanupAvailable: groqKey.trim().length > 0,
   }
 }
 
@@ -117,6 +134,9 @@ async function withRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
     return await fn()
   } catch (err) {
     if (err instanceof NoSpeechError) throw err
+    // Retrying a model the binding cannot load just repeats the same
+    // failure and triples the delay before the user sees the reason.
+    if (err instanceof ModelUnsupportedError) throw err
     logError(`${label} failed (attempt 1) — retrying`, err)
     await new Promise(r => setTimeout(r, 250))
     try {
@@ -140,9 +160,18 @@ async function withCleanupRetry<T>(fn: () => Promise<T>): Promise<T> {
     return await fn()
   } catch (err) {
     if (err instanceof NoSpeechError) throw err
-    const wait = parseRateLimitDelayMs(err)
+    const decision = cleanupRetryDecision(err)
+    // Groq told us the rate-limit window is longer than we're willing
+    // to stall the user for. A retry cannot succeed, so don't burn the
+    // wait — fall back to the raw transcript immediately. This is what
+    // turned short dictations into 6.7s round-trips: two doomed
+    // attempts against a 28s window.
+    if (!decision.retry) {
+      logError('Cleanup rate-limited beyond wait cap — using raw transcript', err)
+      throw err
+    }
     logError('Cleanup failed (attempt 1) — retrying', err)
-    await new Promise(r => setTimeout(r, wait))
+    await new Promise(r => setTimeout(r, decision.waitMs))
     try {
       return await fn()
     } catch (err2) {
@@ -151,8 +180,6 @@ async function withCleanupRetry<T>(fn: () => Promise<T>): Promise<T> {
     }
   }
 }
-
-const CLEANUP_RETRY_CAP_MS = 5000
 
 // Length-ratio guard thresholds. Only fire when the input is long
 // enough to be a real dictation (not a one-line message), and only
@@ -163,15 +190,6 @@ const CLEANUP_RETRY_CAP_MS = 5000
 // filler removal (~85-95% retention is typical).
 const LENGTH_GUARD_MIN_INPUT_CHARS = 300
 const LENGTH_GUARD_MIN_RATIO = 0.4
-function parseRateLimitDelayMs(err: unknown): number {
-  if (!(err instanceof Error)) return 250
-  const m = err.message.match(/Please try again in ([\d.]+)\s*s/i)
-  if (!m) return 250
-  const seconds = parseFloat(m[1])
-  if (!Number.isFinite(seconds) || seconds <= 0) return 250
-  return Math.min(CLEANUP_RETRY_CAP_MS, Math.ceil(seconds * 1000))
-}
-
 function buildDictionary(settings: Settings): string[] {
   const user = settings.userDictionary ?? []
   // Lowercased de-dup so the same term in different cases doesn't repeat.
@@ -196,59 +214,6 @@ function buildDictionary(settings: Settings): string[] {
 //     clean prose even when there are no obvious filler markers, so we
 //     can't skip based on absence of fillers alone. Only skip very short
 //     inputs where there's nothing meaningful to polish.
-const FILLER_RE = /\b(um+|uh+|er+|erm+|hmm*|uhh+|umm+)\b/i
-const STUTTER_RE = /\b(\w+)[, ]+\1\b/i  // "the the", "I, I"
-// "I mean" is contextual: as a sentence-opener / clause-opener ("I mean,
-// it's fast") it's a hedging softener, NOT a correction. As a mid-sentence
-// pivot after a comma ("at 6, I mean 7", "send to Alice, I mean Bob") it
-// IS a correction. We require the leading comma / pause to disambiguate.
-const CORRECTION_RE = /\b(actually|wait|scratch that|nevermind|never mind)\b|,\s*i mean\s+\w/i
-
-// Enumeration markers — when ≥2 of these appear in the transcript, the
-// user is dictating a list-shaped thought and cleanup should run so
-// list-formatting can apply, even when there are no fillers/stutters.
-const ENUM_RE = /\b(first|second|third|fourth|fifth|next|then|finally|lastly|one|two|three|four|five)\b/gi
-
-// Explicit list intent: user says "list of", "make a list", "items",
-// "bullets", "numbered", etc. Always run cleanup so LIST_FORMATTING fires.
-const LIST_KEYWORD_RE = /\b(list of|a list|in a list|the list|bullets?|numbered|items?:|to-?dos?:?)\b/i
-
-// Comma-series lists: "X, Y, Z" or "X, Y, and Z" with at least 3 items.
-// We look for two short tokens separated by commas in close succession,
-// optionally followed by "and <token>". Avoids over-triggering on
-// "Hi, I think, well, you know, this..." by requiring tokens to be
-// short content words (≤14 chars, no spaces).
-const COMMA_SERIES_RE = /\b\w{1,14},\s*\w{1,14},\s*(?:and\s+|or\s+)?\w{1,14}\b/i
-
-function looksEnumerated(transcript: string): boolean {
-  const matches = transcript.match(ENUM_RE)
-  if ((matches?.length ?? 0) >= 2) return true
-  if (LIST_KEYWORD_RE.test(transcript)) return true
-  if (COMMA_SERIES_RE.test(transcript)) return true
-  return false
-}
-
-function canSkipCleanup(
-  transcript: string,
-  category: AppCategory,
-  _strictness: Strictness,
-): boolean {
-  // Code dictation = verbatim, no cleanup ever needed unless there's
-  // something to clean. The downstream regex passes handle the rest.
-  if (category === 'code') {
-    if (FILLER_RE.test(transcript)) return false
-    if (STUTTER_RE.test(transcript)) return false
-    if (CORRECTION_RE.test(transcript)) return false
-    return true
-  }
-  // Every non-code category (messaging at Light, email at Strict,
-  // docs at Balanced, ai_prompt always) runs through the LLM. The
-  // user explicitly asked for this: "The light setting should never
-  // skip the LLM for personal messaging or anything. The LLM should
-  // always be used." Strictness controls HOW the LLM cleans, not
-  // WHETHER it runs.
-  return false
-}
 
 // Deterministic regex pass for the most common Whisper mishearings of
 // tech brand names. Applied to EVERY transcript (even fast-path skips)
@@ -258,6 +223,9 @@ function canSkipCleanup(
 const QUICK_FIXES: Array<[RegExp, string]> = [
   // "cloud" → "Claude" only when followed by Claude-y context
   [/\bcloud(?=\s+(?:code|opus|sonnet|haiku|api|agent|sdk|desktop|model|terminal|3\.\d|4\.\d))/gi, 'Claude'],
+  // "clawed" → "Claude", the other way whisper mangles it. Same guarded
+  // lookahead so the ordinary verb survives ("the cat clawed the sofa").
+  [/\bclawed(?=\s+(?:code|opus|sonnet|haiku|api|agent|sdk|desktop|model|terminal|3\.\d|4\.\d))/gi, 'Claude'],
   // "Cloud Code" capitalization
   [/\bClaude\s+code\b/g, 'Claude Code'],
   // common bigrams
@@ -331,6 +299,43 @@ function strictnessBucket(focused: FocusedApp): 'personal' | 'work' | 'writing' 
       if (['imessage', 'whatsapp', 'telegram', 'messenger'].includes(n)) return 'personal'
       return 'personal'
     }
+  }
+}
+
+// Which project this dictation belongs to, or null when it cannot be
+// derived confidently. Null is a normal outcome, not a failure: only
+// global facts load, and anything learned lands in the unsorted bucket.
+// See context/project-key.ts on why guessing is worse than not knowing.
+function dictationProjectKey(focused: FocusedApp): string | null {
+  return extractProjectKey({
+    surface: focused.surface,
+    windowTitle: focused.windowTitle,
+    appName: focused.name,
+    tabTitle: focused.tabTitle,
+  })
+}
+
+// Spec §3: remember durable rules the user states in passing ("we always
+// use zod for validation") so they do not have to repeat them.
+//
+// Storage is Yappr-internal by design — the spec is explicit that this
+// must never write to CLAUDE.md, .cursor/rules/, or any file in the
+// user's repo. Nothing here touches the filesystem.
+//
+// Reads the RAW transcript rather than the cleaned output: cleanup can
+// rephrase a rule, and a preference is worth storing in the user's own
+// words. Failures are swallowed — never break a dictation over context
+// bookkeeping.
+function captureStandingPreferences(transcript: string, focused: FocusedApp): void {
+  try {
+    const found = extractStandingPreferences(transcript)
+    if (found.length === 0) return
+    const projectKey = dictationProjectKey(focused)
+    for (const pref of found) {
+      addFact({ scope: pref.scope, projectKey, text: pref.text })
+    }
+  } catch (err) {
+    logError('Standing-preference capture failed', err)
   }
 }
 
@@ -791,6 +796,23 @@ function buildDictionaryReplacers(terms: string[]): Array<[RegExp, string]> {
   return out
 }
 
+// Whole-word, case-insensitive alias substitution. Preserves the
+// canonical casing from the table, not the casing that was misheard.
+const ALIAS_RE = new RegExp(
+  '\\b(' + Object.keys(DICTIONARY_ALIASES)
+    .sort((a, b) => b.length - a.length)   // longest first: "super base" before "base"
+    .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'))
+    .join('|') + ')\\b',
+  'gi',
+)
+
+function applyDictionaryAliases(text: string): string {
+  return text.replace(ALIAS_RE, (match) => {
+    const key = match.toLowerCase().replace(/\s+/g, ' ')
+    return DICTIONARY_ALIASES[key] ?? match
+  })
+}
+
 function applyDictionaryReplacements(text: string, terms: string[]): string {
   let out = text
   for (const [re, canonical] of buildDictionaryReplacers(terms)) {
@@ -809,11 +831,21 @@ export async function runDictationPipeline(
   // words as whisper produces them on long clips. No-op for cloud
   // providers that don't stream.
   onPartial?: (text: string) => void,
-): Promise<DictationResult & { pasteMethod: 'paste' | 'clipboard' }> {
+  // Replay of a recording recovered from disk (see recording-store.ts).
+  // Two effects, both essential:
+  //   1. the focused-app refresh below is SKIPPED in favour of this
+  //      snapshot — a retry running 30s (or a restart) later must be
+  //      polished for the app the user actually dictated into, not
+  //      whatever is frontmost now;
+  //   2. the pipeline does NOT paste. Delivery is the caller's job,
+  //      because by now the user may be somewhere else entirely and
+  //      pasting would dump text into the wrong window.
+  replay?: { focus: FocusedApp },
+): Promise<DictationResult & { pasteMethod: 'paste' | 'clipboard' | 'deferred'; cleanupUnavailable: boolean }> {
   const start = Date.now()
   onState('processing')
 
-  const { transcription, cleanup } = buildProviders(settings)
+  const { transcription, cleanup, cleanupAvailable } = buildProviders(settings)
   const dictionary = buildDictionary(settings)
 
   // Refresh the focused-app cache CONCURRENTLY with transcription. The
@@ -823,15 +855,15 @@ export async function runDictationPipeline(
   // Whisper call are async, so this adds no hot-path latency — the
   // ~50–150ms osascript completes during transcription's network
   // roundtrip. Read the value AFTER both have resolved.
-  const refreshFocusedApp = captureFocusedApp()
+  const refreshFocusedApp = replay ? null : captureFocusedApp()
 
   const tStart = Date.now()
   const transcript = (await withRetry('Transcription', () =>
     transcription.transcribe(audioBuffer, { dictionary, onPartial }))).trim()
   logInfo('Transcribed', { ms: Date.now() - tStart, chars: transcript.length, preview: transcript.slice(0, 60) })
 
-  await refreshFocusedApp
-  const focusedApp = getFocusedApp()
+  if (refreshFocusedApp) await refreshFocusedApp
+  const focusedApp = replay?.focus ?? getFocusedApp()
 
   const category = settings.devModeApps.includes(focusedApp.bundleId)
     ? ('code' as const)
@@ -862,22 +894,90 @@ export async function runDictationPipeline(
   //
   // The press-time AX-role probe (paste.ts) is fired at hotkey press
   // and resolves by now (overlapped with transcription). Reuse it.
-  if (effectiveCategory === 'code' || PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId)) {
+  //
+  // The decision itself is pure (classifyCodeSurface, ai-intent.ts) and
+  // adversarially tested; here we only gather the FREE signals it needs —
+  // none of which is an LLM call:
+  //   - the press-time AX role (overlapped with transcription)
+  //   - whether a known AI CLI runs in the focused terminal / the editor's
+  //     integrated-terminal subtree (a local `ps` scan, hard-capped)
+  // Three outcomes:
+  //   reformat    → ai_prompt (aggressive restructure into a markdown prompt)
+  //   faithful_ai → stay code, but force the LLM to run a verbatim cleanup
+  //                 (fixes "cloud"→"Claude" mishears without restructuring)
+  //   code        → unchanged; the verbatim fast path stays eligible
+  let runFaithfulAi = false
+  let promptDestination: PromptDestination = 'chat'
+  // Which AI CLI is running in the focused terminal, if any. Hoisted out
+  // of the routing block because the ultrathink mapping (spec §2) needs
+  // it after cleanup, and it is gated on Claude Code specifically.
+  let detectedAiCli: string | undefined
+  // The classifier is normally only consulted on code surfaces and the
+  // dedicated AI apps. An explicit "make me a prompt" has to widen that:
+  // the request stands on its own, and the user asking for it from a
+  // browser or a notes app means the same thing it means in an editor.
+  // ai_prompt is included because a browser AI surface (claude.ai, Lovable,
+  // Replit, Bolt...) is routed straight to that category by URL. Without
+  // this the classifier never ran there, so EVERY dictation into those
+  // surfaces was shaped into ## Goal / ## Tasks — including plain
+  // descriptions, which is the thing the user asked not to happen.
+  if (
+    effectiveCategory === 'code'
+    || effectiveCategory === 'ai_prompt'
+    || PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId)
+    || isExplicitPromptRequest(transcript)
+  ) {
     const axRole = await (getPressTimeAXRolePromise() ?? Promise.resolve('script-error'))
-    const isAiChat = PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId)
-      || (effectiveCategory === 'code' && CODE_APP_AI_CHAT_ROLES.has(axRole))
-    if (isAiChat) {
+    const isAxReadable = axRole !== 'no-focus' && axRole !== 'script-error'
+
+    // Only code surfaces have an integrated terminal worth scanning; the
+    // primary AI chat apps route on bundleId alone.
+    const terminalAiCli = effectiveCategory === 'code'
+      ? await focusedAppRunningAiCli({ bundleId: focusedApp.bundleId, rootPid: focusedApp.pid })
+      : { isAiCli: false as const }
+    detectedAiCli = terminalAiCli.cli
+
+    const surface = classifyCodeSurface({
+      category: effectiveCategory,
+      transcript,
+      bundleId: focusedApp.bundleId,
+      axRole,
+      isAxReadable,
+      terminalAiCli,
+      isPrimaryAiBundle: PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId),
+      // A browser AI surface resolved by URL. focused-app.ts already did
+      // the work; this just tells the classifier it is on one.
+      browserAiRouted: effectiveCategory === 'ai_prompt'
+        && !PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId),
+      weakCueSettingOn: false,  // not yet exposed as a user setting
+    })
+
+    if (surface.register === 'reformat') {
       effectiveCategory = 'ai_prompt'
-      logInfo('Routed to ai_prompt', { bundleId: focusedApp.bundleId, axRole })
-    } else if (effectiveCategory === 'code' && TERMINAL_BUNDLE_IDS.has(focusedApp.bundleId)) {
-      const cliCheck = await focusedTerminalRunningAiCli(focusedApp.bundleId)
-      if (cliCheck.isAiCli) {
-        effectiveCategory = 'ai_prompt'
-        logInfo('Routed to ai_prompt (terminal AI CLI)', {
-          bundleId: focusedApp.bundleId,
-          cli: cliCheck.cli,
-        })
-      }
+      // App-builders own a project they can read, edit and deploy, so they
+      // get the agentic shaping even though they run in a browser. A chat
+      // assistant gets told it can do none of that.
+      promptDestination = AGENTIC_AI_APP_NAMES.has(focusedApp.name)
+        ? 'agentic'
+        : surface.destination ?? 'chat'
+      logInfo('Routed to ai_prompt (reformat)', {
+        // cli was captured but only ever logged on the faithful branch, so
+        // a prompt bound for Claude Code looked identical to one bound for
+        // Perplexity. Threading it is the prerequisite for shaping the two
+        // differently.
+        bundleId: focusedApp.bundleId, axRole, reason: surface.reason,
+        cli: terminalAiCli.cli, destination: promptDestination,
+      })
+    } else if (surface.register === 'faithful_ai') {
+      runFaithfulAi = true
+      // The URL router had already set ai_prompt purely from the host. The
+      // classifier has now judged this a description, so drop back to
+      // general prose cleanup — otherwise the section template still
+      // applies and the description comes back as a task list.
+      if (effectiveCategory === 'ai_prompt') effectiveCategory = 'other'
+      logInfo('Routed to faithful_ai', {
+        bundleId: focusedApp.bundleId, cli: terminalAiCli.cli, reason: surface.reason,
+      })
     }
   }
 
@@ -923,23 +1023,61 @@ export async function runDictationPipeline(
     : Promise.resolve('')
 
   const effectiveStrictness = strictnessFor(focusedApp, settings)
+  const skipReason = cleanupSkipReason(transcript, effectiveCategory)
+  let cleanupUnavailable = false
   if (settings.pauseCleanup) {
     // User-controlled hard bypass. Skip the LLM entirely. The
     // downstream regex passes (brand names, dictionary, self-
     // correction, spelled-name collapse, question marks) still run.
     logInfo('Cleanup skipped (user-paused)', { chars: transcript.length })
-  } else if (canSkipCleanup(transcript, effectiveCategory, effectiveStrictness)) {
-    // Only fires for code-category dictations with no filler/stutter/
-    // correction markers. Every non-code category runs the LLM
-    // regardless of strictness — strictness controls HOW it cleans.
-    logInfo('Cleanup skipped (fast path)', { chars: transcript.length })
+  } else if (skipReason === 'short-utterance'
+             || (!runFaithfulAi && skipReason === 'code-verbatim')) {
+    // The short-utterance case is deliberately allowed to beat
+    // runFaithfulAi and the ai_prompt category: there is nothing in
+    // "yeah ok" for a reformat to shape, and a ~3.4k-token round-trip to
+    // decide that is the whole latency problem. The "cloud"->"Claude"
+    // mishears that runFaithfulAi exists to fix are already handled
+    // deterministically by QUICK_FIXES, which still runs below.
+    //
+    // code-verbatim still yields to runFaithfulAi, because a longer code
+    // dictation aimed at an AI genuinely benefits from the faithful pass.
+    logInfo('Cleanup skipped (fast path)', {
+      reason: skipReason,
+      words: countWords(transcript),
+      chars: transcript.trim().length,
+    })
+  } else if (!cleanupAvailable) {
+    // Cleanup was wanted here — not skipped by policy — but there is no
+    // credential, so the "cleanup provider" is a no-op that hands the raw
+    // transcript straight back. That used to happen silently: text pasted,
+    // unpolished, unshaped, with nothing to indicate the product's main
+    // pass had been switched off.
+    //
+    // Still paste (losing dictated words would be worse), but say so, and
+    // return a flag so the caller can put it in front of the user rather
+    // than leaving it in a log nobody reads.
+    cleanupUnavailable = true
+    logError('Cleanup unavailable — no key configured, pasting raw', new Error(
+      'Set a cleanup key in Settings → General. Transcription is unaffected; '
+      + 'filler removal, tone matching and prompt shaping are off until then.'
+    ))
   } else {
+    // Compose rather than clean when the dictation ASKS for an email.
+    // Hoisted because it drives two things that must agree: which prompt
+    // is built, and how many tokens the reply is allowed — budgeting a
+    // composed email like a cleaned one truncates it mid-sentence.
+    const composingEmail = effectiveCategory === 'email'
+      && asksForEmailComposition(transcript)
     const editor = IDE_EDITORS[focusedApp.bundleId]
     const strictness = strictnessFor(focusedApp, settings)
     const register = registerFor(focusedApp, effectiveCategory)
     // Feature 4 Phase 1: optional "Who you are" block. Empty when
     // disabled or no overview saved. Hot-path cost ~1ms (cached read).
-    const contextBlock = buildContextBlock({ enabled: settings.useContextMemory })
+    // Now also carries this project's facts — and only this project's.
+    const contextBlock = buildContextBlock({
+      enabled: settings.useContextMemory,
+      projectKey: dictationProjectKey(focusedApp),
+    })
     const systemPrompt = buildCleanupPrompt(
       effectiveCategory,
       focusedApp.name,
@@ -949,6 +1087,8 @@ export async function runDictationPipeline(
       settings.emojiInMessages,
       register,
       contextBlock,
+      promptDestination,
+      composingEmail,
     ).replace('{text}', transcript)
     const cStart = Date.now()
     try {
@@ -957,6 +1097,7 @@ export async function runDictationPipeline(
           appName: focusedApp.name,
           appCategory: effectiveCategory,
           systemPrompt,
+          expandsOutput: composingEmail,
         }))
       // The 8B cleanup model occasionally ignores LENGTH_PRESERVATION
       // and summarizes long dictations down to a sentence. ai_prompt
@@ -1006,7 +1147,19 @@ export async function runDictationPipeline(
   // flow" → "Yappr", "type script" → "TypeScript", etc., for any
   // term the user added to their dictionary. Case-insensitive, word-
   // boundary anchored, multi-part-aware (see buildDictionaryReplacers).
-  cleaned = applyDictionaryReplacements(cleaned, settings.userDictionary ?? [])
+  // Aliases first: they fix mis-HEARD spellings ("Yapper" -> "Yappr"),
+  // which the replacer below cannot do because it only knows a term's own
+  // spelling and its spacing variants.
+  cleaned = applyDictionaryAliases(cleaned)
+  // BUILTIN_DICTIONARY belongs here, not just the user's terms. It used to
+  // reach the model only as whisper's bias PROMPT; Parakeet takes no
+  // prompt, so passing only settings.userDictionary meant the entire
+  // built-in vocabulary — every brand name in it — silently stopped being
+  // applied anywhere once the engine changed.
+  cleaned = applyDictionaryReplacements(cleaned, [
+    ...BUILTIN_DICTIONARY,
+    ...(settings.userDictionary ?? []),
+  ])
 
   // Deterministic self-correction safety net. The LLM should handle
   // "at 6, I mean 7" → "at 7" — but the 8B cleanup model still keeps
@@ -1017,21 +1170,30 @@ export async function runDictationPipeline(
   // — see CORRECTION_REWRITES.
   cleaned = applySelfCorrection(cleaned)
 
-  // Collapse spelled-out letters into joined words ALWAYS — the user
-  // never wants hyphenated letters in their final output:
-  //   "Julia, J-U-L-I-A" → "Julia"  (redundant spelling dropped)
-  //   "text me J-U-L-I-A" → "text me Julia"  (standalone collapse)
-  //   "Julia, J-A-N-E"    → "Jane"  (user re-spelled; spelled version wins)
-  // Runs BEFORE question-mark normalization so collapsed sentences
-  // are correctly punctuated.
-  cleaned = applySpelledNameCollapse(cleaned)
+  // The next two passes are DESTRUCTIVE for code — they rewrite content
+  // that is legitimate in a coding/AI-prompt surface — so we skip them
+  // whenever the surface is code (both the verbatim fast path and the
+  // faithful_ai LLM path keep effectiveCategory === 'code'). A dictated
+  // identifier spelled out letter-by-letter, or a line that merely reads
+  // like a question (`grep foo bar`), must survive untouched; the LLM
+  // already handles punctuation in the faithful path.
+  if (effectiveCategory !== 'code') {
+    // Collapse spelled-out letters into joined words — the user never
+    // wants hyphenated letters in prose:
+    //   "Julia, J-U-L-I-A" → "Julia"  (redundant spelling dropped)
+    //   "text me J-U-L-I-A" → "text me Julia"  (standalone collapse)
+    //   "Julia, J-A-N-E"    → "Jane"  (user re-spelled; spelled version wins)
+    // Runs BEFORE question-mark normalization so collapsed sentences
+    // are correctly punctuated.
+    cleaned = applySpelledNameCollapse(cleaned)
 
-  // Question-mark normalization: sentences shaped like questions
-  // ("do you want to go", "are you free tonight") get "?" appended
-  // or swapped from "." → "?". Statements like "I know what you mean"
-  // are left alone via the STATEMENT_OPENER_RE guard. See
-  // applyQuestionMarks for the full opener list + heuristics.
-  cleaned = applyQuestionMarks(cleaned)
+    // Question-mark normalization: sentences shaped like questions
+    // ("do you want to go", "are you free tonight") get "?" appended
+    // or swapped from "." → "?". Statements like "I know what you mean"
+    // are left alone via the STATEMENT_OPENER_RE guard. See
+    // applyQuestionMarks for the full opener list + heuristics.
+    cleaned = applyQuestionMarks(cleaned)
+  }
 
   // Await the emoji judge (fired in parallel above) and append. The
   // emoji is appended to the CLEANED text, not stuffed in mid-sentence,
@@ -1044,14 +1206,36 @@ export async function runDictationPipeline(
     logInfo('Emoji appended', { emoji })
   }
 
-  const { method: pasteMethod } = await pasteText(cleaned, { rolePromise: axRolePromise })
-  logInfo('Pasted', {
+  // Spec §2: "think really hard" is not a Claude Code keyword and does
+  // nothing; `ultrathink` is. Applied last, to the finished text, so the
+  // cleanup model cannot paraphrase the token away. Gated to Claude Code
+  // and to explicit intent — never inferred from how big the request is.
+  const ultrathink = applyUltrathink(cleaned, {
+    enabled: isUltrathinkSurface(detectedAiCli),
+  })
+  if (ultrathink.applied) {
+    cleaned = ultrathink.text
+    logInfo('Ultrathink mapped', { app: focusedApp.name })
+  }
+
+  // A replay hands the text back instead of pasting it — see the `replay`
+  // parameter. Pasting here would ignore the caller's same-app/elapsed
+  // safety gate and could land the text in a window the user never
+  // intended, which is the whole failure mode recovery exists to avoid.
+  const pasteMethod = replay
+    ? ('deferred' as const)
+    : (await pasteText(cleaned, { rolePromise: axRolePromise })).method
+  logInfo(replay ? 'Replay cleaned (delivery deferred to caller)' : 'Pasted', {
     method: pasteMethod,
     totalMs: Date.now() - start,
     app: focusedApp.name,
   })
 
   onState('done')
+
+  // After the paste, deliberately: this is bookkeeping and must never sit
+  // between the user finishing a dictation and seeing their text.
+  captureStandingPreferences(transcript, focusedApp)
 
   return {
     id: crypto.randomUUID(),
@@ -1060,7 +1244,12 @@ export async function runDictationPipeline(
     appName: focusedApp.name,
     appCategory: effectiveCategory,
     timestamp: Date.now(),
+    // One word, so the user learns the mapping happened (spec §2).
+    ultrathink: ultrathink.applied,
+    // Recorded so background compaction can group by project later.
+    projectKey: dictationProjectKey(focusedApp),
     pasteMethod,
+    cleanupUnavailable,
   }
 }
 
@@ -1101,28 +1290,32 @@ function looksLikeMarkdown(text: string): boolean {
 export async function runCommandPipeline(
   audioBuffer: Buffer,
   selectedText: string,
-  settings: Settings
+  settings: Settings,
+  // Same focus-replay semantics as runDictationPipeline. No paste-related
+  // effect here: this pipeline already returns its text for the caller to
+  // deliver rather than pasting it itself.
+  focusOverride?: FocusedApp,
 ): Promise<string> {
   // Command mode ("rewrite my selection with this voice instruction")
   // fundamentally requires an LLM — there's no regex-able way to
-  // "make this paragraph shorter" or "translate to French". On Local
-  // with no Groq key configured the cleanup provider is a no-op,
-  // which would silently paste the raw spoken command instead of
-  // the rewritten selection. Surface the requirement instead.
-  if (settings.provider.provider === 'local' && settings.provider.groqKey.trim().length === 0) {
-    throw new Error('Command mode (rewrite selection) requires a cloud LLM. Add a Groq key in Settings → AI Provider, or use plain dictation by pressing the hotkey without a text selection.')
+  // "make this paragraph shorter" or "translate to French". Transcription
+  // is on-device, but with no cleanup key the cleanup provider is a no-op
+  // and this would silently paste the raw spoken command instead of the
+  // rewritten selection. Surface the requirement instead.
+  if (settings.provider.groqKey.trim().length === 0) {
+    throw new Error('Rewriting a selection needs the cleanup service. Add a key in Settings → General, or press the hotkey with nothing selected to dictate normally.')
   }
   const { transcription, cleanup } = buildProviders(settings)
   const dictionary = buildDictionary(settings)
   // Same release-time refresh as the dictation pipeline — see comment
   // there. The user may have moved between apps mid-recording.
-  const refreshFocusedApp = captureFocusedApp()
+  const refreshFocusedApp = focusOverride ? null : captureFocusedApp()
 
   const command = await withRetry('Transcription', () =>
     transcription.transcribe(audioBuffer, { dictionary }))
 
-  await refreshFocusedApp
-  const focusedApp = getFocusedApp()
+  if (refreshFocusedApp) await refreshFocusedApp
+  const focusedApp = focusOverride ?? getFocusedApp()
 
   // Markdown-preservation rule. The 8B model flattens structured
   // input into a single paragraph by default. If the selection has
@@ -1144,29 +1337,45 @@ The selected text contains markdown formatting (headings, lists, code blocks, bo
     : `FORMATTING RULE:
 The selected text is plain prose. Output as plain prose. Do not introduce markdown formatting unless the command explicitly asks for it.`
 
-  const systemPrompt = `You are a text editing assistant. The user has selected the following text and dictated an editing command. Apply the command and return ONLY the modified text, nothing else (no preamble, no explanation, no quotes around the output).
-
-${formatRule}
-
-Selected text:
-${selectedText}
-
-Editing command: ${command}
-
-Output the modified text now:`
+  // Inject the user-context block (command framing) so a rewrite can
+  // fulfil commands like "turn this into an email and explain more about
+  // my internship" using facts from the stored overview. Empty when
+  // context memory is off or no overview exists.
+  const contextBlock = buildContextBlock({
+    enabled: settings.useContextMemory,
+    mode: 'command',
+    projectKey: dictationProjectKey(focusedApp),
+  })
+  // "Turn this into an email" needs rules the generic rewrite prompt
+  // has no business carrying (subject line on top, no [Recipient]
+  // placeholders). Detected from the command, NOT from the focused app:
+  // "make this shorter" in Gmail is not a request for a subject line.
+  const emailMode = looksLikeEmailRewrite(command)
+  const systemPrompt = buildRewriteSystemPrompt({ formatRule, contextBlock, emailMode })
+  // The selection goes in the USER message, with the command. Sending
+  // the bare command as the user message (and burying the selection in
+  // the system prompt, below a ~1.9k-char context block) is what made
+  // the model write a brand-new email out of the context and ignore the
+  // text the user had highlighted.
+  const userMessage = buildRewriteUserMessage(selectedText, command)
 
   logInfo('Command pipeline', {
     chars: selectedText.length,
     markdown: isMarkdown,
+    emailMode,
     command: command.slice(0, 60),
   })
 
   const result = await withCleanupRetry(() =>
-    cleanup.cleanup(command, {
+    cleanup.cleanup(userMessage, {
       appName: focusedApp.name,
       appCategory: focusedApp.category,
       systemPrompt,
+      mode: 'rewrite',
+      // Anything unusable comes back as the user's own selection —
+      // never the dictated command, and never the delimited scaffold.
+      fallbackText: selectedText,
     }))
 
-  return result
+  return emailMode ? normalizeEmailRewrite(result) : result
 }

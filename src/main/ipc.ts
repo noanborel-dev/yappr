@@ -1,7 +1,7 @@
 import { app, ipcMain, systemPreferences, shell } from 'electron'
 import { IPC } from '../shared/types'
 import type { DictationResult, LocalModelId } from '../shared/types'
-import { localModelDownloaded, localModelPath } from './local-models'
+import { localModelDownloaded, localModelPath, LOCAL_MODELS, listOrphanedModels, removeOrphanedModels } from './local-models'
 import { prewarmWhisper } from './whisper-host'
 import { prewarmModelId } from './providers/local'
 import { getSettings, setSettings } from './store'
@@ -21,6 +21,9 @@ import {
 } from './history-store'
 import { getUserOverview, setUserOverview } from './context/store'
 import { forceCompaction, getCompactionStatus } from './context/compactor'
+import { listBuckets, deleteFact, deleteBucket, addFact } from './context/facts'
+import type { OnboardingImport } from '../shared/onboarding-import'
+import { logInfo } from './log'
 
 // Hot in-memory cache for paste-last + indicator lookups. Always
 // reflects the most recent N entries (N = HISTORY_LIMIT). On startup
@@ -55,23 +58,43 @@ export function clearHistory(): void {
   clearPersistedHistory()
 }
 
-export function registerIpcHandlers(): void {
+/**
+ * Side effects the handlers need but that belong to the window layer.
+ * Passed in rather than imported so ipc.ts stays free of window state.
+ */
+export interface IpcHooks {
+  onNotchGeometryChanged?: () => void
+}
+
+export function registerIpcHandlers(hooks: IpcHooks = {}): void {
   ipcMain.handle(IPC.SETTINGS_GET, () => getSettings())
 
   ipcMain.handle(IPC.SETTINGS_SET, (_e, partial) => {
+    const before = getSettings().notchWidthOverride
     setSettings(partial)
-    // If the user just switched to Local or changed model tier, kick
-    // off a worker spawn + model load now so the next dictation hits
-    // the warm path instead of paying the cold-start tax. Fire-and-
-    // forget; failures fall back to the transcribe-time error.
-    const next = getSettings()
-    if (next.provider.provider === 'local') {
-      const id = prewarmModelId()
-      if (localModelDownloaded(id)) {
-        prewarmWhisper(localModelPath(id))
-      }
+    // The indicator reads geometry on mount and on display change, so a
+    // calibration change would otherwise sit dormant until relaunch.
+    if (getSettings().notchWidthOverride !== before) {
+      hooks.onNotchGeometryChanged?.()
+    }
+    // Keep the worker warm. There is no tier to switch any more, but a
+    // settings write is still a cheap moment to make sure the model is
+    // loaded before the next dictation asks for it.
+    const id = prewarmModelId()
+    if (localModelDownloaded(id)) {
+      prewarmWhisper(localModelPath(id))
     }
   })
+
+  ipcMain.handle(IPC.APP_INFO, () => ({
+    version: app.getVersion(),
+    arch: process.arch,
+    electron: process.versions.electron,
+    // packaged tells About whether "check for updates" is even meaningful
+    // — in dev it always points at a download page for a build you're not
+    // running.
+    packaged: app.isPackaged,
+  }))
 
   ipcMain.handle(IPC.PROVIDER_TEST, async (_e, { provider, key }) => {
     try {
@@ -93,6 +116,41 @@ export function registerIpcHandlers(): void {
   })
   ipcMain.handle(IPC.CONTEXT_REFRESH_NOW, () => forceCompaction())
   ipcMain.handle(IPC.CONTEXT_STATUS_GET, () => getCompactionStatus())
+
+  // Spec §1.4. Read + delete only — deliberately no edit or merge
+  // handler, so there is no path by which the UI can rewrite what the
+  // user actually said.
+  ipcMain.handle(IPC.CONTEXT_FACTS_LIST, () => listBuckets())
+  ipcMain.handle(IPC.CONTEXT_FACT_DELETE, (_e, id: number) =>
+    typeof id === 'number' ? deleteFact(id) : false)
+  ipcMain.handle(IPC.CONTEXT_BUCKET_DELETE, (_e, key: string) =>
+    typeof key === 'string' ? deleteBucket(key) : 0)
+
+  // Spec §1.3. The renderer parses the paste (the parser is shared and
+  // tested); this just files the result. addFact already rejects
+  // unstorable text and duplicates, so re-importing is idempotent rather
+  // than accumulating a second copy of everything.
+  ipcMain.handle(IPC.CONTEXT_IMPORT, (_e, payload: OnboardingImport) => {
+    if (!payload || typeof payload !== 'object') return { stored: 0 }
+    let stored = 0
+    if (typeof payload.overview === 'string' && payload.overview.trim()) {
+      setUserOverview(payload.overview)
+    }
+    for (const text of payload.global ?? []) {
+      if (addFact({ scope: 'global', text })) stored++
+    }
+    for (const [projectKey, facts] of Object.entries(payload.projects ?? {})) {
+      for (const text of facts) {
+        if (addFact({ scope: 'project', projectKey, text })) stored++
+      }
+    }
+    // Unsorted is a real bucket, not a discard pile: the user can see it
+    // in the cards and delete what does not belong.
+    for (const text of payload.unsorted ?? []) {
+      if (addFact({ scope: 'project', projectKey: 'unsorted', text })) stored++
+    }
+    return { stored }
+  })
 
   ipcMain.handle(IPC.MIC_PERMISSION, async () => {
     if (process.platform === 'darwin') {
@@ -136,20 +194,23 @@ export function registerIpcHandlers(): void {
     app.setLoginItemSettings({ openAtLogin: enabled, openAsHidden: true })
   })
 
-  // Local model management. Status returns the three-prong readiness
-  // for the currently-selected model + last-known progress for every
-  // model that's ever started downloading, so the Settings UI can
-  // render all three cards with their actual state on mount.
+  // Local model management. Status returns readiness for the
+  // currently-selected model + last-known progress for every model
+  // that's ever started downloading, so the Settings UI can render
+  // every tier card with its actual state on mount.
   ipcMain.handle(IPC.LOCAL_MODEL_STATUS, () => ({
     readiness: localWhisperReadiness(),
     // getLocalModelProgress() with no arg returns the array of all
     // known per-model progress entries.
     progress: getLocalModelProgress(),
-    downloaded: {
-      'base': localModelDownloaded('base'),
-      'small': localModelDownloaded('small'),
-      'large-v3-turbo': localModelDownloaded('large-v3-turbo'),
-    },
+    // Derived from the registry, NOT hand-listed. The hand-written
+    // version silently omitted any newly added tier, so its card sat at
+    // "Download" forever no matter how many times the file downloaded
+    // successfully — the file was on disk, the UI just had no key for it.
+    downloaded: Object.fromEntries(
+      (Object.keys(LOCAL_MODELS) as LocalModelId[])
+        .map(id => [id, localModelDownloaded(id)]),
+    ) as Record<LocalModelId, boolean>,
   }))
 
   ipcMain.handle(IPC.LOCAL_MODEL_DOWNLOAD, async (_e, modelId: LocalModelId) => {
@@ -164,6 +225,20 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.LOCAL_MODEL_CANCEL, () => {
     cancelDownload()
+  })
+
+  // Weights left behind by retired model tiers. Reported rather than
+  // swept automatically: they are large, re-downloadable, and deleting
+  // hundreds of megabytes without being asked is not ours to decide.
+  ipcMain.handle(IPC.ORPHANED_MODELS_GET, () => {
+    const files = listOrphanedModels()
+    return { count: files.length, bytes: files.reduce((n, f) => n + f.bytes, 0) }
+  })
+
+  ipcMain.handle(IPC.ORPHANED_MODELS_REMOVE, () => {
+    const result = removeOrphanedModels()
+    logInfo('Removed orphaned model weights', result)
+    return result
   })
 
   ipcMain.handle(IPC.LOCAL_MODEL_UNINSTALL, async (_e, modelId: LocalModelId) => {

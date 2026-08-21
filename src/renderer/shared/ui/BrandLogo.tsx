@@ -7,16 +7,17 @@ import gmail from '../logos/gmail.webp'
 import notion from '../logos/notion.png'
 import slack from '../logos/slack.png'
 import claude from '../logos/claude.png'
+import claudecode from '../logos/claudecode.png'
 import chatgpt from '../logos/chatgpt.png'
 import cursor from '../logos/cursor.png'
 import groq from '../logos/groq.png'
 
 export type BrandSlug =
   | 'imessage' | 'gmail' | 'notion' | 'slack'
-  | 'claude' | 'chatgpt' | 'cursor' | 'groq'
+  | 'claude' | 'claudecode' | 'chatgpt' | 'cursor' | 'groq' | 'terminal'
 
-const SOURCES: Record<BrandSlug, string> = {
-  imessage, gmail, notion, slack, claude, chatgpt, cursor, groq,
+const SOURCES: Record<Exclude<BrandSlug, 'terminal'>, string> = {
+  imessage, gmail, notion, slack, claude, claudecode, chatgpt, cursor, groq,
 }
 
 const TITLES: Record<BrandSlug, string> = {
@@ -25,9 +26,11 @@ const TITLES: Record<BrandSlug, string> = {
   notion: 'Notion',
   slack: 'Slack',
   claude: 'Claude',
+  claudecode: 'Claude Code',
   chatgpt: 'ChatGPT',
   cursor: 'Cursor',
   groq: 'Groq',
+  terminal: 'Terminal',
 }
 
 interface Props {
@@ -37,6 +40,20 @@ interface Props {
 }
 
 export function BrandLogo({ brand, size = 22, className = '' }: Props) {
+  // Terminal has no vendor mark to ship — `›_` IS the macOS Terminal
+  // idiom, and drawing it beats approximating an icon we don't have.
+  if (brand === 'terminal') {
+    return (
+      <span
+        role="img"
+        aria-label="Terminal"
+        className={`inline-flex items-center justify-center font-mono text-ink-60 ${className}`}
+        style={{ width: size, height: size, fontSize: size * 0.62, letterSpacing: '-0.05em' }}
+      >
+        ›_
+      </span>
+    )
+  }
   return (
     <img
       src={SOURCES[brand]}
