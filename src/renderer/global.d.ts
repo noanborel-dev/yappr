@@ -1,4 +1,5 @@
-import type { Settings, LocalModelId, DictationResult } from '../shared/types'
+import type { Settings, LocalModelId, DictationResult, FactBucket } from '../shared/types'
+import type { OnboardingImport } from '../shared/onboarding-import'
 
 export interface LocalModelReadiness {
   ready: boolean
@@ -48,6 +49,13 @@ declare global {
       getContextOverview: () => Promise<string>
       setContextOverview: (text: string) => Promise<void>
       refreshContextNow: () => Promise<{ ok: boolean; error?: string }>
+      // Spec §1.4 — read + delete only. There is deliberately no edit or
+      // merge call: the cards show what the user actually said, and the
+      // only correction offered is removal.
+      listContextFacts: () => Promise<FactBucket[]>
+      deleteContextFact: (id: number) => Promise<boolean>
+      deleteContextBucket: (key: string) => Promise<number>
+      importContext: (payload: OnboardingImport) => Promise<{ stored: number }>
       getContextStatus: () => Promise<{
         count: number
         threshold: number

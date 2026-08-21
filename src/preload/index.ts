@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/types'
-import type { Settings } from '../shared/types'
+import type { Settings, FactBucket } from '../shared/types'
+import type { OnboardingImport } from '../shared/onboarding-import'
 
 contextBridge.exposeInMainWorld('yappr', {
   getSettings: (): Promise<Settings> =>
@@ -21,6 +22,14 @@ contextBridge.exposeInMainWorld('yappr', {
     ipcRenderer.invoke(IPC.CONTEXT_OVERVIEW_SET, text),
   refreshContextNow: (): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke(IPC.CONTEXT_REFRESH_NOW),
+  listContextFacts: (): Promise<FactBucket[]> =>
+    ipcRenderer.invoke(IPC.CONTEXT_FACTS_LIST),
+  deleteContextFact: (id: number): Promise<boolean> =>
+    ipcRenderer.invoke(IPC.CONTEXT_FACT_DELETE, id),
+  deleteContextBucket: (key: string): Promise<number> =>
+    ipcRenderer.invoke(IPC.CONTEXT_BUCKET_DELETE, key),
+  importContext: (payload: OnboardingImport): Promise<{ stored: number }> =>
+    ipcRenderer.invoke(IPC.CONTEXT_IMPORT, payload),
   getContextStatus: (): Promise<{
     count: number
     threshold: number

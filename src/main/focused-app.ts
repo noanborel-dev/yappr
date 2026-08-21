@@ -8,6 +8,8 @@ import {
 } from '../shared/constants'
 import { readActiveTab } from './browser-tab'
 import { logInfo } from './log'
+import { TERMINAL_BUNDLE_IDS, EDITOR_TERMINAL_HOST_BUNDLES } from './terminal-ai-cli'
+import type { ProjectSurface } from './context/project-key'
 import type { AppCategory } from '../shared/types'
 
 const exec = promisify(execFile)
@@ -20,12 +22,34 @@ export interface FocusedApp {
   // that looks for an AI CLI running in an editor's integrated terminal
   // (see terminal-ai-cli.ts). 0 when unknown.
   pid: number
+  // The frontmost window title, kept so project-scoped context can derive
+  // a project key from it (context/project-key.ts). It was already being
+  // fetched for surface resolution and then discarded.
+  //
+  // This is USER CONTENT — a document name, a chat subject, a browser tab.
+  // It must never be logged.
+  windowTitle: string
+  // Which project-key strategy applies. Resolved here because this module
+  // already owns the bundle-id tables; keeping the mapping here is what
+  // lets project-key.ts stay pure and testable.
+  surface: ProjectSurface
+  // Active tab title for browsers, needed to name a Lovable/v0/Bolt
+  // project. Also user content — never logged.
+  tabTitle: string | null
 }
 
 // Module-level cache populated by captureFocusedApp(). The full
 // pipeline reads this synchronously, avoiding the ~500ms osascript
 // round-trip on the hot path.
-let cached: FocusedApp = { bundleId: 'unknown', name: 'Unknown', category: 'other', pid: 0 }
+let cached: FocusedApp = {
+  bundleId: 'unknown',
+  name: 'Unknown',
+  category: 'other',
+  pid: 0,
+  windowTitle: '',
+  surface: 'other',
+  tabTitle: null,
+}
 
 // Fetch bundle ID, app name, the front window title, AND the process's
 // unix PID. The title is what lets us tell Gmail-in-Chrome from
@@ -89,6 +113,16 @@ export function resolveSurface(
   return { name: appName, category: APP_CATEGORY_MAP[bundleId] ?? 'other' }
 }
 
+// Which project-key strategy a bundle id implies. Editors are checked
+// before terminals because a couple of bundles (Replit desktop) appear in
+// both sets, and the editor title format is the more specific one.
+export function resolveProjectSurface(bundleId: string): ProjectSurface {
+  if (EDITOR_TERMINAL_HOST_BUNDLES.has(bundleId)) return 'editor'
+  if (TERMINAL_BUNDLE_IDS.has(bundleId)) return 'terminal'
+  if (BROWSER_BUNDLE_IDS.has(bundleId)) return 'browser'
+  return 'other'
+}
+
 // Async-fetch the frontmost app and stash it in the module cache. Call
 // this when the user presses the hotkey; by the time recording ends and
 // the pipeline runs, the cache is warm. Falls back to whatever was
@@ -145,6 +179,9 @@ export async function captureFocusedApp(): Promise<void> {
       name: resolved.name,
       category: resolved.category,
       pid,
+      windowTitle,
+      surface: resolveProjectSurface(bundleId),
+      tabTitle: tab?.title ?? null,
     }
   } catch {
     // Keep stale cache rather than reset to 'unknown'.

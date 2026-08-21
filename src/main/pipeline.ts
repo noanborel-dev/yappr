@@ -7,6 +7,10 @@ import {
   asksForEmailComposition,
 } from '../shared/rewrite-prompt'
 import { buildContextBlock } from './context/prompt-injector'
+import { extractProjectKey } from './context/project-key'
+import { extractStandingPreferences } from './context/fact-scope'
+import { addFact } from './context/facts'
+import { applyUltrathink, isUltrathinkSurface } from './ultrathink'
 import { MODELS, BUILTIN_DICTIONARY, DICTIONARY_ALIASES, IDE_EDITORS, AGENTIC_AI_APP_NAMES } from '../shared/constants'
 import type { AppCategory, DictationResult, Settings, Strictness } from '../shared/types'
 import type { FocusedApp } from './focused-app'
@@ -295,6 +299,43 @@ function strictnessBucket(focused: FocusedApp): 'personal' | 'work' | 'writing' 
       if (['imessage', 'whatsapp', 'telegram', 'messenger'].includes(n)) return 'personal'
       return 'personal'
     }
+  }
+}
+
+// Which project this dictation belongs to, or null when it cannot be
+// derived confidently. Null is a normal outcome, not a failure: only
+// global facts load, and anything learned lands in the unsorted bucket.
+// See context/project-key.ts on why guessing is worse than not knowing.
+function dictationProjectKey(focused: FocusedApp): string | null {
+  return extractProjectKey({
+    surface: focused.surface,
+    windowTitle: focused.windowTitle,
+    appName: focused.name,
+    tabTitle: focused.tabTitle,
+  })
+}
+
+// Spec §3: remember durable rules the user states in passing ("we always
+// use zod for validation") so they do not have to repeat them.
+//
+// Storage is Yappr-internal by design — the spec is explicit that this
+// must never write to CLAUDE.md, .cursor/rules/, or any file in the
+// user's repo. Nothing here touches the filesystem.
+//
+// Reads the RAW transcript rather than the cleaned output: cleanup can
+// rephrase a rule, and a preference is worth storing in the user's own
+// words. Failures are swallowed — never break a dictation over context
+// bookkeeping.
+function captureStandingPreferences(transcript: string, focused: FocusedApp): void {
+  try {
+    const found = extractStandingPreferences(transcript)
+    if (found.length === 0) return
+    const projectKey = dictationProjectKey(focused)
+    for (const pref of found) {
+      addFact({ scope: pref.scope, projectKey, text: pref.text })
+    }
+  } catch (err) {
+    logError('Standing-preference capture failed', err)
   }
 }
 
@@ -867,6 +908,10 @@ export async function runDictationPipeline(
   //   code        → unchanged; the verbatim fast path stays eligible
   let runFaithfulAi = false
   let promptDestination: PromptDestination = 'chat'
+  // Which AI CLI is running in the focused terminal, if any. Hoisted out
+  // of the routing block because the ultrathink mapping (spec §2) needs
+  // it after cleanup, and it is gated on Claude Code specifically.
+  let detectedAiCli: string | undefined
   // The classifier is normally only consulted on code surfaces and the
   // dedicated AI apps. An explicit "make me a prompt" has to widen that:
   // the request stands on its own, and the user asking for it from a
@@ -890,6 +935,7 @@ export async function runDictationPipeline(
     const terminalAiCli = effectiveCategory === 'code'
       ? await focusedAppRunningAiCli({ bundleId: focusedApp.bundleId, rootPid: focusedApp.pid })
       : { isAiCli: false as const }
+    detectedAiCli = terminalAiCli.cli
 
     const surface = classifyCodeSurface({
       category: effectiveCategory,
@@ -1027,7 +1073,11 @@ export async function runDictationPipeline(
     const register = registerFor(focusedApp, effectiveCategory)
     // Feature 4 Phase 1: optional "Who you are" block. Empty when
     // disabled or no overview saved. Hot-path cost ~1ms (cached read).
-    const contextBlock = buildContextBlock({ enabled: settings.useContextMemory })
+    // Now also carries this project's facts — and only this project's.
+    const contextBlock = buildContextBlock({
+      enabled: settings.useContextMemory,
+      projectKey: dictationProjectKey(focusedApp),
+    })
     const systemPrompt = buildCleanupPrompt(
       effectiveCategory,
       focusedApp.name,
@@ -1156,6 +1206,18 @@ export async function runDictationPipeline(
     logInfo('Emoji appended', { emoji })
   }
 
+  // Spec §2: "think really hard" is not a Claude Code keyword and does
+  // nothing; `ultrathink` is. Applied last, to the finished text, so the
+  // cleanup model cannot paraphrase the token away. Gated to Claude Code
+  // and to explicit intent — never inferred from how big the request is.
+  const ultrathink = applyUltrathink(cleaned, {
+    enabled: isUltrathinkSurface(detectedAiCli),
+  })
+  if (ultrathink.applied) {
+    cleaned = ultrathink.text
+    logInfo('Ultrathink mapped', { app: focusedApp.name })
+  }
+
   // A replay hands the text back instead of pasting it — see the `replay`
   // parameter. Pasting here would ignore the caller's same-app/elapsed
   // safety gate and could land the text in a window the user never
@@ -1171,6 +1233,10 @@ export async function runDictationPipeline(
 
   onState('done')
 
+  // After the paste, deliberately: this is bookkeeping and must never sit
+  // between the user finishing a dictation and seeing their text.
+  captureStandingPreferences(transcript, focusedApp)
+
   return {
     id: crypto.randomUUID(),
     transcript,
@@ -1178,6 +1244,8 @@ export async function runDictationPipeline(
     appName: focusedApp.name,
     appCategory: effectiveCategory,
     timestamp: Date.now(),
+    // One word, so the user learns the mapping happened (spec §2).
+    ultrathink: ultrathink.applied,
     pasteMethod,
     cleanupUnavailable,
   }
@@ -1271,7 +1339,11 @@ The selected text is plain prose. Output as plain prose. Do not introduce markdo
   // fulfil commands like "turn this into an email and explain more about
   // my internship" using facts from the stored overview. Empty when
   // context memory is off or no overview exists.
-  const contextBlock = buildContextBlock({ enabled: settings.useContextMemory, mode: 'command' })
+  const contextBlock = buildContextBlock({
+    enabled: settings.useContextMemory,
+    mode: 'command',
+    projectKey: dictationProjectKey(focusedApp),
+  })
   // "Turn this into an email" needs rules the generic rewrite prompt
   // has no business carrying (subject line on top, no [Recipient]
   // placeholders). Detected from the command, NOT from the focused app:

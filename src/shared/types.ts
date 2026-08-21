@@ -125,6 +125,30 @@ export interface Settings {
   notchWidthOverride: number | null
 }
 
+// Two-tier context (spec §1.2). Shared because the project-cards UI in
+// the renderer reads the same shapes the main process stores.
+//
+//   global  — about the USER, loaded for every dictation
+//   project — about one codebase, loaded only for its own project
+export type FactScope = 'global' | 'project'
+
+export interface StoredFact {
+  id: number
+  scope: FactScope
+  /** Empty string for global facts. */
+  projectKey: string
+  /** The rule, in the user's own words. */
+  text: string
+  createdAt: number
+}
+
+export interface FactBucket {
+  /** 'global', a project key, or 'unsorted'. */
+  key: string
+  scope: FactScope
+  facts: StoredFact[]
+}
+
 export interface DictationResult {
   id: string
   transcript: string
@@ -132,6 +156,11 @@ export interface DictationResult {
   appName: string
   appCategory: AppCategory
   timestamp: number
+  // True when "think really hard" was mapped onto Claude Code's
+  // `ultrathink` keyword (spec §2). Surfaced in the UI in one word so the
+  // user learns the mapping exists rather than wondering why their
+  // wording changed.
+  ultrathink?: boolean
 }
 
 // IPC channel names — kept in shared so renderer and main stay in sync
@@ -154,6 +183,15 @@ export const IPC = {
   // Phase 3: force-compaction trigger + status read for the UI.
   CONTEXT_REFRESH_NOW: 'context:refresh-now',
   CONTEXT_STATUS_GET: 'context:status:get',
+  // Spec §1.4 — the project-cards trust surface. The user has to be able
+  // to see everything Yappr stored and remove anything wrong, so this is
+  // read + delete only: no editing, no merging, no manual creation.
+  CONTEXT_FACTS_LIST: 'context:facts:list',
+  CONTEXT_FACT_DELETE: 'context:fact:delete',
+  CONTEXT_BUCKET_DELETE: 'context:bucket:delete',
+  // Spec §1.3 — the onboarding paste, split into buckets rather than
+  // stored as one blob that loads for every project.
+  CONTEXT_IMPORT: 'context:import',
   // Version / build / arch, read from the running app rather than
   // hardcoded in the About tab — which shipped "Build 218 · arm64" as
   // string literals that were wrong the moment either changed.
