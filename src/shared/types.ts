@@ -123,6 +123,23 @@ export interface Settings {
   // Null uses the estimate; set a value if the indicator's centre band
   // doesn't line up with the physical notch on your Mac.
   notchWidthOverride: number | null
+  // What the indicator does on a display with NO notch — a MacBook Air,
+  // an external monitor, any Windows machine.
+  //
+  // There is no housing to hide inside, so the notch shape would just be
+  // a black slab stuck to the top of the screen. Two honest options:
+  //   'hidden'      — nothing is drawn at all.
+  //   'placeholder' — a compact bar hangs from the top edge instead.
+  //
+  // Defaults to 'hidden' per spec. Note the trade-off: the indicator is
+  // the only signal that recording is live, so hiding it means the user
+  // dictates blind. Onboarding therefore ASKS rather than leaving people
+  // to discover the setting.
+  noNotchIndicator: 'hidden' | 'placeholder'
+  // Width in points of that placeholder bar. Unlike notchWidthOverride
+  // this calibrates nothing — there is no cutout to line up with — so it
+  // is pure preference. Null uses NO_NOTCH_PLACEHOLDER_DEFAULT_PT.
+  placeholderWidth: number | null
 }
 
 // Two-tier context (spec §1.2). Shared because the project-cards UI in

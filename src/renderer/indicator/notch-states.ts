@@ -319,6 +319,29 @@ export const NO_NOTCH_BAND_WIDTH = 10
 export const NO_NOTCH_MIN_HEIGHT = 30
 
 /**
+ * Default width of the placeholder band when the user has not set one.
+ *
+ * Wider than NO_NOTCH_BAND_WIDTH because the two serve different jobs.
+ * That 10pt value is a separator: it assumes the wings carry the shape
+ * and the middle just keeps them apart. A placeholder is the opposite —
+ * the user has explicitly asked for something to look at, so at idle,
+ * when the wings are empty, there has to be a shape there to see.
+ */
+export const NO_NOTCH_PLACEHOLDER_DEFAULT_PT = 120
+
+/** Bounds for the placeholder slider. */
+export const PLACEHOLDER_MIN_PT = 60
+export const PLACEHOLDER_MAX_PT = 260
+
+/** Clamp a user-supplied placeholder width into the supported range. */
+export function clampPlaceholderWidth(width: number | null | undefined): number {
+  if (typeof width !== 'number' || !Number.isFinite(width) || width <= 0) {
+    return NO_NOTCH_PLACEHOLDER_DEFAULT_PT
+  }
+  return Math.round(Math.min(PLACEHOLDER_MAX_PT, Math.max(PLACEHOLDER_MIN_PT, width)))
+}
+
+/**
  * The centre band the wings attach to, for a given display.
  *
  * Notched: the estimated cutout plus safety margin on each side, so the
@@ -329,13 +352,22 @@ export const NO_NOTCH_MIN_HEIGHT = 30
  * between the wings with nothing hiding it, so it collapses to a
  * separator and the shape becomes a compact bar hanging from the menu bar.
  */
-export function bandGeometry(g: { hasNotch: boolean; width: number; height: number }): {
+export function bandGeometry(
+  g: { hasNotch: boolean; width: number; height: number },
+  // Placeholder settings. Omitted entirely on a notched display, where
+  // they are meaningless. When the user has opted into a placeholder the
+  // band becomes their chosen width instead of the 10pt separator.
+  placeholder?: { enabled: boolean; width: number | null } | null,
+): {
   width: number
   height: number
 } {
-  return g.hasNotch
-    ? { width: g.width + 2 * NOTCH_SAFETY, height: g.height }
-    : { width: NO_NOTCH_BAND_WIDTH, height: Math.max(g.height, NO_NOTCH_MIN_HEIGHT) }
+  if (g.hasNotch) return { width: g.width + 2 * NOTCH_SAFETY, height: g.height }
+  const height = Math.max(g.height, NO_NOTCH_MIN_HEIGHT)
+  const width = placeholder?.enabled
+    ? clampPlaceholderWidth(placeholder.width)
+    : NO_NOTCH_BAND_WIDTH
+  return { width, height }
 }
 
 export function paintsTranscript(s: NotchState): boolean {

@@ -5,6 +5,11 @@ import { Pill } from '../../shared/ui/Pill'
 import { Panel, SettingRow, StackRow } from '../../shared/ui/Panel'
 import { SectionHead, GroupLabel } from '../../shared/ui/SectionHead'
 import { MenuBar, NotchMark } from '../../shared/ui/NotchMark'
+import {
+  clampPlaceholderWidth,
+  PLACEHOLDER_MIN_PT,
+  PLACEHOLDER_MAX_PT,
+} from '../../indicator/notch-states'
 
 export default function GeneralTab() {
   const [launchAtLogin, setLaunchAtLogin] = useState<boolean | null>(null)
@@ -274,6 +279,8 @@ function CleanupKey() {
 function NotchCalibration() {
   const [geometry, setGeometry] = useState<NotchGeometry | null>(null)
   const [override, setOverride] = useState<number | null>(null)
+  const [noNotchMode, setNoNotchMode] = useState<'hidden' | 'placeholder'>('hidden')
+  const [placeholderWidth, setPlaceholderWidth] = useState<number | null>(null)
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
@@ -281,10 +288,24 @@ function NotchCalibration() {
       ([g, s]) => {
         setGeometry(g)
         setOverride(s.notchWidthOverride)
+        setNoNotchMode(s.noNotchIndicator)
+        setPlaceholderWidth(s.placeholderWidth)
         setLoaded(true)
       },
     )
   }, [])
+
+  function commitMode(next: 'hidden' | 'placeholder') {
+    setNoNotchMode(next)
+    window.yappr.setSettings({ noNotchIndicator: next })
+    window.yappr.getNotchGeometry().then(setGeometry)
+  }
+
+  function commitPlaceholderWidth(next: number | null) {
+    setPlaceholderWidth(next)
+    window.yappr.setSettings({ placeholderWidth: next })
+    window.yappr.getNotchGeometry().then(setGeometry)
+  }
 
   // Writing on every drag frame is fine: setSettings is an in-process
   // invoke and the indicator repaints from the broadcast, which is what
@@ -303,15 +324,73 @@ function NotchCalibration() {
     )
   }
 
+  // No cutout: an Air, an external monitor, or any Windows machine.
+  // There is nothing to calibrate here — no hardware to line the shape up
+  // with — so this is preference, not calibration, and the controls say so.
   if (geometry && !geometry.hasNotch) {
+    const showing = noNotchMode === 'placeholder'
+    const width = clampPlaceholderWidth(placeholderWidth)
     return (
       <Panel>
-        <SettingRow
+        <StackRow
           title="No notch on this display"
-          desc="Yappr shows the indicator hanging from the top edge of the screen instead. Nothing to calibrate."
-          muted
-          last
-        />
+          desc="There's no housing for the indicator to hide in, so Yappr keeps out of the way by default. Turn on the placeholder if you'd rather see something while you dictate."
+          aside={
+            <Toggle
+              on={showing}
+              onChange={(next) => commitMode(next ? 'placeholder' : 'hidden')}
+              label="Show a placeholder"
+            />
+          }
+          last={!showing}
+        >
+          {!showing && (
+            <p className="text-[11px] text-ink-45 leading-snug max-w-[62ch]">
+              Nothing is drawn at the top of the screen. Dictation still works exactly
+              the same — you just won't see the indicator while it's recording.
+            </p>
+          )}
+        </StackRow>
+
+        {showing && (
+          <StackRow
+            title="Placeholder width"
+            desc="Cosmetic only — there's no cutout to match, so pick whatever size you like sitting at the top of the screen."
+            last
+          >
+            <div className="rounded-[12px] overflow-hidden border border-line mb-4">
+              <div className="bg-[linear-gradient(135deg,#6E83A8_0%,#5A7196_55%,#4F6585_100%)] pt-0 pb-8">
+                <MenuBar>
+                  <NotchMark state="recording" notchWidth={Math.round(width * 0.42)} />
+                </MenuBar>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min={PLACEHOLDER_MIN_PT}
+                max={PLACEHOLDER_MAX_PT}
+                step={1}
+                value={width}
+                onChange={(e) => commitPlaceholderWidth(Number(e.target.value))}
+                aria-label="Placeholder width in points"
+                className="flex-1 accent-ink h-1 cursor-pointer"
+              />
+              <span className="text-[12px] font-mono text-ink w-[62px] text-right tabular-nums">
+                {width} pt
+              </span>
+              <Pill
+                variant="secondary"
+                size="sm"
+                onClick={() => commitPlaceholderWidth(null)}
+                disabled={placeholderWidth === null}
+              >
+                Reset
+              </Pill>
+            </div>
+          </StackRow>
+        )}
       </Panel>
     )
   }

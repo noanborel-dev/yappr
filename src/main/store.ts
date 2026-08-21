@@ -35,6 +35,8 @@ const defaults: Settings = {
   useContextMemory: false,
   autoContextUpdate: true,
   notchWidthOverride: null,
+  noNotchIndicator: 'hidden',
+  placeholderWidth: null,
 }
 
 export const store = new ElectronStore<Settings>({ defaults, name: 'yappr-settings' })
