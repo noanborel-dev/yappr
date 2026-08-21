@@ -178,6 +178,13 @@ export interface DictationResult {
   // user learns the mapping exists rather than wondering why their
   // wording changed.
   ultrathink?: boolean
+  // Which project this dictation belonged to, or null when it could not
+  // be derived (see context/project-key.ts — it never guesses).
+  //
+  // Persisted with history so background compaction can group past
+  // dictations by project and mine each group for project facts. Without
+  // it, compaction sees 50 dictations with no idea which belong together.
+  projectKey?: string | null
 }
 
 // IPC channel names — kept in shared so renderer and main stay in sync

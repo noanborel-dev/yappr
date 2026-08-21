@@ -269,7 +269,10 @@ export const IDE_EDITORS: Record<string, IdeEditor> = {
   'com.microsoft.VSCode': 'vscode',
 }
 
-export const MODELS: Record<Provider, { transcription: string; cleanup: string; reformat?: string }> = {
+export const MODELS: Record<
+  Provider,
+  { transcription: string; cleanup: string; reformat?: string; background?: string }
+> = {
   groq: {
     // whisper-large-v3-turbo (NOT v3). Same accuracy on clean
     // dictation audio (2.2% vs 2.4% WER per Groq's public eval),
@@ -309,6 +312,24 @@ export const MODELS: Record<Provider, { transcription: string; cleanup: string; 
     //   gpt-oss-20b   ~630ms   $0.075/$0.30 per 1M   TPM cap, resets in 60s
     //   compound-mini ~3240ms  $0.59 /$0.79 per 1M   TPD cap, resets in hours
     reformat: 'openai/gpt-oss-20b',
+    // BACKGROUND context compaction — rewriting the user-overview
+    // paragraph from the last 50 dictations. Deliberately the 120B, not
+    // the 20B the hot path uses, for two reasons:
+    //
+    //   1. Nothing is waiting on it. Compaction runs once per 50
+    //      dictations, only while the machine is idle, capped at 600
+    //      output tokens. Summarising 50 dictations into one paragraph
+    //      rewards the bigger model and costs nothing the user feels.
+    //
+    //   2. Groq meters rate limits PER MODEL. On an 8,000 TPM tier a
+    //      single cleanup call is already ~4,400 tokens, so a background
+    //      job on the same model competes with dictation for the budget
+    //      the user IS waiting on. Putting it on a different model gives
+    //      it its own bucket instead of stealing from the hot path.
+    //
+    // Measured at 553ms against 20b's 566ms, so "heavier" costs no wall
+    // clock here either.
+    background: 'openai/gpt-oss-120b',
   },
   local: {
     // whisper.cpp model filename (without path). The model lives in

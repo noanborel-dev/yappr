@@ -33,8 +33,39 @@ import { loadPersistedHistory } from '../history-store'
 import { getSettings } from '../store'
 import { compactionGate, shouldKeepRetrying, type GateInput } from './compaction-gate'
 import { logInfo, logError } from '../log'
+import { MODELS } from '../../shared/constants'
+import { addFact } from './facts'
+import {
+  groupByProject,
+  eligibleProjects,
+  buildProjectFactsPrompt,
+  parseProjectFacts,
+  PROJECT_FACTS_SYSTEM,
+} from './project-facts'
 
 const THRESHOLD = 50
+
+// Which model rewrites the overview.
+//
+// NOT the user's cleanup model, and never a hardcoded id. This line used
+// to read `cleanupModel || 'llama-3.1-8b-instant'`, and both halves of
+// that were wrong:
+//
+//   - Groq decommissioned llama-3.x, so the literal 404'd.
+//   - The fallback fired whenever cleanupModel was blank — which it is
+//     for anyone whose settings persisted an empty string. The stale-model
+//     migration only rewrites KNOWN BAD ids, so '' sailed straight past it.
+//
+// The result was a compaction that failed every 60 seconds forever. The
+// dictation counter never reset (observed at 157 against a threshold of
+// 50), so "refresh after 50" looked broken when the trigger was fine and
+// only the model was dead.
+//
+// Reading from MODELS means this cannot rot independently of the rest of
+// the app again.
+function backgroundModel(): string {
+  return MODELS.groq.background ?? MODELS.groq.cleanup
+}
 const IDLE_MS = 60_000
 const OS_IDLE_SECONDS = 30
 const OVERVIEW_MAX_CHARS = 1000
@@ -127,7 +158,7 @@ export async function maybeRunCompaction(): Promise<{ ran: boolean; reason?: str
   compacting = true
   try {
     const rebuild = successfulCompactions > 0 && successfulCompactions % REBUILD_EVERY === 0
-    const result = await runCompaction(apiKey, settings.provider.cleanupModel, rebuild)
+    const result = await runCompaction(apiKey, rebuild)
     if (!result.ok) {
       logError('[compactor] compaction failed', new Error(result.error ?? 'unknown'))
       return { ran: false, reason: result.error ?? 'failed' }
@@ -137,6 +168,7 @@ export async function maybeRunCompaction(): Promise<{ ran: boolean; reason?: str
     setLastCompaction(Date.now())
     successfulCompactions += 1
     stopCompactionRetries()
+    await mineProjectFacts(apiKey)
     logInfo('[compactor] compaction complete', {
       rebuild,
       chars: result.overview.length,
@@ -161,7 +193,7 @@ export async function forceCompaction(): Promise<{ ok: boolean; error?: string }
   compacting = true
   try {
     const rebuild = successfulCompactions > 0 && successfulCompactions % REBUILD_EVERY === 0
-    const result = await runCompaction(apiKey, settings.provider.cleanupModel, rebuild)
+    const result = await runCompaction(apiKey, rebuild)
     if (!result.ok) {
       logError('[compactor] forced compaction failed', new Error(result.error ?? 'unknown'))
       return { ok: false, error: result.error ?? 'Compaction failed' }
@@ -170,6 +202,7 @@ export async function forceCompaction(): Promise<{ ok: boolean; error?: string }
     resetDictationCount()
     setLastCompaction(Date.now())
     successfulCompactions += 1
+    await mineProjectFacts(apiKey)
     logInfo('[compactor] forced compaction complete', {
       rebuild,
       chars: result.overview.length,
@@ -189,7 +222,6 @@ type CompactionResult =
 
 async function runCompaction(
   apiKey: string,
-  cleanupModel: string | undefined,
   rebuildFromScratch: boolean,
 ): Promise<CompactionResult> {
   const dictations = loadPersistedHistory()
@@ -222,14 +254,22 @@ async function runCompaction(
   let raw = ''
   try {
     const response = await client.chat.completions.create({
-      model: cleanupModel || 'llama-3.1-8b-instant',
+      model: backgroundModel(),
       messages: [
         { role: 'system', content: COMPACTION_SYSTEM },
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.3,
       max_tokens: 600,
-    }, {
+      // gpt-oss models reason before answering, and those tokens come out
+      // of max_tokens. Unset, this burned 100 of the 600 on a five-line
+      // input; a real 50-dictation input has more to chew on, and a
+      // compaction that spends its budget thinking returns a truncated
+      // paragraph or nothing. 'low' cut it to 18 with no quality loss.
+      // Only gpt-oss models take this; the cast matches how groq.ts
+      // passes it, since the SDK's types predate the field.
+      ...(backgroundModel().startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
+    } as never, {
       timeout: 15000,
       maxRetries: 0,
     })
@@ -293,4 +333,53 @@ function relativeTime(timestamp: number): string {
   const diffWk = diffDay / 7
   if (diffWk < 5) return `${Math.round(diffWk)}w ago`
   return `${Math.round(diffDay / 30)}mo ago`
+}
+
+
+// Fill the project cards from the same history the overview was built
+// from (spec: cards should appear with each 50 transcriptions).
+//
+// Runs AFTER the overview has been saved and the counter reset, and
+// every failure is swallowed. Mining is a bonus pass — if it throws, the
+// compaction it rode in on has already succeeded and must stay
+// succeeded, or a flaky extra call would put the user back into the
+// "never refreshes" state this whole change exists to fix.
+async function mineProjectFacts(apiKey: string): Promise<void> {
+  if (!apiKey) return
+  try {
+    const history = loadPersistedHistory()
+    const groups = groupByProject(history)
+    const projects = eligibleProjects(groups)
+    if (projects.length === 0) return
+
+    const client = new Groq({ apiKey })
+    let stored = 0
+    for (const projectKey of projects) {
+      const dictations = groups.get(projectKey) ?? []
+      try {
+        const response = await client.chat.completions.create({
+          model: backgroundModel(),
+          messages: [
+            { role: 'system', content: PROJECT_FACTS_SYSTEM },
+            { role: 'user', content: buildProjectFactsPrompt(projectKey, dictations) },
+          ],
+          temperature: 0.2,
+          max_tokens: 400,
+          ...(backgroundModel().startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
+        } as never, { timeout: 15000, maxRetries: 0 })
+        const raw = response.choices[0]?.message?.content ?? ''
+        for (const text of parseProjectFacts(raw)) {
+          // addFact dedupes, so re-mining the same history across runs
+          // does not accumulate copies.
+          if (addFact({ scope: 'project', projectKey, text })) stored++
+        }
+      } catch (err) {
+        // One project failing must not stop the others.
+        logError(`[compactor] project-fact mining failed for ${projectKey}`, err)
+      }
+    }
+    logInfo('[compactor] project facts mined', { projects: projects.length, stored })
+  } catch (err) {
+    logError('[compactor] project-fact mining threw', err)
+  }
 }

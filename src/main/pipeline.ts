@@ -1246,6 +1246,8 @@ export async function runDictationPipeline(
     timestamp: Date.now(),
     // One word, so the user learns the mapping happened (spec §2).
     ultrathink: ultrathink.applied,
+    // Recorded so background compaction can group by project later.
+    projectKey: dictationProjectKey(focusedApp),
     pasteMethod,
     cleanupUnavailable,
   }
