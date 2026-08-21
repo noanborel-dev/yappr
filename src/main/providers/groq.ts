@@ -2,6 +2,7 @@ import Groq, { toFile } from 'groq-sdk'
 import type { TranscriptionProvider, CleanupProvider } from './types'
 import { NoSpeechError } from '../errors'
 import { logInfo } from '../log'
+import { cleanupMaxTokens } from './token-budget'
 
 // Cache the Groq SDK instance so the underlying HTTP agent (and its
 // keep-alive connection pool) is reused across pipeline runs. Rebuilding
@@ -291,7 +292,7 @@ export function createGroqCleanupProvider(
 ): CleanupProvider {
   return {
     name: 'Groq',
-    async cleanup(text, { systemPrompt, appCategory, mode = 'cleanup', fallbackText }) {
+    async cleanup(text, { systemPrompt, appCategory, mode = 'cleanup', fallbackText, expandsOutput }) {
       const client = getClient(apiKey)
       const activeModel = appCategory === 'ai_prompt' && reformatModel ? reformatModel : model
       // max_tokens budget:
@@ -311,12 +312,13 @@ export function createGroqCleanupProvider(
       //   length minus fillers, plus added punctuation.
       //
       // Each token is ~4 chars (rough).
-      const inputTokens = Math.ceil(text.length / 4)
-      const maxTokens = mode === 'rewrite'
-        ? Math.max(400, Math.min(3072, inputTokens * 3 + 200))
-        : appCategory === 'ai_prompt'
-          ? Math.max(160, Math.min(2048, inputTokens * 3 + 120))
-          : Math.max(80, Math.min(1024, Math.ceil(inputTokens * 1.5) + 80))
+      const maxTokens = cleanupMaxTokens({
+        inputChars: text.length,
+        mode,
+        appCategory,
+        expandsOutput: expandsOutput === true,
+        model: activeModel,
+      })
       // Reformat runs a model with a TOKENS-PER-DAY cap (100k), and the
       // prompt is ~4.2k tokens a call — about 21 shaped dictations before
       // it is gone for the rest of the day. When that wall is hit, falling

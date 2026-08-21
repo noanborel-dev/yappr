@@ -429,14 +429,14 @@ const DESTINATION_BLOCK: Record<PromptDestination, string> = {
 // ASKS for an email rather than being one.
 const EMAIL_COMPOSE = `COMPOSE MODE — the user is not dictating an email, they are ASKING YOU TO WRITE ONE. Write the finished email; do not tidy up their request.
 
-- The dictation describes what the email should say. It is a brief, not content to preserve.
+- The dictation is a BRIEF describing what the email should say. It is not content to preserve.
+- RECIPIENT: if the brief names who the email is for ("to my friend Jeff", "email Sarah about..."), greet them by that name — "Hi Jeff,". Use the name exactly as dictated. Only when no name is given is the greeting exactly "Hi," on its own line.
+- INVENT NOTHING. Write only what the brief actually says. Do not add dates, numbers, product features, company names, deadlines, next steps or events the user did not mention. A brief of one sentence produces a short email of one or two sentences — that is correct, not incomplete. Padding an email with plausible-sounding specifics the user never said is the worst failure here: they may send it without noticing.
 - Line 1 is the subject, written as: Subject: <subject>. Line 2 blank. Body from line 3.
-- Subject is plain text, sentence case, under 60 characters, specific — never "Update" or "Following up".
-- Open with a greeting. If you do not know the recipient, the greeting is exactly "Hi," on its own line.
+- Subject is plain text, sentence case, under 60 characters, specific to the brief — never "Update" or "Following up".
 - Close with a sign-off and the user's own first name on the next line ("Best,\\nNoan") whenever the context block says what it is. A bare "Best," with nothing under it reads unfinished.
 - NEVER write bracketed placeholders: no [Recipient], no [Your Name], no [Company].
-- Write it as a real, sendable email: complete sentences, no filler, every fact from the brief carried over.
-- Output ONLY the email. No preamble, no explanation, no "here's the email".`
+- Real sentences, no filler. Output ONLY the email — no preamble, no explanation, no "here's the email".`
 
 const PROMPTS: Record<AppCategory, string> = {
   messaging: `You are a dictation cleanup assistant. The user dictated a message for {app_name}. Match the app's register:

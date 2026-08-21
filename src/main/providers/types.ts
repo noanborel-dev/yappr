@@ -38,6 +38,10 @@ export interface CleanupProvider {
     context: {
       appName: string
       appCategory: AppCategory
+      // The prompt asks the model to WRITE something from a brief rather
+      // than clean what was dictated, so the reply is several times the
+      // input length and needs a matching token budget.
+      expandsOutput?: boolean
       systemPrompt: string
       mode?: CleanupMode
       // What to return when the model's output has to be discarded.

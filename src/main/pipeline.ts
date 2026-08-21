@@ -1016,6 +1016,12 @@ export async function runDictationPipeline(
       + 'filler removal, tone matching and prompt shaping are off until then.'
     ))
   } else {
+    // Compose rather than clean when the dictation ASKS for an email.
+    // Hoisted because it drives two things that must agree: which prompt
+    // is built, and how many tokens the reply is allowed — budgeting a
+    // composed email like a cleaned one truncates it mid-sentence.
+    const composingEmail = effectiveCategory === 'email'
+      && asksForEmailComposition(transcript)
     const editor = IDE_EDITORS[focusedApp.bundleId]
     const strictness = strictnessFor(focusedApp, settings)
     const register = registerFor(focusedApp, effectiveCategory)
@@ -1032,8 +1038,7 @@ export async function runDictationPipeline(
       register,
       contextBlock,
       promptDestination,
-      // Compose rather than clean when the dictation asks for an email.
-      effectiveCategory === 'email' && asksForEmailComposition(transcript),
+      composingEmail,
     ).replace('{text}', transcript)
     const cStart = Date.now()
     try {
@@ -1042,6 +1047,7 @@ export async function runDictationPipeline(
           appName: focusedApp.name,
           appCategory: effectiveCategory,
           systemPrompt,
+          expandsOutput: composingEmail,
         }))
       // The 8B cleanup model occasionally ignores LENGTH_PRESERVATION
       // and summarizes long dictations down to a sentence. ai_prompt
