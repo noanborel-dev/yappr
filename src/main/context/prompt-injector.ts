@@ -13,6 +13,8 @@
 
 import { getUserOverview } from './store'
 import { formatContextBlock, type ContextMode } from './format'
+import { getFactsFor } from './facts'
+import { formatFactsBlock } from './facts-format'
 
 // Build the context block to splice into an LLM system prompt. Returns an
 // empty string when there's nothing to inject — caller can safely concat
@@ -25,9 +27,21 @@ import { formatContextBlock, type ContextMode } from './format'
 export function buildContextBlock(opts: {
   enabled: boolean
   mode?: ContextMode
+  // The project this dictation belongs to, or null for the unsorted
+  // case. Only this project's facts load — never another's. That is the
+  // whole point of the tier split (spec §1.2): a smaller, focused
+  // context both costs less and produces better output than a large one.
+  projectKey?: string | null
 }): string {
   if (!opts.enabled) return ''
+
   const overview = getUserOverview()
-  if (!overview || overview.trim().length === 0) return ''
-  return formatContextBlock(overview, opts.mode ?? 'cleanup')
+  const who = overview && overview.trim().length > 0
+    ? formatContextBlock(overview, opts.mode ?? 'cleanup')
+    : ''
+
+  const { global, project } = getFactsFor(opts.projectKey ?? null)
+  const facts = formatFactsBlock({ global, project, projectKey: opts.projectKey })
+
+  return who + facts
 }

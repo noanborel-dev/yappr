@@ -774,11 +774,20 @@ async function retryRecording(id: string): Promise<void> {
     return
   }
 
+  // No window title on a retry, and deliberately so: the title is user
+  // content (document names, chat subjects, browser tabs) and the
+  // recording sidecar is a file on disk, so it is not something to
+  // persist. The cost is that a replayed dictation cannot derive a
+  // project key and its facts land in the unsorted bucket — the right
+  // trade, and consistent with never guessing a project.
   const focusOverride: FocusedApp = {
     bundleId: meta.context.bundleId,
     name: meta.context.name,
     category: meta.context.category,
     pid: meta.context.pid,
+    windowTitle: '',
+    surface: 'other',
+    tabTitle: null,
   }
 
   logInfo('Retrying recording', { id, attempts: meta.attempts, app: meta.context.name })

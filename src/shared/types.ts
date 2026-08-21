@@ -132,6 +132,11 @@ export interface DictationResult {
   appName: string
   appCategory: AppCategory
   timestamp: number
+  // True when "think really hard" was mapped onto Claude Code's
+  // `ultrathink` keyword (spec §2). Surfaced in the UI in one word so the
+  // user learns the mapping exists rather than wondering why their
+  // wording changed.
+  ultrathink?: boolean
 }
 
 // IPC channel names — kept in shared so renderer and main stay in sync
