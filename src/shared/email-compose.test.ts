@@ -40,7 +40,22 @@ describe('email compose mode', () => {
   it('mandates the parts that were missing', () => {
     expect(composer).toContain('greeting')
     expect(composer).toContain('sign-off')
-    expect(composer).toContain('Subject:')
+  })
+
+  // The output is pasted into a compose window that already has a subject
+  // field of its own, so a "Subject:" line lands in the middle of the body.
+  it('forbids a subject line', () => {
+    expect(composer).toContain('NO SUBJECT LINE')
+  })
+
+  it('still requires the recipient to be greeted by name when given', () => {
+    expect(composer).toContain('RECIPIENT')
+  })
+
+  // Fabricated specifics in an email the user is about to send are worse
+  // than a truncated one — they look finished.
+  it('forbids inventing details', () => {
+    expect(composer).toContain('INVENT NOTHING')
   })
 
   it('forbids the placeholder names an LLM reaches for', () => {
