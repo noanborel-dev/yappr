@@ -47,6 +47,24 @@ function ensureInit(): void {
         key   TEXT PRIMARY KEY,
         value INTEGER NOT NULL DEFAULT 0
       );
+      -- Two-tier context (spec §1.2). 'global' facts are about the user
+      -- and load everywhere; 'project' facts load only for their own
+      -- project_key, which is what keeps one project's stack out of
+      -- another project's prompt. project_key is '' for global rows.
+      CREATE TABLE IF NOT EXISTS context_facts (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        scope       TEXT    NOT NULL,
+        project_key TEXT    NOT NULL DEFAULT '',
+        text        TEXT    NOT NULL,
+        created_at  INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_context_facts_scope
+        ON context_facts (scope, project_key);
+      -- Dedupe at the schema level: the same rule dictated twice must not
+      -- accumulate, or a repeated preference slowly crowds out the rest
+      -- of the context budget.
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_context_facts_unique
+        ON context_facts (scope, project_key, text);
     `)
     const seed = db.prepare('INSERT OR IGNORE INTO context_meta (key, value) VALUES (?, 0)')
     seed.run('dictation_count')
@@ -57,6 +75,14 @@ function ensureInit(): void {
     db = null
     initialized = true // don't keep retrying
   }
+}
+
+// Facts live in the same database, so lifecycle stays in one place.
+// facts.ts owns the queries; this hands it an initialised handle (null
+// when the store failed to open, which callers treat as "no context").
+export function getDb(): Database.Database | null {
+  ensureInit()
+  return db
 }
 
 export function getUserOverview(): string {
