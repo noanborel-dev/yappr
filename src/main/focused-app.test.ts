@@ -5,6 +5,12 @@ import { describe, it, expect, vi } from 'vitest'
 // pure routing.
 vi.mock('./log', () => ({ logInfo: () => {}, logError: () => {} }))
 
+// Static import, NOT `await import(...)`. vi.mock is hoisted above the
+// imports by vitest, so the stub is in place either way — but a
+// top-level await fails `tsc -p tsconfig.node.json`, which compiles
+// src/main as CommonJS. That broke CI for a day (TS1378) while
+// `npm test` stayed green, because vitest never type-checks. Any test
+// file under src/main has the same constraint.
 import { parseFocusLine, resolveSurface } from './focused-app'
 
 describe('parseFocusLine', () => {
