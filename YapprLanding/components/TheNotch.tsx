@@ -27,22 +27,22 @@ const BEATS: Beat[] = [
   {
     state: "idle",
     when: "At rest",
-    note: "Just your notch. No window, no menu-bar icon, nothing to close.",
+    note: "Just your notch. Nothing to close.",
   },
   {
     state: "recording",
     when: "While you talk",
-    note: "The left wing opens with your live waveform. Left is always what it hears.",
+    note: "The left wing opens with your live waveform.",
   },
   {
     state: "processing",
     when: "When you let go",
-    note: "The right wing takes over. Right is always what it did.",
+    note: "The right wing takes over.",
   },
   {
     state: "done",
     when: "A second later",
-    note: "Pasted where your cursor already was — then it closes and disappears.",
+    note: "Pasted where your cursor was. Then it's gone.",
   },
 ];
 
@@ -74,7 +74,7 @@ export function TheNotch() {
               You never have to <em>look at it</em>.
             </>
           }
-          lede="There's no window and no menu-bar icon. It grows out of the notch while you're talking, shows you what it heard and what it did, then goes back to being your notch."
+          lede="No window. No menu-bar icon. It grows out of the notch while you talk, then goes back to being your notch."
         />
 
         <Reveal delay={60}>
