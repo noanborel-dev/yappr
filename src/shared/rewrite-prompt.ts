@@ -14,6 +14,23 @@
 // a subject line bolted on. Only an explicit ask flips email mode on.
 const EMAIL_COMMAND_RE = /\b(e-?mails?|e-?mailing)\b/i
 
+// Does a plain dictation (nothing selected) ask for an email to be
+// WRITTEN, as opposed to being the email itself?
+//
+// "please write an email explaining what I'm working on" is a brief.
+// "Hi Sam, just confirming Thursday works" is an email. The first needs
+// composing; the second needs cleaning, and running compose mode on it
+// would rewrite the user's actual words into something they did not say.
+//
+// Requires a verb of composition next to the word, so "I replied to his
+// email" and "the email bounced" do not trigger it.
+const EMAIL_COMPOSE_RE =
+  /\b(?:write|draft|compose|send|reply\s+to|respond\s+to|answer)\s+(?:me\s+)?(?:an?|the|this)?\s*(?:\w+\s+){0,2}e-?mail\b/i
+
+export function asksForEmailComposition(transcript: string): boolean {
+  return EMAIL_COMPOSE_RE.test(transcript)
+}
+
 export function looksLikeEmailRewrite(command: string): boolean {
   return EMAIL_COMMAND_RE.test(command)
 }

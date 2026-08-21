@@ -232,7 +232,31 @@ export const BROWSER_URL_ROUTES: BrowserUrlRoute[] = [
   { pattern: hostRe('chat.mistral.ai'), category: 'ai_prompt', appName: 'Mistral' },
   { pattern: hostRe('v0.dev', 'v0.app'), category: 'ai_prompt', appName: 'v0' },
   { pattern: /^https?:\/\/github\.com\/copilot/i, category: 'ai_prompt', appName: 'Copilot' },
+  // Browser app-builders. These are AGENTIC, not chat: each one owns a
+  // project it can read, edit and deploy, so a prompt aimed at them should
+  // be shaped the way one aimed at Claude Code is — see AGENTIC_AI_HOSTS.
+  { pattern: hostRe('lovable.dev', 'lovable.app'), category: 'ai_prompt', appName: 'Lovable' },
+  { pattern: hostRe('replit.com'), category: 'ai_prompt', appName: 'Replit' },
+  { pattern: hostRe('bolt.new'), category: 'ai_prompt', appName: 'Bolt' },
+  { pattern: hostRe('firebase.studio', 'idx.google.com'), category: 'ai_prompt', appName: 'Firebase Studio' },
+  { pattern: hostRe('app.base44.com'), category: 'ai_prompt', appName: 'Base44' },
+  { pattern: hostRe('create.xyz'), category: 'ai_prompt', appName: 'Create' },
+  { pattern: hostRe('tempo.new'), category: 'ai_prompt', appName: 'Tempo' },
 ]
+
+// Which AI surfaces can actually READ and RUN a project.
+//
+// The distinction drives prompt shaping: an agentic tool gets told to use
+// @file references, check git history and run tests; a chat assistant is
+// told it can do none of those. Getting it backwards means either wasted
+// instructions or instructions the tool cannot follow.
+//
+// App-builders sit on the agentic side despite running in a browser —
+// Lovable, Replit and Bolt each own a codebase they can edit and deploy.
+export const AGENTIC_AI_APP_NAMES: ReadonlySet<string> = new Set([
+  'Lovable', 'Replit', 'Bolt', 'v0', 'Firebase Studio', 'Base44',
+  'Create', 'Tempo', 'Copilot',
+])
 
 // IDEs with @-mention chip support in their AI chat panes. Used to
 // switch the cleanup prompt into IDE-aware formatting mode (variable

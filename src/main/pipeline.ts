@@ -4,9 +4,10 @@ import {
   buildRewriteSystemPrompt,
   buildRewriteUserMessage,
   normalizeEmailRewrite,
+  asksForEmailComposition,
 } from '../shared/rewrite-prompt'
 import { buildContextBlock } from './context/prompt-injector'
-import { MODELS, BUILTIN_DICTIONARY, DICTIONARY_ALIASES, IDE_EDITORS } from '../shared/constants'
+import { MODELS, BUILTIN_DICTIONARY, DICTIONARY_ALIASES, IDE_EDITORS, AGENTIC_AI_APP_NAMES } from '../shared/constants'
 import type { AppCategory, DictationResult, Settings, Strictness } from '../shared/types'
 import type { FocusedApp } from './focused-app'
 import type { TranscriptionProvider, CleanupProvider } from './providers/types'
@@ -870,8 +871,14 @@ export async function runDictationPipeline(
   // dedicated AI apps. An explicit "make me a prompt" has to widen that:
   // the request stands on its own, and the user asking for it from a
   // browser or a notes app means the same thing it means in an editor.
+  // ai_prompt is included because a browser AI surface (claude.ai, Lovable,
+  // Replit, Bolt...) is routed straight to that category by URL. Without
+  // this the classifier never ran there, so EVERY dictation into those
+  // surfaces was shaped into ## Goal / ## Tasks — including plain
+  // descriptions, which is the thing the user asked not to happen.
   if (
     effectiveCategory === 'code'
+    || effectiveCategory === 'ai_prompt'
     || PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId)
     || isExplicitPromptRequest(transcript)
   ) {
@@ -892,13 +899,21 @@ export async function runDictationPipeline(
       isAxReadable,
       terminalAiCli,
       isPrimaryAiBundle: PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId),
-      browserAiRouted: false,   // Phase 6: browser AI-URL detection
+      // A browser AI surface resolved by URL. focused-app.ts already did
+      // the work; this just tells the classifier it is on one.
+      browserAiRouted: effectiveCategory === 'ai_prompt'
+        && !PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId),
       weakCueSettingOn: false,  // not yet exposed as a user setting
     })
 
     if (surface.register === 'reformat') {
       effectiveCategory = 'ai_prompt'
-      promptDestination = surface.destination ?? 'chat'
+      // App-builders own a project they can read, edit and deploy, so they
+      // get the agentic shaping even though they run in a browser. A chat
+      // assistant gets told it can do none of that.
+      promptDestination = AGENTIC_AI_APP_NAMES.has(focusedApp.name)
+        ? 'agentic'
+        : surface.destination ?? 'chat'
       logInfo('Routed to ai_prompt (reformat)', {
         // cli was captured but only ever logged on the faithful branch, so
         // a prompt bound for Claude Code looked identical to one bound for
@@ -909,6 +924,11 @@ export async function runDictationPipeline(
       })
     } else if (surface.register === 'faithful_ai') {
       runFaithfulAi = true
+      // The URL router had already set ai_prompt purely from the host. The
+      // classifier has now judged this a description, so drop back to
+      // general prose cleanup — otherwise the section template still
+      // applies and the description comes back as a task list.
+      if (effectiveCategory === 'ai_prompt') effectiveCategory = 'other'
       logInfo('Routed to faithful_ai', {
         bundleId: focusedApp.bundleId, cli: terminalAiCli.cli, reason: surface.reason,
       })
@@ -1012,6 +1032,8 @@ export async function runDictationPipeline(
       register,
       contextBlock,
       promptDestination,
+      // Compose rather than clean when the dictation asks for an email.
+      effectiveCategory === 'email' && asksForEmailComposition(transcript),
     ).replace('{text}', transcript)
     const cStart = Date.now()
     try {

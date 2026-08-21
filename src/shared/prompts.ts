@@ -170,6 +170,9 @@ export function buildCleanupPrompt(
   // conservative choice: it never tells a receiving AI to run something
   // it cannot run.
   destination: PromptDestination = 'chat',
+  // The dictation ASKS for an email to be written, rather than being one.
+  // Swaps the email category from cleaner to composer.
+  composeEmail = false,
 ): string {
   if (customPrompt) {
     return OUTPUT_GUARD + LENGTH_PRESERVATION + LANGUAGE_PRESERVATION + contextBlock + customPrompt.replace('{app_name}', appName) + registerHardRule(register)
@@ -187,6 +190,12 @@ export function buildCleanupPrompt(
   // off in it.
   if ((category === 'code' || category === 'ai_prompt') && editor) {
     prompt += '\n\n' + buildIdeAddendum(editor)
+  }
+  // Compose mode goes near the end so it overrides the category's
+  // "preserve what was dictated" style notes, which are the exact rules
+  // that stop it writing a greeting.
+  if (composeEmail && category === 'email') {
+    prompt += '\n\n' + EMAIL_COMPOSE
   }
   // Hard register override goes LAST so the model attends to it most.
   prompt += registerHardRule(register)
@@ -404,6 +413,30 @@ const DESTINATION_BLOCK: Record<PromptDestination, string> = {
 - Do not tell it to open files, run commands, or check git — it cannot.
 - If the user referred to code, keep their description of it inline.`,
 }
+
+
+// The email category CLEANS a dictated email. It cannot COMPOSE one: it is
+// explicitly told "preserve any greeting or signoff the user dictated; do
+// NOT invent or remove them", which is right when the user dictated the
+// email itself and wrong when they asked for one to be written.
+//
+// Dictating "please write an email explaining what I'm working on" into
+// Gmail therefore produced a tidied version of that sentence — no
+// greeting, no sign-off, no name. The rules that mandate those live in
+// rewrite-prompt.ts and only ever applied to select-and-rewrite.
+//
+// This block turns the same category into a composer when the dictation
+// ASKS for an email rather than being one.
+const EMAIL_COMPOSE = `COMPOSE MODE — the user is not dictating an email, they are ASKING YOU TO WRITE ONE. Write the finished email; do not tidy up their request.
+
+- The dictation describes what the email should say. It is a brief, not content to preserve.
+- Line 1 is the subject, written as: Subject: <subject>. Line 2 blank. Body from line 3.
+- Subject is plain text, sentence case, under 60 characters, specific — never "Update" or "Following up".
+- Open with a greeting. If you do not know the recipient, the greeting is exactly "Hi," on its own line.
+- Close with a sign-off and the user's own first name on the next line ("Best,\\nNoan") whenever the context block says what it is. A bare "Best," with nothing under it reads unfinished.
+- NEVER write bracketed placeholders: no [Recipient], no [Your Name], no [Company].
+- Write it as a real, sendable email: complete sentences, no filler, every fact from the brief carried over.
+- Output ONLY the email. No preamble, no explanation, no "here's the email".`
 
 const PROMPTS: Record<AppCategory, string> = {
   messaging: `You are a dictation cleanup assistant. The user dictated a message for {app_name}. Match the app's register:

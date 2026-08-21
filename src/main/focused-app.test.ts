@@ -125,3 +125,33 @@ describe('resolveSurface', () => {
       .toEqual({ name: 'Mail', category: 'email' })
   })
 })
+
+// Browser app-builders. Each owns a project it can read, edit and deploy,
+// so a prompt aimed at one should be shaped like a prompt aimed at Claude
+// Code — not like a chat message.
+describe('AI app-builder URL routing', () => {
+  const route = (url: string) => resolveSurface('com.google.Chrome', 'Chrome', '', { url, title: '' })
+
+  it('routes the app builders to ai_prompt', () => {
+    for (const [url, name] of [
+      ['https://lovable.dev/projects/abc123', 'Lovable'],
+      ['https://replit.com/@noan/my-app', 'Replit'],
+      ['https://bolt.new/~/sb1-xyz', 'Bolt'],
+    ] as [string, string][]) {
+      const r = route(url)
+      expect(r.category, url).toBe('ai_prompt')
+      expect(r.name, url).toBe(name)
+    }
+  })
+
+  it('still routes the chat assistants', () => {
+    expect(route('https://claude.ai/chat/123').category).toBe('ai_prompt')
+    expect(route('https://chatgpt.com/c/456').category).toBe('ai_prompt')
+  })
+
+  it('does not claim unrelated hosts', () => {
+    expect(route('https://news.ycombinator.com').category).not.toBe('ai_prompt')
+    // Guard against a loose host match: a lookalike domain must not route.
+    expect(route('https://lovable.dev.evil.co/x').category).not.toBe('ai_prompt')
+  })
+})
