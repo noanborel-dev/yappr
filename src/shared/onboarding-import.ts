@@ -17,6 +17,39 @@
 // Pure — no electron, no store. Shared so the renderer parses and the
 // main process stores the same shapes.
 
+/**
+ * The prompt the user copies into ChatGPT or Claude.
+ *
+ * It lives HERE, next to the parser, on purpose. The headings it asks
+ * for are the headings the parser matches — they are one contract split
+ * across two files, and there is a test below that round-trips a
+ * response in this exact shape. Previously the prompt sat in a React
+ * component, where nothing stopped someone renaming a heading and
+ * silently breaking the import for everyone.
+ */
+export const ONBOARDING_CONTEXT_PROMPT = `I'm setting up a voice-dictation app called Yappr. It cleans up what I say using an LLM, and it can keep background context so the result sounds like me and knows what I'm working on.
+
+Write the following about me. If we've talked before, use what you already know; otherwise use what I tell you here and don't invent the rest.
+
+First, ONE short paragraph (max 150 words): what I work on, names I say often, tools I use day to day, and how formal I am in different places (e.g. casual in iMessage, professional in email).
+
+Then, using EXACTLY these headings:
+
+GLOBAL
+- one bullet per preference that's true of me everywhere, whatever I'm working on (e.g. "I always use TypeScript for new projects")
+
+PROJECT: <name>
+- one bullet per fact about that specific project — its stack, its conventions, what it does. Repeat this heading for each project you can identify.
+
+UNSORTED
+- anything you can't confidently attach to a project. Put it here rather than guessing.
+
+Rules:
+- One fact per bullet, one sentence, under 25 words.
+- Only add a PROJECT section if you actually know the project's name. Don't invent one.
+- Skip any heading you have nothing for.
+- Output only the paragraph and these sections — no preamble, no commentary after.`
+
 export interface OnboardingImport {
   /** The "who you are" paragraph. Empty when the paste had none. */
   overview: string

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { parseOnboardingImport, isOverviewOnly } from './onboarding-import'
+import {
+  parseOnboardingImport,
+  isOverviewOnly,
+  ONBOARDING_CONTEXT_PROMPT,
+} from './onboarding-import'
 
 describe('bucketed responses', () => {
   const paste = `
@@ -125,5 +129,54 @@ describe('empty input', () => {
     const parsed = parseOnboardingImport('')
     expect(parsed).toEqual({ overview: '', global: [], projects: {}, unsorted: [] })
     expect(isOverviewOnly(parsed)).toBe(true)
+  })
+})
+
+// The prompt and the parser are one contract split across two files: the
+// headings the prompt asks for are the headings the parser matches. They
+// used to live apart (prompt in a React component), where renaming a
+// heading would silently break the import with nothing failing.
+describe('the copied prompt and the parser agree', () => {
+  it('asks for exactly the headings the parser understands', () => {
+    expect(ONBOARDING_CONTEXT_PROMPT).toContain('GLOBAL')
+    expect(ONBOARDING_CONTEXT_PROMPT).toContain('PROJECT: <name>')
+    expect(ONBOARDING_CONTEXT_PROMPT).toContain('UNSORTED')
+  })
+
+  it('round-trips a response in the shape it specifies', () => {
+    // Written to the prompt's letter: paragraph first, then the three
+    // headings with one fact per bullet.
+    const response = `Noan builds Yappr, a Mac dictation app, and works mostly in TypeScript and Electron.
+
+GLOBAL
+- I always use TypeScript for new projects
+- I prefer small pull requests over large ones
+
+PROJECT: yappr
+- Yappr uses Groq for LLM cleanup
+- transcription runs locally with Parakeet
+
+UNSORTED
+- something I could not attribute to a project`
+
+    const parsed = parseOnboardingImport(response)
+    expect(isOverviewOnly(parsed)).toBe(false)
+    expect(parsed.overview).toContain('Noan builds Yappr')
+    expect(parsed.overview).not.toContain('TypeScript for new projects')
+    expect(parsed.global).toHaveLength(2)
+    expect(parsed.projects['yappr']).toHaveLength(2)
+    expect(parsed.unsorted).toHaveLength(1)
+  })
+
+  // The prompt tells the model to skip headings it has nothing for, so
+  // a partial response has to parse too.
+  it('handles a response that skips headings, as the prompt permits', () => {
+    const parsed = parseOnboardingImport(`I write mostly TypeScript.
+
+GLOBAL
+- I always use TypeScript for new projects`)
+    expect(parsed.global).toHaveLength(1)
+    expect(parsed.unsorted).toEqual([])
+    expect(Object.keys(parsed.projects)).toEqual([])
   })
 })

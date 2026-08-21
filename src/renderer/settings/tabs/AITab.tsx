@@ -6,7 +6,11 @@ import { Pill } from '../../shared/ui/Pill'
 import { Toggle } from '../../shared/ui/Toggle'
 import { PromptShapingStage } from '../../shared/ui/PromptShapingStage'
 import { ProjectCards } from '../ProjectCards'
-import { parseOnboardingImport, isOverviewOnly } from '../../../shared/onboarding-import'
+import {
+  parseOnboardingImport,
+  isOverviewOnly,
+  ONBOARDING_CONTEXT_PROMPT,
+} from '../../../shared/onboarding-import'
 
 // What this tab used to be: a hero chat mock, then ~450 lines of
 // pixel-recreated iMessage / Gmail / Notion windows — invented contact
@@ -59,46 +63,7 @@ export default function AITab() {
 // ─── Context memory ─────────────────────────────────────────────────
 
 const OVERVIEW_MAX_CHARS = 1000  // mirrors src/main/context/store.ts
-const OVERVIEW_TARGET_WORDS = 150
 
-// The prompt the "Copy prompt" button drops into the clipboard: paste it
-// into any AI chat, fill in the bracketed lines, paste the answer back.
-// Hard-capped in words so the response fits the store's character limit,
-// and told to output only the paragraph so nothing has to be stripped.
-function buildContextPromptTemplate(): string {
-  return `I'm setting up "background context" for a voice-dictation app called Yappr. Yappr cleans up my dictations using a small LLM, and this paragraph will be passed to that LLM as background so its polish sounds more like me.
-
-Please write a single paragraph (max ${OVERVIEW_TARGET_WORDS} words) describing me, covering:
-
-- What I do for work, in 1-2 sentences. [Replace this bracketed line with your role / projects, or leave it for me to invent something plausible.]
-- Names I mention often — collaborators, products, places. [Replace with 3-5 names you actually use, or skip.]
-- Tools, languages, or frameworks I use day-to-day. [Replace with yours, or skip.]
-- My voice across contexts — e.g. "casual in iMessage, professional in email, terse in code chats." [Replace, or use a reasonable default.]
-- Topics or recurring themes that come up in my dictations. [Optional.]
-
-Style rules for the paragraph:
-- Write it as one flowing paragraph, third-person factual ("Noan works on…", or use whatever name I gave). NOT a bulleted list.
-- Keep it under ${OVERVIEW_TARGET_WORDS} words. Shorter is fine.
-- No filler like "this person is..." or "based on the above..."
-- No filler like "this person is..." or "based on the above..."
-
-Then, AFTER the paragraph, list anything specific you can pull out, using EXACTLY these headings:
-
-GLOBAL
-- one bullet per preference that is true of me everywhere, regardless of what I'm working on (e.g. "I always use TypeScript for new projects")
-
-PROJECT: <name>
-- one bullet per fact about that specific project (its stack, its conventions, what it does). Repeat this heading for each project you can identify.
-
-UNSORTED
-- anything you can't confidently attach to a project. Put it here rather than guessing which project it belongs to.
-
-Rules for the bullets:
-- One fact per bullet, one sentence, under 25 words.
-- Only include a PROJECT section if you actually know the project's name. Do not invent one.
-- Skip any heading you have nothing for.
-- OUTPUT ONLY the paragraph followed by these sections. No preamble and no commentary after — I'm pasting your response straight into a settings field.`
-}
 
 interface ContextStatus {
   count: number
@@ -217,7 +182,7 @@ function ContextMemoryCard() {
 
   async function copyPrompt() {
     try {
-      await navigator.clipboard.writeText(buildContextPromptTemplate())
+      await navigator.clipboard.writeText(ONBOARDING_CONTEXT_PROMPT)
       setCopiedFlash(true)
       window.setTimeout(() => setCopiedFlash(false), 1500)
     } catch {
