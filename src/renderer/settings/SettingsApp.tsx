@@ -5,7 +5,7 @@ import DictionaryTab from './tabs/DictionaryTab'
 import PolishTab from './tabs/PolishTab'
 import AITab from './tabs/AITab'
 import HistoryTab from './tabs/HistoryTab'
-import { Wordmark } from '../shared/ui/Wordmark'
+import { YapprMark } from '../shared/ui/YapprMark'
 import { NavIcon, type NavIconName } from './NavIcon'
 
 const TABS = ['Dashboard', 'Hotkey', 'Polish', 'AI', 'Dictionary', 'Settings'] as const
@@ -52,16 +52,22 @@ export default function SettingsApp() {
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       />
 
-      <aside className="w-[204px] bg-cream2 border-r border-line pt-9 px-3 flex flex-col shrink-0">
-        <div className="flex items-center px-1 pb-4 mb-3 border-b border-line">
-          <Wordmark size="inline" />
+      <aside
+        className="w-[204px] pt-9 px-3 flex flex-col shrink-0"
+        style={{
+          background:
+            'radial-gradient(120% 100% at 30% 0%, #24262E 0%, #14151A 52%, #0A0B0F 100%)',
+        }}
+      >
+        <div className="flex items-center px-1 pb-4 mb-3 border-b border-white/[0.08]">
+          <YapprMark lockup="bare" tone="white" size="button" />
         </div>
 
         <nav className="flex flex-col gap-4">
           {GROUPS.map((group, gi) => (
             <div key={gi} className="flex flex-col gap-0.5">
               {group.label && (
-                <div className="text-[11px] text-ink-45 px-2.5 pb-1.5">
+                <div className="text-[11px] text-white/40 px-2.5 pb-1.5">
                   {group.label}
                 </div>
               )}
@@ -73,17 +79,20 @@ export default function SettingsApp() {
                     onClick={() => setTab(t)}
                     aria-current={on ? 'page' : undefined}
                     className={[
-                      // Heavier and darker than before. At 12.5px in
-                      // ink-60 the inactive rows read as disabled next to
-                      // a solid black active pill; medium weight at full
-                      // ink makes the list look navigable rather than
-                      // greyed out.
+                      // Inverted with the rail. The selected row is the
+                      // LIGHT one now — the same move the brand's light
+                      // lockup makes one level up, and the reason the
+                      // rail can be near-black without the nav going mute:
+                      // white/70 on #0A0B0F carries further than ink-60
+                      // ever did on cream.
                       'text-left px-2.5 py-[7px] rounded-[9px] text-[13px] font-medium transition-colors duration-150',
-                      on ? 'bg-ink text-paper' : 'text-ink hover:bg-ink/[0.05]',
+                      on
+                        ? 'bg-paper text-ink'
+                        : 'text-white/70 hover:text-white hover:bg-white/[0.06]',
                     ].join(' ')}
                   >
                     <span className="inline-flex items-center gap-2.5">
-                      <span className={on ? 'text-paper' : 'text-ink-45'}>
+                      <span className={on ? 'text-ink' : 'text-white/45'}>
                         <NavIcon name={ICONS[t]} />
                       </span>
                       {t}
