@@ -16,7 +16,7 @@ export function Panel({
   className?: string
 }) {
   return (
-    <div className={`bg-card border border-line-soft rounded-card overflow-hidden shadow-card ${className}`}>
+    <div className={`bg-white/55 backdrop-blur-xl backdrop-saturate-150 rounded-card overflow-hidden shadow-glass ${className}`}>
       {children}
     </div>
   )
@@ -52,7 +52,7 @@ export function SettingRow({
       className={[
         'grid items-center gap-4 px-5 py-4 transition-colors',
         icon ? 'grid-cols-[36px_minmax(0,1fr)_auto]' : 'grid-cols-[minmax(0,1fr)_auto]',
-        last ? '' : 'border-b border-line-soft',
+        last ? '' : 'border-b border-white/55',
         muted ? 'bg-paper/40' : '',
       ].join(' ')}
     >
@@ -92,7 +92,7 @@ export function StackRow({
   last?: boolean
 }) {
   return (
-    <div className={['px-5 py-4', last ? '' : 'border-b border-line-soft'].join(' ')}>
+    <div className={['px-5 py-4', last ? '' : 'border-b border-white/55'].join(' ')}>
       <div className="flex items-start justify-between gap-4 mb-3">
         <div className="min-w-0">
           <div className="text-[13px] font-semibold leading-tight">{title}</div>

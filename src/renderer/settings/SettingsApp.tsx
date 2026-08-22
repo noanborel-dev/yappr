@@ -83,7 +83,12 @@ export default function SettingsApp() {
       {/* Each tab owns its own SectionHead. The shell used to render an
           h1 + subtitle here AND every tab rendered a hero headline under
           it — two big serif lines back to back saying the same thing. */}
-      <main className="flex-1 overflow-auto px-9 pt-11 pb-12">
+      {/* `key={tab}` remounts on every switch, so the entrance replays
+          rather than firing once on first paint. Switching tabs was
+          instantaneous and therefore felt like nothing happened; 380ms of
+          rise is enough to register as a change of place without being a
+          wait. */}
+      <main key={tab} className="flex-1 overflow-auto px-9 pt-11 pb-12 animate-stepIn">
         {tab === 'Dashboard' && <HistoryTab />}
         {tab === 'Hotkey' && <HotkeysTab />}
         {tab === 'Polish' && <PolishTab />}

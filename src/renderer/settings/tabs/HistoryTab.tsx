@@ -121,7 +121,7 @@ function HistoryItem({
 }) {
   const [expanded, setExpanded] = useState(false)
   return (
-    <div className="bg-card border border-line rounded-[12px] px-4 py-3 flex items-start gap-3 group hover:border-accent/40 transition-colors">
+    <div className="bg-white/50 backdrop-blur-md rounded-[12px] px-4 py-3 flex items-start gap-3 group shadow-glass hover:shadow-glass-lift hover:-translate-y-[1px] transition-[box-shadow,transform] duration-200">
       <div className="flex-1 min-w-0">
         {/* Clamped: a dictated Claude Code prompt can run 40 lines, and
             unclamped entries turned the list into one entry per screen.

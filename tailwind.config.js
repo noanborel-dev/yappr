@@ -37,6 +37,22 @@ const RADIUS = { input: '10px', card: '14px', hero: '18px', pill: '999px' }
 const SHADOW = {
   card: '0 1px 2px rgba(21,22,26,0.04), 0 1px 1px rgba(21,22,26,0.03)',
   lift: '0 2px 8px rgba(21,22,26,0.06), 0 1px 2px rgba(21,22,26,0.04)',
+  // Glass. The rim is a LIGHT inset rather than a dark border — that is
+  // the whole difference between a pane and an outlined box. Depth comes
+  // from the top highlight and the drop shadow disagreeing about where
+  // the light is, which is what stops a flat fill reading as a rectangle.
+  glass: [
+    'inset 0 1px 0 rgba(255,255,255,0.9)',
+    'inset 0 0 0 1px rgba(255,255,255,0.5)',
+    '0 1px 2px rgba(21,22,26,0.04)',
+    '0 8px 24px -12px rgba(21,22,26,0.10)',
+  ].join(', '),
+  glassLift: [
+    'inset 0 1px 0 rgba(255,255,255,0.95)',
+    'inset 0 0 0 1px rgba(255,255,255,0.6)',
+    '0 2px 4px rgba(21,22,26,0.05)',
+    '0 16px 32px -14px rgba(21,22,26,0.16)',
+  ].join(', '),
 }
 const FONT = {
   sans: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
@@ -53,7 +69,7 @@ module.exports = {
   content: ['./src/renderer/**/*.{ts,tsx,html}'],
   theme: {
     extend: {
-      boxShadow: { card: SHADOW.card, lift: SHADOW.lift },
+      boxShadow: { card: SHADOW.card, lift: SHADOW.lift, glass: SHADOW.glass, 'glass-lift': SHADOW.glassLift },
       colors: {
         paper: COLORS.paper,
         cream2: COLORS.cream2,
