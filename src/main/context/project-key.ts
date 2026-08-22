@@ -161,7 +161,7 @@ function fromEditorTitle(title: string): string | null {
  * Terminals: the cwd's last path segment.
  *
  * Shapes seen in the wild:
- *   "OpenFlow — -zsh — 80×24"     (Terminal.app: folder name already)
+ *   "Yappr — -zsh — 80×24"        (Terminal.app: folder name already)
  *   "~/dev/yappr"                  (iTerm2, Ghostty)
  *   "noan@Mac: ~/dev/yappr"        (default bash PROMPT_COMMAND)
  */

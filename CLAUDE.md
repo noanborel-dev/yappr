@@ -3,9 +3,12 @@
 Push-to-talk dictation for macOS. Hold a hotkey, speak, release; cleaned text
 lands at the cursor.
 
-> **Naming.** The product is **Yappr**, everywhere. The only remaining
-> "OpenFlow" is the checkout directory on disk (`~/OpenFlow`), which cannot be
-> renamed from inside the repo. The marketing site is `YapprLanding/`.
+> **Naming.** The product is **Yappr**, everywhere — code, docs, UI, repo,
+> marketing site (`YapprLanding/`). There is no "OpenFlow" anything.
+>
+> If you see `~/OpenFlow` in a path, that is a stale local checkout
+> directory, not a name to propagate. Renaming a directory is a local
+> `mv` plus `git worktree repair`; nothing in the repo depends on it.
 
 > **Not open source.** Yappr is closed-source. Never describe it as OSS,
 > MIT-licensed, auditable, self-hostable, or forkable. The differentiation is

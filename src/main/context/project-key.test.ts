@@ -69,11 +69,11 @@ describe('editor titles', () => {
 describe('terminal titles', () => {
   it('takes the last path segment of the cwd', () => {
     expect(extractProjectKey(terminal('~/dev/yappr'))).toBe('yappr')
-    expect(extractProjectKey(terminal('/Users/noan/code/openflow'))).toBe('openflow')
+    expect(extractProjectKey(terminal('/Users/noan/code/yappr'))).toBe('yappr')
   })
 
   it('handles Terminal.app shell and geometry segments', () => {
-    expect(extractProjectKey(terminal('OpenFlow — -zsh — 80×24'))).toBe('openflow')
+    expect(extractProjectKey(terminal('Yappr — -zsh — 80×24'))).toBe('yappr')
   })
 
   it('strips a user@host prefix', () => {
