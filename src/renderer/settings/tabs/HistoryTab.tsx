@@ -11,6 +11,7 @@ import {
 } from '../../../shared/dictation-stats'
 import { Pill } from '../../shared/ui/Pill'
 import { SectionHead } from '../../shared/ui/SectionHead'
+import buildBench from '../../shared/photos/build-bench.jpg'
 
 export default function HistoryTab() {
   const [items, setItems] = useState<DictationResult[] | null>(null)
@@ -69,6 +70,35 @@ export default function HistoryTab() {
           a busiest hour, a longest dictation and a "time saved vs typing
           at 40 wpm" — the last being both invented arithmetic and a speed
           claim the product deliberately doesn't make. */}
+      {/* The landing page's build-bench photo, same crop and the same
+          line it carries there. The Dashboard opens on numbers, and a
+          page of figures reads as a report rather than as the product —
+          this is the one place the app can say who it is for before it
+          starts counting.
+          Scrim is a left-weighted gradient rather than a flat overlay so
+          the text sits on darkness while the right of the frame stays
+          legible as a photograph. */}
+      <div className="relative rounded-card overflow-hidden shadow-glass mb-6 h-[168px]">
+        <img
+          src={buildBench}
+          alt="A workbench mid-project: prototype parts, hand tools and a laptop pushed to one side."
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(100deg, rgba(10,11,15,0.86) 0%, rgba(10,11,15,0.62) 46%, rgba(10,11,15,0.18) 100%)',
+          }}
+        />
+        <div className="relative h-full flex flex-col justify-end px-7 pb-6">
+          <h3 className="font-display text-[30px] leading-[1.05] tracking-[-0.01em] text-white">
+            Made for people who <em className="italic">build things</em>.
+          </h3>
+          <p className="text-[12.5px] text-white/70 mt-1.5">Not for dictating memos.</p>
+        </div>
+      </div>
+
       <Headline stats={stats} />
       {stats.total > 0 && <Activity days={stats.days} />}
       <WhereItGoes apps={stats.apps} />

@@ -604,15 +604,25 @@ export default function NotchIndicator() {
         style={{
           display: 'flex',
           flexDirection: 'column',
-          // Flat near-black, no gradient. A vertical gradient reads as a
-          // painted panel sitting on the screen; a single flat value with
-          // a hairline rim and a soft shadow reads as an extension of the
-          // machine, which is the whole point of the shape.
+          // HORIZONTAL gradient: true black under the housing, easing to
+          // near-black at the wings.
+          //
+          // The note this replaces warned off gradients, and it was right
+          // about VERTICAL ones — top-to-top-down shading reads as a
+          // painted panel sitting on the screen. Across the shape is the
+          // opposite: the centre is the part that overlaps the physical
+          // notch, and #0A0B0F against a true-black housing is a visible
+          // seam. Matching it there and lifting only at the wings is what
+          // lets the middle disappear into the hardware while the ends
+          // stay readable — the same reasoning that moved the glow off
+          // centre and onto the wings.
           //
           // Fully transparent at idle: anything drawn here persists as a
           // visible black slab during Spaces transitions, where the real
           // notch is composited away and ours is left hanging.
-          background: v.isIdle ? 'transparent' : '#0A0B0F',
+          background: v.isIdle
+            ? 'transparent'
+            : 'linear-gradient(90deg, #0A0B0F 0%, #000 34%, #000 66%, #0A0B0F 100%)',
           overflow: 'hidden',
           willChange: 'height',
           boxShadow: v.isIdle
