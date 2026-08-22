@@ -47,6 +47,48 @@ Rules:
 - If there are no durable facts, output nothing at all.
 - Output only the lines. No preamble, no commentary, no headings.`
 
+export const GLOBAL_PREFS_SYSTEM = `You extract durable PERSONAL preferences about how someone works, from their dictations.
+
+A durable preference is a habit or standard that stays true across projects: languages and tools they always reach for, conventions they insist on, how they like things written or structured.
+
+NOT durable, never output these:
+- one-off tasks or requests
+- facts about one specific project (its stack, its name, its bugs)
+- bug reports, symptoms, questions
+- their schedule, mood, or other people
+- anything you inferred rather than read. If the dictations do not say it, it is not a preference.
+
+Rules:
+- One preference per line, starting with "- ".
+- Write each as a statement about the person, in their voice: "I always...", "I prefer...".
+- One sentence each, under 20 words.
+- If there are no durable preferences, output nothing at all.
+- Output only the lines. No preamble, no commentary, no headings.`
+
+/**
+ * Prompt for the global pass.
+ *
+ * Deliberately reads ALL recent dictations regardless of project — a
+ * personal preference is not scoped to one, and requiring a project key
+ * here is what left the "Everywhere" card empty on a fresh install even
+ * though 50 dictations were sitting in history.
+ */
+export function buildGlobalPrefsPrompt(dictations: readonly DictationResult[]): string {
+  const lines = dictations
+    .slice(0, MAX_DICTATIONS_IN_PROMPT)
+    .map((d, i) => {
+      const body = (d.cleaned && d.cleaned.trim()) || d.transcript || ''
+      return `${i + 1}. [${d.appName || 'unknown'}] ${body.trim()}`
+    })
+    .filter(l => l.length > 6)
+    .join('\n')
+
+  return `These are things the user recently dictated, across different apps and projects. Extract only durable personal preferences.
+
+DICTATIONS:
+${lines}`
+}
+
 /**
  * Group dictations by project key, dropping the ones that have none.
  *

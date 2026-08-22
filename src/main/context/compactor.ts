@@ -39,8 +39,10 @@ import {
   groupByProject,
   eligibleProjects,
   buildProjectFactsPrompt,
+  buildGlobalPrefsPrompt,
   parseProjectFacts,
   PROJECT_FACTS_SYSTEM,
+  GLOBAL_PREFS_SYSTEM,
 } from './project-facts'
 
 const THRESHOLD = 50
@@ -350,10 +352,41 @@ async function mineProjectFacts(apiKey: string): Promise<void> {
     const history = loadPersistedHistory()
     const groups = groupByProject(history)
     const projects = eligibleProjects(groups)
-    if (projects.length === 0) return
+    // NOTE: no early return when there are no projects. Global
+    // preferences still need mining, and on a fresh install — or on any
+    // history recorded before project keys existed — there are never any
+    // eligible projects yet. Returning early here is what kept the
+    // "Everywhere" card empty on a machine with 50 dictations stored.
 
     const client = new Groq({ apiKey })
     let stored = 0
+
+    // GLOBAL pass first, and unconditionally — it needs no project key.
+    //
+    // This is the gap that left "What Yappr knows" empty on a machine
+    // with 50 dictations in history: personal preferences are not scoped
+    // to a project, but nothing mined them, so the only ways in were the
+    // onboarding paste or the per-dictation detector (strict by design,
+    // and only ever looking at one sentence).
+    try {
+      const response = await client.chat.completions.create({
+        model: backgroundModel(),
+        messages: [
+          { role: 'system', content: GLOBAL_PREFS_SYSTEM },
+          { role: 'user', content: buildGlobalPrefsPrompt(history) },
+        ],
+        temperature: 0.2,
+        max_tokens: 400,
+        ...(backgroundModel().startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
+      } as never, { timeout: 15000, maxRetries: 0 })
+      const raw = response.choices[0]?.message?.content ?? ''
+      for (const text of parseProjectFacts(raw)) {
+        if (addFact({ scope: 'global', text })) stored++
+      }
+    } catch (err) {
+      logError('[compactor] global-preference mining failed', err)
+    }
+
     for (const projectKey of projects) {
       const dictations = groups.get(projectKey) ?? []
       try {
