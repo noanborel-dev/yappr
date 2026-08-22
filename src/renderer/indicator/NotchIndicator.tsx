@@ -99,6 +99,13 @@ const HOVER_SLACK = 30
 
 
 
+// How much of a wing the ambient glow covers, measured from the outer
+// edge inward. Deliberately short of the full wing: the blur radius is
+// 26px, so a glow filling the wing edge-to-edge would spill back across
+// the housing and re-light the middle — the exact thing splitting it in
+// two was meant to stop.
+const GLOW_WING_FRACTION = 0.72
+
 const FALLBACK_GEOMETRY: NotchGeometryIPC = {
   hasNotch: false,
   width: 220,
@@ -553,22 +560,38 @@ export default function NotchIndicator() {
       `}</style>
 
 
-      {/* Ambient glow — a blurred ellipse behind the shape. */}
-      <span
-        style={{
-          position: 'absolute',
-          left: '8%',
-          right: '8%',
-          top: 14,
-          height: 44,
-          borderRadius: 999,
-          pointerEvents: 'none',
-          filter: 'blur(26px)',
-          transition: 'opacity 420ms ease, background 420ms ease',
-          opacity: v.glowOpacity,
-          background: v.glowColor,
-        }}
-      />
+      {/* Ambient glow — one blurred ellipse per WING, never the centre.
+          It used to be a single ellipse spanning 8%–92%, so the brightest
+          part sat directly over the middle of the shape: exactly where
+          the physical notch is. That lit the housing, which made the UI
+          read as a separate panel parked under the notch rather than as
+          something growing out of it.
+          The centre now stays black on black and merges with the
+          hardware; the glow lives out on the wings, which is also the
+          only part that needs to be legible against a black desktop.
+          Each ellipse stops short of its wing's inner edge so the blur
+          falls off before it reaches the housing. */}
+      {[
+        { key: 'l', side: 'left' as const, wing: v.leftWing },
+        { key: 'r', side: 'right' as const, wing: v.rightWing },
+      ].map(({ key, side, wing }) => (
+        <span
+          key={key}
+          style={{
+            position: 'absolute',
+            [side]: 0,
+            width: Math.max(0, wing * GLOW_WING_FRACTION),
+            top: 14,
+            height: 44,
+            borderRadius: 999,
+            pointerEvents: 'none',
+            filter: 'blur(26px)',
+            transition: 'opacity 420ms ease, background 420ms ease, width 420ms ease',
+            opacity: v.glowOpacity,
+            background: v.glowColor,
+          }}
+        />
+      ))}
 
       {/* Concave fillets. They sit OUTSIDE the shape, filling the corner
           between its side and the menu bar so it appears to grow out of
@@ -601,18 +624,6 @@ export default function NotchIndicator() {
           borderBottomRightRadius: v.radius,
         }}
       >
-        {/* OUTER EDGE ACCENTS.
-            The body is #0A0B0F, which is the point — it should read as an
-            extension of the housing. On a black desktop that leaves the
-            shape with no discernible extent: the wings simply dissolve
-            into the background and the user cannot tell how far it
-            reaches. A hairline of red at each extremity marks where the
-            black ends without lighting the whole shape.
-            Hidden at idle along with everything else, since the body is
-            fully transparent then and an edge with nothing between the
-            two would just be two floating ticks. */}
-        {!v.isIdle && <EdgeAccent side="left" height={v.rowHeight} />}
-        {!v.isIdle && <EdgeAccent side="right" height={v.rowHeight} />}
         <div style={{ display: 'flex', alignItems: 'center', flex: 'none', height: v.rowHeight }}>
           {/* LEFT WING — input */}
           <div
@@ -1088,28 +1099,6 @@ export default function NotchIndicator() {
         )}
       </div>
     </div>
-  )
-}
-
-// A 2px red rule at the far edge of the shape, faded at both ends so it
-// reads as a mark rather than a border. #E84A3A is the palette's red —
-// the same one the recording dot uses — so this is not a new colour.
-function EdgeAccent({ side, height }: { side: 'left' | 'right'; height: number }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        position: 'absolute',
-        top: 0,
-        [side]: 0,
-        width: 2,
-        height,
-        pointerEvents: 'none',
-        background:
-          'linear-gradient(to bottom, rgba(232,74,58,0) 0%, rgba(232,74,58,.85) 45%, rgba(232,74,58,0) 100%)',
-        zIndex: 4,
-      }}
-    />
   )
 }
 
