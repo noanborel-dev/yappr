@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   aggregate,
+  TYPING_WPM,
   wordCount,
   compactNumber,
   speakingMsFromAudioBytes,
@@ -123,5 +124,36 @@ describe('compactNumber', () => {
     expect(compactNumber(12_000)).toBe('12k')
     expect(compactNumber(1_000)).toBe('1k')
     expect(compactNumber(2_400_000)).toBe('2.4m')
+  })
+})
+
+
+describe('minutesSavedThisMonth', () => {
+  // 400 words at 40wpm is 10 minutes to type. Said in 2 minutes → 8 saved.
+  it('is typing time minus speaking time', () => {
+    const s = aggregate([rec({ w: 400, ms: 120_000 })], NOW)
+    expect(s.minutesSavedThisMonth).toBe(400 / TYPING_WPM - 2)
+    expect(s.minutesSavedThisMonth).toBe(8)
+  })
+
+  it('counts only the current calendar month', () => {
+    const lastMonth = new Date(2026, 6, 15, 12).getTime()
+    const s = aggregate([rec({ w: 400, ms: 120_000 }), rec({ w: 4000, ms: 60_000, t: lastMonth })], NOW)
+    expect(s.minutesSavedThisMonth).toBe(8)
+  })
+
+  // An untimed record would otherwise look instantaneous and inflate it.
+  it('ignores records with no duration', () => {
+    const s = aggregate([rec({ w: 400, ms: 120_000 }), rec({ w: 9999, ms: 0 })], NOW)
+    expect(s.minutesSavedThisMonth).toBe(8)
+  })
+
+  // Speaking slower than typing is not a loss worth showing as one.
+  it('never goes negative', () => {
+    expect(aggregate([rec({ w: 5, ms: 600_000 })], NOW).minutesSavedThisMonth).toBe(0)
+  })
+
+  it('is null when nothing is timed', () => {
+    expect(aggregate([rec({ ms: 0 })], NOW).minutesSavedThisMonth).toBeNull()
   })
 })

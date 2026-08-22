@@ -11,6 +11,14 @@ import { useEffect, useRef, useState } from 'react'
  */
 export const BAR_COUNT = 9
 
+// Bins the bars are spread over. At fftSize 256 each bin is ~187Hz, so
+// 24 bins covers roughly 0-4.5kHz, where speech actually lives.
+const SPEECH_BINS = 24
+
+// Headroom on top of the decibel window, so conversational speech at a
+// normal distance visibly moves without pinning at 100.
+const WAVEFORM_GAIN = 1.45
+
 /** Height of the waveform box in the wing, in px. */
 export const WAVE_HEIGHT = 13
 
@@ -48,7 +56,20 @@ export function useIndicatorAudio(): IndicatorAudio {
         const ctx = new AudioContext()
         const source = ctx.createMediaStreamSource(stream)
         const analyser = ctx.createAnalyser()
-        analyser.fftSize = 64
+        // 256 gives 128 bins across 0-24kHz, ~187Hz each. At the old
+        // fftSize of 64 a bin was 750Hz wide and there were only 32,
+        // which is why the meter barely moved: speech energy sits under
+        // ~4kHz, so it filled the first five bins and the remaining 27 —
+        // most of the meter — were mapped to silence.
+        analyser.fftSize = 256
+        // Defaults are -100/-30dB, a window sized for music. Raw mic input
+        // with autoGainControl OFF sits low and quiet in that range, so
+        // normal speech only ever reached the bottom of the scale.
+        analyser.minDecibels = -78
+        analyser.maxDecibels = -22
+        // Enough smoothing to stop strobing, little enough to track
+        // syllables.
+        analyser.smoothingTimeConstant = 0.65
         source.connect(analyser)
         streamRef.current = stream
         audioContextRef.current = ctx
@@ -81,7 +102,20 @@ export function useIndicatorAudio(): IndicatorAudio {
       const ctx = new AudioContext()
       const source = ctx.createMediaStreamSource(stream)
       const analyser = ctx.createAnalyser()
-      analyser.fftSize = 64
+      // 256 gives 128 bins across 0-24kHz, ~187Hz each. At the old
+      // fftSize of 64 a bin was 750Hz wide and there were only 32,
+      // which is why the meter barely moved: speech energy sits under
+      // ~4kHz, so it filled the first five bins and the remaining 27 —
+      // most of the meter — were mapped to silence.
+      analyser.fftSize = 256
+      // Defaults are -100/-30dB, a window sized for music. Raw mic input
+      // with autoGainControl OFF sits low and quiet in that range, so
+      // normal speech only ever reached the bottom of the scale.
+      analyser.minDecibels = -78
+      analyser.maxDecibels = -22
+      // Enough smoothing to stop strobing, little enough to track
+      // syllables.
+      analyser.smoothingTimeConstant = 0.65
       source.connect(analyser)
       streamRef.current = stream
       audioContextRef.current = ctx
@@ -197,9 +231,17 @@ export function useIndicatorAudio(): IndicatorAudio {
     const tick = () => {
       const data = new Uint8Array(analyser.frequencyBinCount)
       analyser.getByteFrequencyData(data)
+      // Spread the bars across the SPEECH band only, and average each
+      // bar's slice rather than sampling one bin — a single bin is noisy
+      // enough that neighbouring bars jump independently, which reads as
+      // flicker rather than as a voice.
       const bars = Array.from({ length: BAR_COUNT }, (_, i) => {
-        const idx = Math.floor((i / BAR_COUNT) * data.length)
-        return Math.round((data[idx] / 255) * 100)
+        const lo = Math.floor((i / BAR_COUNT) * SPEECH_BINS)
+        const hi = Math.max(lo + 1, Math.floor(((i + 1) / BAR_COUNT) * SPEECH_BINS))
+        let sum = 0
+        for (let b = lo; b < hi && b < data.length; b++) sum += data[b]
+        const avg = sum / Math.max(1, hi - lo)
+        return Math.min(100, Math.round((avg / 255) * 100 * WAVEFORM_GAIN))
       })
       setWaveform(bars)
       animFrameRef.current = requestAnimationFrame(tick)

@@ -302,9 +302,15 @@ describe('resolve — glow and fillets', () => {
     expect(at('peek').glowOpacity).toBe(0)
   })
 
-  it('turns the glow red on error and cobalt elsewhere', () => {
+  // Error must stay visibly DIFFERENT from every other state — that is
+  // the property worth pinning. The non-error hue itself is a brand
+  // choice and moved from cobalt to the app's terracotta once the
+  // indicator was the last surface still blue, so asserting a specific
+  // channel triple just re-broke on a deliberate change.
+  it('uses the danger red for errors and the accent everywhere else', () => {
     expect(at('error').glowColor).toContain('232,74,58')
-    expect(at('recording').glowColor).toContain('90,143,232')
+    expect(at('recording').glowColor).not.toContain('232,74,58')
+    expect(at('recording').glowColor).toMatch(/^rgba\(/)
   })
 })
 

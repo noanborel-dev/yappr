@@ -80,7 +80,15 @@ export interface StateSpec {
   glow?: string
 }
 
-export const ACCENT = '#5A8FE8'
+// Was cobalt (#5A8FE8). The indicator was the last surface still using
+// it after Settings moved to the brand terracotta, so the one blue thing
+// on screen sat next to the notch with nothing else to relate it to.
+//
+// The LABEL stays. "inserted" is the only signal that the paste actually
+// landed, and the note on the done state explains why losing the
+// distinction from "copied" would matter — so this recolours it rather
+// than removing it.
+export const ACCENT = '#C8553D'
 export const DANGER = '#E84A3A'
 
 /**
@@ -102,7 +110,7 @@ export const STATES: Record<NotchState, StateSpec> = {
     recordDot: true,
     waveform: true,
     label: 'listening',
-    glow: 'rgba(90,143,232,.5)',
+    glow: 'rgba(200,85,61,.45)',
   },
   processing: {
     lw: 34,
@@ -110,7 +118,7 @@ export const STATES: Record<NotchState, StateSpec> = {
     mic: true,
     spinner: true,
     label: 'polishing…',
-    glow: 'rgba(90,143,232,.35)',
+    glow: 'rgba(200,85,61,.30)',
   },
   // Landed in the app. This must NOT read "copied": that word means the
   // text is only on the clipboard, and pairing it with a successful
@@ -139,7 +147,7 @@ export const STATES: Record<NotchState, StateSpec> = {
     label: 'copied',
     labelColor: ACCENT,
     gesture: true,
-    glow: 'rgba(90,143,232,.35)',
+    glow: 'rgba(200,85,61,.30)',
   },
   error: {
     lw: 28,
@@ -160,7 +168,7 @@ export const STATES: Record<NotchState, StateSpec> = {
     label: 'inserting',
     labelColor: ACCENT,
     pastePanel: true,
-    glow: 'rgba(90,143,232,.35)',
+    glow: 'rgba(200,85,61,.30)',
   },
   // Browsing the last dictation, not reporting an outcome — so no label
   // and no checkmark. The drawer below states where the text went; a row

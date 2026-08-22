@@ -65,6 +65,16 @@ export interface DayCount {
   count: number
 }
 
+/**
+ * Typing speed the time-saved figure is measured against.
+ *
+ * 40 wpm is the common figure for sustained prose typing on a full
+ * keyboard. It is an ASSUMPTION, not a measurement, which is why the UI
+ * states it next to the number — a headline figure derived from an
+ * unstated baseline is just a marketing claim.
+ */
+export const TYPING_WPM = 40
+
 export interface DictationStats {
   total: number
   words: number
@@ -76,6 +86,15 @@ export interface DictationStats {
   days: DayCount[]
   /** Timestamp of the earliest record, 0 when there are none. */
   since: number
+  /**
+   * Minutes saved this month against TYPING_WPM: how long those words
+   * would have taken to type, minus how long they took to say.
+   *
+   * Only records WITH a duration count, for the same reason the rate
+   * excludes them — an unmeasured dictation would otherwise look
+   * instantaneous and inflate the figure. Null when nothing is timed.
+   */
+  minutesSavedThisMonth: number | null
 }
 
 const dayKey = (d: Date): string => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
@@ -103,6 +122,11 @@ export function aggregate(
   // durations were captured would otherwise drag it toward zero.
   let timedWords = 0
   let timedMs = 0
+  const startOfMonth = new Date(now)
+  startOfMonth.setDate(1)
+  startOfMonth.setHours(0, 0, 0, 0)
+  let monthWords = 0
+  let monthMs = 0
 
   for (const r of records) {
     words += r.w
@@ -113,6 +137,10 @@ export function aggregate(
     if (r.ms > 0) {
       timedWords += r.w
       timedMs += r.ms
+      if (r.t >= startOfMonth.getTime()) {
+        monthWords += r.w
+        monthMs += r.ms
+      }
     }
     const d = new Date(r.t)
     buckets.set(dayKey(d), (buckets.get(dayKey(d)) ?? 0) + 1)
@@ -144,6 +172,11 @@ export function aggregate(
     apps,
     days,
     since,
+    minutesSavedThisMonth: monthMs > 0
+      // Clamped at zero: someone who speaks slower than they type has not
+      // "lost" time in any sense worth showing them a negative number for.
+      ? Math.max(0, Math.round(monthWords / TYPING_WPM - monthMs / 60_000))
+      : null,
   }
 }
 

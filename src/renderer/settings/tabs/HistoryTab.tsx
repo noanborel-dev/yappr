@@ -3,6 +3,7 @@ import type { DictationResult } from '../../../shared/types'
 import {
   aggregate,
   compactNumber,
+  TYPING_WPM,
   type StatRecord,
   type DictationStats,
   type DayCount,
@@ -77,7 +78,7 @@ export default function HistoryTab() {
           type="text"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Search what you\u2019ve said…"
+          placeholder="Search what you said…"
           className="flex-1 bg-card border border-line rounded-input px-3.5 py-2.5 text-[12.5px] placeholder:text-ink-45 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
         />
         {items.length > 0 && (
@@ -185,30 +186,42 @@ function EmptyState() {
 function Activity({ days }: { days: DayCount[] }) {
   const max = Math.max(...days.map(d => d.count), 1)
   const busiest = days.reduce((a, b) => (b.count > a.count ? b : a), days[0])
+  const total = days.reduce((n, d) => n + d.count, 0)
+
   return (
-    <div className="mb-6">
-      <div className="flex items-end gap-[3px] h-[92px]">
+    <div className="mb-8">
+      <div className="flex items-baseline justify-between mb-3">
+        <div className="text-[12.5px] text-ink-60">Last two weeks</div>
+        <div className="text-[12.5px] text-ink-45 tabular-nums">
+          {total} {total === 1 ? 'dictation' : 'dictations'}
+        </div>
+      </div>
+      {/* Shorter and softer than it was. At 92px tall with one active day
+          the chart rendered a single full-height black slab over a row of
+          2px hairlines, which reads as a rendering fault rather than as
+          sparse data. Empty days now hold a visible, quiet slot so the
+          row still scans as a fortnight. */}
+      <div className="flex items-end gap-[4px] h-[56px]">
         {days.map((d, i) => {
-          const h = d.count === 0 ? 2 : Math.max(6, (d.count / max) * 92)
-          const isBusiest = d.count === busiest.count && d.count > 0
+          const isBusiest = d.count > 0 && d.count === busiest.count
+          const h = d.count === 0 ? 6 : Math.max(12, (d.count / max) * 56)
           return (
-            <div key={i} className="flex-1 flex flex-col justify-end items-center gap-1.5">
-              {isBusiest && (
-                <div className="text-[10px] tabular-nums text-ink-60 leading-none">{d.count}</div>
-              )}
-              <div
-                title={`${d.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${d.count}`}
-                className={[
-                  'w-full rounded-t-[3px]',
-                  d.count === 0 ? 'bg-ink/[0.07]' : isBusiest ? 'bg-ink' : 'bg-ink/30',
-                ].join(' ')}
-                style={{ height: h }}
-              />
-            </div>
+            <div
+              key={i}
+              title={`${d.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${d.count}`}
+              className={[
+                'flex-1 rounded-[3px] transition-colors',
+                d.count === 0
+                  ? 'bg-ink/[0.06]'
+                  : isBusiest
+                    ? 'bg-accent/80'
+                    : 'bg-ink/25',
+              ].join(' ')}
+              style={{ height: h }}
+            />
           )
         })}
       </div>
-      <div className="text-[11.5px] text-ink-45 mt-2.5">Last two weeks</div>
     </div>
   )
 }
@@ -256,26 +269,48 @@ function WhereItGoes({ apps }: { apps: AppShare[] }) {
 // spacing, which is the house style for a caption but reads as jargon
 // when it is the only thing describing a headline figure.
 function Headline({ stats }: { stats: DictationStats }) {
+  const saved = stats.minutesSavedThisMonth
   return (
-    <div className="grid grid-cols-4 gap-px bg-line rounded-card overflow-hidden mb-6">
-      <Figure value={compactNumber(stats.total)} label="dictations" />
-      <Figure
-        value={stats.wordsPerMinute === null ? '—' : String(stats.wordsPerMinute)}
-        label="words a minute"
-      />
-      <Figure value={compactNumber(stats.thisWeek)} label="this week" />
-      <Figure value={compactNumber(stats.today)} label="today" />
+    <div className="mb-8">
+      {/* One figure carries the page. Four equal boxes gave every number
+          the same weight, and on a young install three of them read the
+          same value — "16 dictations / 16 this week / 16 today" — which
+          looks broken rather than sparse. Minutes saved is the one number
+          that answers "was this worth it", so it gets the size. */}
+      <div className="bg-card border border-line-soft rounded-card shadow-card px-7 py-8 mb-3">
+        <div className="flex items-baseline gap-3">
+          <div className="font-display text-[76px] leading-[0.85] tracking-[-0.03em] tabular-nums">
+            {saved === null ? '—' : compactNumber(saved)}
+          </div>
+          <div className="font-display italic text-[26px] leading-none text-ink-60 pb-1">
+            minutes saved
+          </div>
+        </div>
+        <p className="text-[12.5px] text-ink-45 mt-3.5">
+          this month, against typing at {TYPING_WPM} words a minute
+        </p>
+      </div>
+
+      {/* Supporting numbers, deliberately small. */}
+      <div className="grid grid-cols-3 gap-px bg-line-soft rounded-card overflow-hidden">
+        <Figure value={compactNumber(stats.total)} label="dictations" />
+        <Figure value={compactNumber(stats.words)} label="words" />
+        <Figure
+          value={stats.wordsPerMinute === null ? '—' : String(stats.wordsPerMinute)}
+          label="words a minute"
+        />
+      </div>
     </div>
   )
 }
 
 function Figure({ value, label }: { value: string; label: string }) {
   return (
-    <div className="bg-card px-4 py-4">
-      <div className="font-display text-[34px] leading-none tracking-tight tabular-nums">
+    <div className="bg-card px-4 py-3.5">
+      <div className="font-display text-[26px] leading-none tracking-tight tabular-nums">
         {value}
       </div>
-      <div className="text-[11.5px] text-ink-45 mt-2">{label}</div>
+      <div className="text-[11.5px] text-ink-45 mt-1.5">{label}</div>
     </div>
   )
 }
