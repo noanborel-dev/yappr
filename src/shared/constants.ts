@@ -112,6 +112,20 @@ export const AX_OPAQUE_APPS = new Set<string>([
   'notion.id',                        // Notion
   'com.linear',                       // Linear
   'com.figma.Desktop',                // Figma
+  // The AI desktop apps. All Electron, all opaque past the web-view
+  // boundary — the AX probe returns "no-focus" while the user is typing
+  // into the composer, so the gate blocked the paste and fell back to the
+  // clipboard with "Copied — not inserted".
+  //
+  // Observed, not guessed:
+  //   Paste blocked — falling back to clipboard
+  //   {"bundleId":"com.anthropic.claudefordesktop","focusedAXRole":"no-focus"}
+  //
+  // Double-tap still worked, which is what made this look arbitrary: that
+  // path replays the last dictation and never runs this gate.
+  'com.anthropic.claudefordesktop',   // Claude
+  'com.openai.chat',                  // ChatGPT
+  'com.perplexity.desktop',           // Perplexity
 ])
 
 // Window-title routing for browser-based web apps. Order matters —

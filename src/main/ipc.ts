@@ -24,6 +24,7 @@ import { getUserOverview, setUserOverview } from './context/store'
 import { forceCompaction, getCompactionStatus } from './context/compactor'
 import { listBuckets, deleteFact, deleteBucket, addFact } from './context/facts'
 import type { OnboardingImport } from '../shared/onboarding-import'
+import { generateContext } from './context/generate'
 import { logInfo } from './log'
 
 // Hot in-memory cache for paste-last + indicator lookups. Always
@@ -134,6 +135,24 @@ export function registerIpcHandlers(hooks: IpcHooks = {}): void {
   // tested); this just files the result. addFact already rejects
   // unstorable text and duplicates, so re-importing is idempotent rather
   // than accumulating a second copy of everything.
+  // Generate, then store through the SAME path the paste flow used, so the
+  // two differ only in where the text came from.
+  ipcMain.handle(IPC.CONTEXT_GENERATE, async (_e, seed: string) => {
+    const res = await generateContext(typeof seed === 'string' ? seed : '')
+    if (!res.ok || !res.parsed) return { ok: false, error: res.error, stored: 0 }
+    const p = res.parsed
+    let stored = 0
+    if (p.overview.trim()) setUserOverview(p.overview)
+    for (const text of p.global) if (addFact({ scope: 'global', text })) stored++
+    for (const [projectKey, facts] of Object.entries(p.projects)) {
+      for (const text of facts) if (addFact({ scope: 'project', projectKey, text })) stored++
+    }
+    for (const text of p.unsorted) {
+      if (addFact({ scope: 'project', projectKey: 'unsorted', text })) stored++
+    }
+    return { ok: true, stored, overview: p.overview }
+  })
+
   ipcMain.handle(IPC.CONTEXT_IMPORT, (_e, payload: OnboardingImport) => {
     if (!payload || typeof payload !== 'object') return { stored: 0 }
     let stored = 0

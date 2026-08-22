@@ -221,6 +221,9 @@ export const IPC = {
   // Spec §1.3 — the onboarding paste, split into buckets rather than
   // stored as one blob that loads for every project.
   CONTEXT_IMPORT: 'context:import',
+  // Yappr writes the profile itself instead of the user couriering a prompt
+  // to an external chat and the answer back. See context/generate.ts.
+  CONTEXT_GENERATE: 'context:generate',
   // Version / build / arch, read from the running app rather than
   // hardcoded in the About tab — which shipped "Build 218 · arm64" as
   // string literals that were wrong the moment either changed.

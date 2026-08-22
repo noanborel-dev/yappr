@@ -145,7 +145,7 @@ export function PromptShapingStage() {
           growing out of it. Near-black does the same structural job and
           lets the notch merge with it, which is what it does on a real
           screen. */}
-      <div className="-mx-9 mb-6 bg-[linear-gradient(180deg,#15161A_0%,#0A0B0F_100%)]">
+      <div className="-mx-9 mb-6 bg-[#0A0B0F]">
         <MenuBar>
           <NotchMark state={NOTCH_FOR[phase]} notchWidth={92} />
         </MenuBar>

@@ -61,6 +61,7 @@ declare global {
       deleteContextFact: (id: number) => Promise<boolean>
       deleteContextBucket: (key: string) => Promise<number>
       importContext: (payload: OnboardingImport) => Promise<{ stored: number }>
+      generateContext: (seed: string) => Promise<{ ok: boolean; error?: string; stored: number; overview?: string }>
       getContextStatus: () => Promise<{
         count: number
         threshold: number

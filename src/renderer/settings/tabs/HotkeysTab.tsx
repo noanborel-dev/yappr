@@ -198,7 +198,7 @@ function Gestures({ glyph }: { glyph: string }) {
       {/* One shared stage. Three separate looping mocks side by side would
           be three animations in one viewport — the page rules cap that at
           one, and they were right: it read as noise. */}
-      <div className="bg-[linear-gradient(180deg,#15161A_0%,#0A0B0F_100%)] relative">
+      <div className="bg-[#0A0B0F] relative">
         <MenuBar>
           <NotchMark state={state} notchWidth={92} />
         </MenuBar>

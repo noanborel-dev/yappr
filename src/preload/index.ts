@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('yappr', {
     ipcRenderer.invoke(IPC.CONTEXT_BUCKET_DELETE, key),
   importContext: (payload: OnboardingImport): Promise<{ stored: number }> =>
     ipcRenderer.invoke(IPC.CONTEXT_IMPORT, payload),
+  generateContext: (seed: string): Promise<{ ok: boolean; error?: string; stored: number; overview?: string }> =>
+    ipcRenderer.invoke(IPC.CONTEXT_GENERATE, seed),
   getContextStatus: (): Promise<{
     count: number
     threshold: number
