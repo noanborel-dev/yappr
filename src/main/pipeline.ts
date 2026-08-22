@@ -1215,7 +1215,10 @@ export async function runDictationPipeline(
   })
   if (ultrathink.applied) {
     cleaned = ultrathink.text
-    logInfo('Ultrathink mapped', { app: focusedApp.name })
+    // Log which route fired: 'explicit' means the user said it,
+    // 'reasoning' means the task itself asked for it. If auto-firing ever
+    // feels too eager, this line is what says how often it happens.
+    logInfo('Ultrathink mapped', { app: focusedApp.name, trigger: ultrathink.trigger })
   }
 
   // A replay hands the text back instead of pasting it — see the `replay`
