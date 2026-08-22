@@ -14,6 +14,7 @@ import {
   getLocalModelProgress,
 } from './local-download'
 import { HISTORY_LIMIT } from '../shared/constants'
+import { loadDictationStats, clearDictationStats } from './stats-store'
 import {
   loadPersistedHistory,
   persistHistoryEntry,
@@ -105,6 +106,9 @@ export function registerIpcHandlers(hooks: IpcHooks = {}): void {
       return { ok: false, error: message }
     }
   })
+
+  ipcMain.handle(IPC.STATS_GET, () => loadDictationStats())
+  ipcMain.handle(IPC.STATS_CLEAR, () => clearDictationStats())
 
   ipcMain.handle(IPC.HISTORY_GET, () => getHistory())
   ipcMain.handle(IPC.HISTORY_GET_ALL, () => getPersistedHistory())

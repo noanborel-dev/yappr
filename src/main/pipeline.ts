@@ -11,6 +11,8 @@ import { extractProjectKey } from './context/project-key'
 import { extractStandingPreferences } from './context/fact-scope'
 import { addFact } from './context/facts'
 import { applyUltrathink, isUltrathinkSurface } from './ultrathink'
+import { recordDictationStat } from './stats-store'
+import { wordCount, speakingMsFromAudioBytes } from '../shared/dictation-stats'
 import { MODELS, BUILTIN_DICTIONARY, DICTIONARY_ALIASES, IDE_EDITORS, AGENTIC_AI_APP_NAMES } from '../shared/constants'
 import type { AppCategory, DictationResult, Settings, Strictness } from '../shared/types'
 import type { FocusedApp } from './focused-app'
@@ -1239,6 +1241,16 @@ export async function runDictationPipeline(
   // After the paste, deliberately: this is bookkeeping and must never sit
   // between the user finishing a dictation and seeing their text.
   captureStandingPreferences(transcript, focusedApp)
+
+  // All-time stats. No text — see dictation-stats.ts on why this is a
+  // separate store from the 50-entry transcript history. Also after the
+  // paste, for the same reason: bookkeeping never delays the user's text.
+  recordDictationStat({
+    t: Date.now(),
+    w: wordCount(cleaned),
+    ms: speakingMsFromAudioBytes(audioBuffer.byteLength),
+    a: focusedApp.name,
+  })
 
   return {
     id: crypto.randomUUID(),

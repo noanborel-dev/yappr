@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DictationResult } from '../../../shared/types'
+import {
+  aggregate,
+  compactNumber,
+  type StatRecord,
+  type DictationStats,
+  type DayCount,
+  type AppShare,
+} from '../../../shared/dictation-stats'
 import { Pill } from '../../shared/ui/Pill'
 import { SectionHead } from '../../shared/ui/SectionHead'
 
@@ -7,9 +15,13 @@ export default function HistoryTab() {
   const [items, setItems] = useState<DictationResult[] | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
+  const [records, setRecords] = useState<StatRecord[] | null>(null)
 
   useEffect(() => {
     window.yappr.getAllHistory().then(setItems)
+    // Metrics come from the all-time store, so they are NOT bounded by
+    // how many transcripts are kept.
+    window.yappr.getDictationStats().then(setRecords).catch(() => setRecords([]))
   }, [])
 
   const filtered = useMemo(() => {
@@ -24,7 +36,9 @@ export default function HistoryTab() {
     )
   }, [items, filter])
 
-  const stats = useMemo(() => computeStats(items ?? []), [items])
+  // Captured once per mount so every figure on screen shares one instant.
+  const [now] = useState(() => Date.now())
+  const stats = useMemo(() => aggregate(records ?? [], now), [records, now])
 
   async function copy(item: DictationResult) {
     await navigator.clipboard.writeText(item.cleaned)
@@ -48,7 +62,7 @@ export default function HistoryTab() {
         ord="01"
         label="Dashboard"
         headline={<>Every <em className="italic">word</em>, kept.</>}
-        body="The last 50 dictations, searchable. They stay on this Mac and are never synced."
+        body="Everything you've dictated, and where it went. Stays on this Mac, never synced."
       />
 
       {/* Two weeks of activity, then three numbers — all of them true of
@@ -56,15 +70,16 @@ export default function HistoryTab() {
           a busiest hour, a longest dictation and a "time saved vs typing
           at 40 wpm" — the last being both invented arithmetic and a speed
           claim the product deliberately doesn't make. */}
-      {items.length > 0 && <Activity days={stats.days} />}
-      <StatRail stats={stats} />
+      <Headline stats={stats} />
+      {stats.total > 0 && <Activity days={stats.days} />}
+      <WhereItGoes apps={stats.apps} />
 
       <div className="flex items-stretch gap-2 mb-3">
         <input
           type="text"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Search transcriptions…"
+          placeholder="Search what you\u2019ve said…"
           className="flex-1 bg-card border border-line rounded-input px-3.5 py-2.5 text-[12.5px] placeholder:text-ink-45 focus:outline-none focus:border-cobalt focus:ring-2 focus:ring-cobalt-soft"
         />
         {items.length > 0 && (
@@ -160,158 +175,109 @@ function EmptyState() {
   )
 }
 
-interface Stats {
-  total: number
-  words: number
-  thisWeek: number
-  apps: number
-  topApps: Array<{ name: string; count: number }>
-  /** Dictations per day, oldest first, for the last DAYS days. */
-  days: Array<{ label: string; date: Date; count: number }>
-}
+// The dashboard reads the ALL-TIME stats store, not the transcript list.
+// Those are different lifetimes on purpose: metrics keep no text and are
+// never pruned, transcripts are capped. See shared/dictation-stats.ts.
 
-const DAYS = 14
-
-function computeStats(items: DictationResult[]): Stats {
-  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-  const byApp = new Map<string, number>()
-  let words = 0
-  let thisWeek = 0
-
-  // Bucket by local calendar day so a dictation at 11pm counts for that
-  // day, not for a rolling 24h window nobody thinks in.
-  const buckets = new Map<string, number>()
-  const key = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-
-  for (const i of items) {
-    words += wordCount(i.cleaned)
-    if (i.timestamp >= weekAgo) thisWeek++
-    byApp.set(i.appName, (byApp.get(i.appName) ?? 0) + 1)
-    const d = new Date(i.timestamp)
-    buckets.set(key(d), (buckets.get(key(d)) ?? 0) + 1)
-  }
-
-  const days: Stats['days'] = []
-  for (let back = DAYS - 1; back >= 0; back--) {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    d.setDate(d.getDate() - back)
-    days.push({
-      label: d.toLocaleDateString(undefined, { weekday: 'narrow' }),
-      date: d,
-      count: buckets.get(key(d)) ?? 0,
-    })
-  }
-
-  const topApps = [...byApp.entries()]
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 4)
-
-  return { total: items.length, words, thisWeek, apps: byApp.size, topApps, days }
-}
-
-// Dictations per day for the last two weeks.
+// Fourteen days of activity.
 //
-// One series, so no legend — the heading says what's plotted. Columns are
-// capped rather than filling their slot, carry a 4px rounded cap and a
-// square baseline, and are separated by surface-colored gaps rather than
-// strokes. Only the busiest day is labelled: a number over every column is
-// noise, and the tooltip carries the rest.
-function Activity({ days }: { days: Stats['days'] }) {
-  const max = Math.max(...days.map((d) => d.count), 1)
+// One series, so no legend and no axis — the heading says what it is.
+// Only the busiest day is labelled: a number over every column is noise
+// the eye has to filter before it can see the shape.
+function Activity({ days }: { days: DayCount[] }) {
+  const max = Math.max(...days.map(d => d.count), 1)
   const busiest = days.reduce((a, b) => (b.count > a.count ? b : a), days[0])
-
   return (
-    <div className="bg-card border border-line rounded-card px-5 pt-4 pb-3 mb-2.5">
-      <div className="flex items-baseline justify-between mb-3">
-        <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-ink-45">
-          Last {DAYS} days
-        </div>
-        {busiest.count > 0 && (
-          <div className="text-[10px] font-mono text-ink-45">
-            busiest {busiest.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-            {' · '}{busiest.count}
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-end gap-[2px] h-[68px]">
+    <div className="mb-6">
+      <div className="flex items-end gap-[3px] h-[92px]">
         {days.map((d, i) => {
-          const pct = (d.count / max) * 100
-          const isMax = d.count === busiest.count && d.count > 0
+          const h = d.count === 0 ? 2 : Math.max(6, (d.count / max) * 92)
+          const isBusiest = d.count === busiest.count && d.count > 0
           return (
-            <div key={i} className="flex-1 h-full flex flex-col justify-end items-center group">
-              {isMax && (
-                <div className="text-[9.5px] font-mono text-ink-60 mb-1 leading-none">
-                  {d.count}
-                </div>
+            <div key={i} className="flex-1 flex flex-col justify-end items-center gap-1.5">
+              {isBusiest && (
+                <div className="text-[10px] tabular-nums text-ink-60 leading-none">{d.count}</div>
               )}
               <div
-                title={`${d.date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })} — ${d.count} dictation${d.count === 1 ? '' : 's'}`}
-                style={{ height: `${Math.max(pct, d.count > 0 ? 6 : 1.5)}%` }}
+                title={`${d.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${d.count}`}
                 className={[
-                  'w-full max-w-[22px] rounded-t-[4px] transition-colors',
-                  d.count > 0 ? 'bg-cobalt group-hover:bg-ink' : 'bg-ink/[0.10]',
+                  'w-full rounded-t-[3px]',
+                  d.count === 0 ? 'bg-ink/[0.07]' : isBusiest ? 'bg-ink' : 'bg-ink/30',
                 ].join(' ')}
+                style={{ height: h }}
               />
             </div>
           )
         })}
       </div>
+      <div className="text-[11.5px] text-ink-45 mt-2.5">Last two weeks</div>
+    </div>
+  )
+}
 
-      {/* Hairline baseline, one step off the surface — recessive. */}
-      <div className="h-px bg-line mt-1.5 mb-1.5" />
+// Where the words actually go.
+//
+// One proportional bar rather than a row of numbers: the question people
+// ask is "how much of my typing is Claude Code", and a share reads faster
+// as a width than as a percentage.
+function WhereItGoes({ apps }: { apps: AppShare[] }) {
+  if (apps.length === 0) return null
+  const shown = apps.slice(0, 5)
+  const restShare = apps.slice(5).reduce((sum, a) => sum + a.share, 0)
+  const shades = ['bg-ink', 'bg-ink/65', 'bg-ink/45', 'bg-ink/30', 'bg-ink/20']
 
-      <div className="flex justify-between text-[9px] font-mono text-ink-45">
-        <span>{days[0].date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-        <span>today</span>
+  return (
+    <div className="mb-8">
+      <div className="flex h-2.5 rounded-full overflow-hidden gap-[2px] mb-3.5">
+        {shown.map((a, i) => (
+          <div
+            key={a.name}
+            className={shades[i]}
+            style={{ width: `${a.share * 100}%` }}
+            title={`${a.name} · ${Math.round(a.share * 100)}%`}
+          />
+        ))}
+        {restShare > 0 && <div className="bg-ink/10" style={{ width: `${restShare * 100}%` }} />}
+      </div>
+      <div className="flex flex-wrap gap-x-5 gap-y-1.5">
+        {shown.map((a, i) => (
+          <div key={a.name} className="flex items-center gap-2 text-[12px]">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${shades[i]}`} />
+            <span className="text-ink">{a.name}</span>
+            <span className="text-ink-45 tabular-nums">{Math.round(a.share * 100)}%</span>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
-function StatRail({ stats }: { stats: Stats }) {
-  if (stats.total === 0) return null
+// Four numbers, in plain words.
+//
+// The old rail labelled these in 9.5px uppercase mono with letter
+// spacing, which is the house style for a caption but reads as jargon
+// when it is the only thing describing a headline figure.
+function Headline({ stats }: { stats: DictationStats }) {
   return (
-    <div className="grid grid-cols-[1fr_1fr_1fr_minmax(0,1.5fr)] gap-px bg-line border border-line rounded-card overflow-hidden mb-5">
-      <Stat value={stats.words.toLocaleString()} label="words" />
-      <Stat value={stats.total} label="dictations" />
-      <Stat value={stats.thisWeek} label="this week" />
-      <div className="bg-card px-4 py-3.5">
-        <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-ink-45 mb-2">
-          Where they went
-        </div>
-        <div className="flex flex-col gap-1.5">
-          {stats.topApps.map((a) => (
-            <div key={a.name} className="text-[10.5px]">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-ink-60 truncate">{a.name}</span>
-                <span className="text-ink-45 font-mono tabular-nums">{a.count}</span>
-              </div>
-              <div className="h-[3px] bg-ink/[0.06] rounded-full mt-1 overflow-hidden">
-                <div
-                  className="h-full bg-cobalt rounded-full"
-                  style={{ width: `${Math.max((a.count / stats.total) * 100, 5)}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+    <div className="grid grid-cols-4 gap-px bg-line rounded-card overflow-hidden mb-6">
+      <Figure value={compactNumber(stats.total)} label="dictations" />
+      <Figure
+        value={stats.wordsPerMinute === null ? '—' : String(stats.wordsPerMinute)}
+        label="words a minute"
+      />
+      <Figure value={compactNumber(stats.thisWeek)} label="this week" />
+      <Figure value={compactNumber(stats.today)} label="today" />
     </div>
   )
 }
 
-function Stat({ value, label }: { value: string | number; label: string }) {
+function Figure({ value, label }: { value: string; label: string }) {
   return (
-    <div className="bg-card px-4 py-3.5 flex flex-col justify-center">
-      <div className="font-display text-[30px] leading-none tracking-tight tabular-nums">
+    <div className="bg-card px-4 py-4">
+      <div className="font-display text-[34px] leading-none tracking-tight tabular-nums">
         {value}
       </div>
-      <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-ink-45 mt-2">
-        {label}
-      </div>
+      <div className="text-[11.5px] text-ink-45 mt-2">{label}</div>
     </div>
   )
 }

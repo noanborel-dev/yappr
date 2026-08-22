@@ -1,5 +1,6 @@
 import type { Settings, LocalModelId, DictationResult, FactBucket } from '../shared/types'
 import type { OnboardingImport } from '../shared/onboarding-import'
+import type { StatRecord } from '../shared/dictation-stats'
 
 export interface LocalModelReadiness {
   ready: boolean
@@ -48,6 +49,8 @@ declare global {
       getHistory: () => Promise<DictationResult[]>
       getAllHistory: () => Promise<DictationResult[]>
       clearHistory: () => Promise<void>
+      getDictationStats: () => Promise<StatRecord[]>
+      clearDictationStats: () => Promise<void>
       getContextOverview: () => Promise<string>
       setContextOverview: (text: string) => Promise<void>
       refreshContextNow: () => Promise<{ ok: boolean; error?: string }>

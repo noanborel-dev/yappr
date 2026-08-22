@@ -195,6 +195,11 @@ export const IPC = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
   PROVIDER_TEST: 'provider:test',
+  // All-time dictation stats (no transcript text) — powers the
+  // dashboard, which is deliberately not limited by the 50-entry
+  // transcript history.
+  STATS_GET: 'stats:get',
+  STATS_CLEAR: 'stats:clear',
   HISTORY_GET: 'history:get',
   HISTORY_GET_ALL: 'history:get-all',
   HISTORY_CLEAR: 'history:clear',
