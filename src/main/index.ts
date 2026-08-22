@@ -24,7 +24,7 @@ app.commandLine.appendSwitch('force-high-performance-gpu')
 app.commandLine.appendSwitch('disable-features', 'MacUtilityProcessQoSPolicy')
 import { join } from 'path'
 import { registerIpcHandlers, addToHistory, getHistory } from './ipc'
-import { notifyDictationCompleted, markDictationActive, startCompactionRetries } from './context/compactor'
+import { notifyDictationCompleted, markDictationActive, startCompactionRetries, bootstrapFactsIfEmpty } from './context/compactor'
 import { closeContextStore } from './context/store'
 import { registerHotkey, unregisterAll } from './hotkeys'
 import { getSettings, setSettings } from './store'
@@ -1056,6 +1056,9 @@ app.whenReady().then(() => {
   {
     const s = getSettings()
     if (s.useContextMemory && s.autoContextUpdate) startCompactionRetries()
+    // Separate from compaction: this fires once, ever, when the fact
+    // store is empty, so the cards are not blank until dictation 50.
+    void bootstrapFactsIfEmpty()
   }
   setupAudioIpc()
   setupIpcListeners()

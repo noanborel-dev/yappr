@@ -167,6 +167,21 @@ export function listBuckets(): FactBucket[] {
   }
 }
 
+/** Whether anything has ever been stored. Cheap: one indexed count. */
+export function hasAnyFacts(): boolean {
+  const db = getDb()
+  if (!db) return false
+  try {
+    const row = db.prepare<[], { n: number }>('SELECT COUNT(*) AS n FROM context_facts').get()
+    return (row?.n ?? 0) > 0
+  } catch (err) {
+    logError('[context/facts] count failed', err)
+    // Assume populated on error: the bootstrap below is a one-off nicety,
+    // and re-running it on every launch would be worse than skipping it.
+    return true
+  }
+}
+
 /** Delete one fact. The UI offers view and delete, nothing else. */
 export function deleteFact(id: number): boolean {
   const db = getDb()

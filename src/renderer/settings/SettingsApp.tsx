@@ -45,7 +45,7 @@ export default function SettingsApp() {
           {GROUPS.map((group, gi) => (
             <div key={gi} className="flex flex-col gap-0.5">
               {group.label && (
-                <div className="text-[9.5px] font-mono uppercase tracking-[0.18em] text-ink-45 px-2.5 pb-1.5">
+                <div className="text-[11px] text-ink-45 px-2.5 pb-1.5">
                   {group.label}
                 </div>
               )}

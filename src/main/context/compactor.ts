@@ -34,7 +34,7 @@ import { getSettings } from '../store'
 import { compactionGate, shouldKeepRetrying, type GateInput } from './compaction-gate'
 import { logInfo, logError } from '../log'
 import { MODELS } from '../../shared/constants'
-import { addFact } from './facts'
+import { addFact, hasAnyFacts } from './facts'
 import {
   groupByProject,
   eligibleProjects,
@@ -414,5 +414,44 @@ async function mineProjectFacts(apiKey: string): Promise<void> {
     logInfo('[compactor] project facts mined', { projects: projects.length, stored })
   } catch (err) {
     logError('[compactor] project-fact mining threw', err)
+  }
+}
+
+
+/**
+ * One-time backfill so the cards are not empty for 50 dictations.
+ *
+ * Mining rides on compaction, which fires every THRESHOLD dictations. On
+ * a machine that has already compacted once, the counter restarts at
+ * zero — so a user who installs the mining feature mid-cycle sees an
+ * empty "What Yappr knows" and no indication anything will ever appear.
+ * That is exactly what happened here: compaction had run, the counter
+ * was at 20/50, and the cards had been empty since install.
+ *
+ * A feature whose first output is 50 dictations away cannot be evaluated,
+ * and a user cannot tell "working, not yet triggered" from "broken".
+ *
+ * Runs at most once — the moment anything is stored, hasAnyFacts() is
+ * true forever and this never fires again. Gated on the same idle check
+ * as compaction so it never competes with a dictation.
+ */
+export async function bootstrapFactsIfEmpty(): Promise<void> {
+  try {
+    const settings = getSettings()
+    if (!settings.useContextMemory) return
+    const apiKey = settings.provider.groqKey
+    if (!apiKey.trim()) return
+    if (hasAnyFacts()) return
+
+    const history = loadPersistedHistory()
+    // Too little to generalise from; wait for the normal cycle.
+    if (history.length < 10) return
+
+    logInfo('[compactor] no facts stored yet — running a one-time backfill', {
+      history: history.length,
+    })
+    await mineProjectFacts(apiKey)
+  } catch (err) {
+    logError('[compactor] fact backfill failed', err)
   }
 }

@@ -91,7 +91,16 @@ export function PolishFanout({
                 className={`pap-card pap-card--delay-${i} ${revealed ? 'in' : ''}`}
                 style={{
                   cursor: onPick ? 'pointer' : undefined,
-                  borderColor: active === lane.id ? 'var(--ink)' : undefined,
+                  // Selection used to be `var(--ink)` — a near-black 1px
+                  // rule around one card while its neighbours sat on a
+                  // warm hairline. It read as an outlined box rather than
+                  // a chosen one, and it was the hardest edge on the page.
+                  // Accent plus a lift says the same thing without drawing
+                  // a line the eye has to get past.
+                  borderColor: active === lane.id ? 'var(--accent)' : undefined,
+                  boxShadow: active === lane.id
+                    ? '0 2px 10px rgba(21,22,26,0.07), 0 1px 2px rgba(21,22,26,0.04)'
+                    : undefined,
                 }}
               >
                 <div className="pap-card-head">
