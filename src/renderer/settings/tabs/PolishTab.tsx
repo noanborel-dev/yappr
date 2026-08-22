@@ -48,8 +48,6 @@ export default function PolishTab() {
   return (
     <div className="max-w-[720px]">
       <SectionHead
-        ord="03"
-        label="Polish"
         headline={<>One voice, three <em className="italic">registers</em>.</>}
         body="One dictation, three destinations. Code and terminal stay faithful — words are never dropped there."
       />
@@ -118,7 +116,7 @@ export default function PolishTab() {
               <div className="text-[13px] font-semibold leading-tight text-ink-60">Code &amp; Terminal</div>
               <div className="text-[11px] text-ink-45 mt-1">Cursor · VS Code · iTerm — faithful, always.</div>
             </div>
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-45 px-3">
+            <span className="text-[11.5px] text-ink-45 px-3">
               locked
             </span>
           </div>
@@ -128,11 +126,6 @@ export default function PolishTab() {
         </div>
       </Panel>
 
-      <GroupLabel>Behaviour</GroupLabel>
-      <Panel>
-        <EmojiRow />
-        <PauseRow />
-      </Panel>
     </div>
   )
 }
@@ -182,12 +175,12 @@ function Preview({
   return (
     <div className="px-5 pb-4 pt-1 bg-accent-soft border-t border-line-soft/60">
       <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-3 items-start">
-        <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-ink-45 pt-1">
+        <div className="text-[11px] text-ink-45 pt-1">
           you said
         </div>
         <div className="text-[12px] text-ink-45 italic leading-snug">“{raw}”</div>
 
-        <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-accent pt-1.5">
+        <div className="text-[11px] text-accent pt-1.5">
           {levelLabel}
         </div>
         <div
@@ -225,60 +218,6 @@ function useTypewriter(text: string, msPerChar = 12): string {
 
 // Sprinkles one relevant emoji when there's a concrete moment to hang it
 // on. Casual chats only — never Slack, email, docs or code.
-function EmojiRow() {
-  const [emoji, setEmoji] = useState<boolean | null>(null)
-  useEffect(() => {
-    window.yappr.getSettings().then((s: Settings) => setEmoji(s.emojiInMessages))
-  }, [])
-  if (emoji === null) return null
-  return (
-    <SettingRow
-      title="Emoji in messages"
-      desc={'One emoji when there’s something concrete to mark — “ramen at 5” → “ramen at 5 🍜”. Casual chats only.'}
-    >
-      <Toggle
-        on={emoji}
-        label="Emoji in messages"
-        onChange={(next) => {
-          setEmoji(next)
-          window.yappr.setSettings({ emojiInMessages: next })
-        }}
-      />
-    </SettingRow>
-  )
-}
 
 // Skips the LLM pass entirely. The deterministic passes still run, so this
 // is "no restyling", not "no cleanup".
-function PauseRow() {
-  const [paused, setPaused] = useState<boolean | null>(null)
-  useEffect(() => {
-    window.yappr.getSettings().then((s: Settings) => setPaused(s.pauseCleanup))
-  }, [])
-  if (paused === null) return null
-  return (
-    <SettingRow
-      title={
-        <span className="flex items-center gap-2">
-          Pause AI cleanup
-          {paused && (
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-[0.14em] bg-danger/10 text-danger border border-danger/25">
-              active
-            </span>
-          )}
-        </span>
-      }
-      desc="Paste exactly what Whisper heard. Brand names, your dictionary and self-corrections are still applied — but no register, no restructuring, no Markdown."
-      last
-    >
-      <Toggle
-        on={paused}
-        label="Pause AI cleanup"
-        onChange={(next) => {
-          setPaused(next)
-          window.yappr.setSettings({ pauseCleanup: next })
-        }}
-      />
-    </SettingRow>
-  )
-}

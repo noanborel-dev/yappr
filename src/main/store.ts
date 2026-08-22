@@ -135,6 +135,20 @@ export function getSettings(): Settings {
     store.set('provider', merged.provider)
   }
 
+  // Emoji injection and the cleanup pause lost their switches in the
+  // Settings redesign. Both default to false, so a fresh install is
+  // unaffected — but anyone who had turned one ON would keep getting
+  // emoji in their messages, or keep running with cleanup disabled, and
+  // no longer have any way to reach the control that caused it.
+  //
+  // Removing a toggle has to include releasing whoever it was holding.
+  if (merged.emojiInMessages || merged.pauseCleanup) {
+    merged.emojiInMessages = false
+    merged.pauseCleanup = false
+    store.set('emojiInMessages', false)
+    store.set('pauseCleanup', false)
+  }
+
   // Same migration for stale transcription model. Force-upgrade
   // whisper-large-v3 → whisper-large-v3-turbo. Run scripts/bench-
   // groq-whisper.mjs if you want to verify the swap is a net win.

@@ -26,8 +26,6 @@ export default function AITab() {
   return (
     <div className="max-w-[720px]">
       <SectionHead
-        ord="04"
-        label="AI"
         headline={<>Rambling in. <em className="italic">Sections</em> out.</>}
         body="Watch where every piece goes. Nothing is summarised away — it's just filed."
       />
@@ -48,7 +46,7 @@ export default function AITab() {
           desc="Highlight text in any app, hold your key and say what to change — “make this formal”, “turn into bullets”. The selection is replaced in place."
           last
         >
-          <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-45">
+          <span className="text-[11.5px] text-ink-45">
             always on
           </span>
         </SettingRow>
@@ -213,7 +211,7 @@ function ContextMemoryCard() {
           onChange={(e) => setOverview(e.target.value)}
           placeholder="e.g. I'm Noan, building Yappr — a Mac dictation app. I work in TypeScript and Electron, talk a lot about prompts, Claude, and Groq. Casual when I'm texting, professional in email."
           rows={5}
-          className="w-full bg-paper border border-line rounded-input px-3 py-2.5 text-[12.5px] leading-relaxed placeholder:text-ink-45 focus:outline-none focus:border-cobalt focus:ring-2 focus:ring-cobalt-soft resize-none"
+          className="w-full bg-paper border border-line rounded-input px-3 py-2.5 text-[12.5px] leading-relaxed placeholder:text-ink-45 focus:outline-none focus:border-ink-45 focus:ring-2 focus:ring-ink-08 resize-none"
           spellCheck
         />
 

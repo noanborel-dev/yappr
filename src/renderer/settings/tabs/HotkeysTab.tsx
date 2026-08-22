@@ -68,8 +68,6 @@ export default function HotkeysTab() {
   return (
     <div className="max-w-[720px]">
       <SectionHead
-        ord="02"
-        label="Hotkey"
         headline={<>Hold <em className="italic">{KEY_NAME[glyph] ?? glyph}</em>. Say anything.</>}
         body="One key does three things. Click the keycap to bind a different one."
       />
@@ -91,7 +89,7 @@ export default function HotkeysTab() {
           </p>
           <button
             onClick={() => setListening(l => !l)}
-            className="text-[11px] font-mono uppercase tracking-[0.14em] text-ink-45 hover:text-ink mt-2.5 transition-colors"
+            className="text-[12.5px] text-ink-45 hover:text-ink mt-2.5 transition-colors"
           >
             {listening ? 'cancel' : '↺ rebind'}
           </button>
@@ -224,7 +222,7 @@ function Gestures({ glyph }: { glyph: string }) {
             >
               <div
                 className={[
-                  'text-[10px] font-mono uppercase tracking-[0.16em] mb-1.5',
+                  'text-[11.5px] mb-1.5',
                   on ? 'text-accent' : 'text-ink-45',
                 ].join(' ')}
               >

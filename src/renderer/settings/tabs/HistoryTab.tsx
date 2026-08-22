@@ -59,8 +59,6 @@ export default function HistoryTab() {
   return (
     <div className="max-w-[720px]">
       <SectionHead
-        ord="01"
-        label="Dashboard"
         headline={<>Every <em className="italic">word</em>, kept.</>}
         body="Everything you've dictated, and where it went. Stays on this Mac, never synced."
       />
@@ -80,7 +78,7 @@ export default function HistoryTab() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Search what you\u2019ve said…"
-          className="flex-1 bg-card border border-line rounded-input px-3.5 py-2.5 text-[12.5px] placeholder:text-ink-45 focus:outline-none focus:border-cobalt focus:ring-2 focus:ring-cobalt-soft"
+          className="flex-1 bg-card border border-line rounded-input px-3.5 py-2.5 text-[12.5px] placeholder:text-ink-45 focus:outline-none focus:border-ink-45 focus:ring-2 focus:ring-ink-08"
         />
         {items.length > 0 && (
           <Pill variant="secondary" size="sm" onClick={clearAll}>

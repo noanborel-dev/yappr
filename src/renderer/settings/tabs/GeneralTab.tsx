@@ -60,8 +60,6 @@ export default function GeneralTab() {
   return (
     <div className="max-w-[720px]">
       <SectionHead
-        ord="07"
-        label="General"
         headline={<>The <em className="italic">quiet</em> settings.</>}
         body="Which mic, what happens at login, and how the indicator sits in your notch."
       />
@@ -72,7 +70,7 @@ export default function GeneralTab() {
           <select
             value={inputDeviceId ?? ''}
             onChange={(e) => handleSelectMic(e.target.value || null)}
-            className="bg-paper border border-line rounded-input px-3 py-1.5 text-[12px] focus:outline-none focus:border-cobalt max-w-[240px]"
+            className="bg-paper border border-line rounded-input px-3 py-1.5 text-[12px] focus:outline-none focus:border-ink-45 max-w-[240px]"
           >
             <option value="">Default — system microphone</option>
             {mics.map((d) => (
@@ -231,7 +229,7 @@ function CleanupKey() {
             placeholder="gsk_…"
             spellCheck={false}
             autoComplete="off"
-            className="flex-1 bg-paper border border-line rounded-input px-3 py-2.5 text-[12.5px] font-mono placeholder:text-ink-45 focus:outline-none focus:border-cobalt focus:ring-2 focus:ring-cobalt-soft"
+            className="flex-1 bg-paper border border-line rounded-input px-3 py-2.5 text-[12.5px] font-mono placeholder:text-ink-45 focus:outline-none focus:border-ink-45 focus:ring-2 focus:ring-ink-08"
           />
           <Pill
             variant={result?.ok ? 'ok' : 'primary'}
@@ -403,7 +401,7 @@ function NotchCalibration() {
         title="Notch width"
         desc="macOS doesn't tell apps how wide the notch is, so Yappr estimates it. If the wings tuck under the housing or float away from it, nudge this until the shape's edges meet the black."
         aside={
-          <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-ink-45 shrink-0">
+          <span className="text-[11.5px] text-ink-45 shrink-0">
             {override === null ? 'estimated' : 'calibrated'}
           </span>
         }

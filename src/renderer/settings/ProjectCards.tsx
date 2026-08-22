@@ -40,7 +40,7 @@ function bucketBlurb(key: string): string {
 function ScopeChip({ scope }: { scope: string }) {
   const label = scope === GLOBAL_KEY ? 'global' : scope === UNSORTED_KEY ? 'unsorted' : 'project'
   return (
-    <span className="shrink-0 text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 border border-ink-08 rounded-full px-1.5 py-px">
+    <span className="shrink-0 text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 border border-line rounded-full px-1.5 py-px">
       {label}
     </span>
   )
@@ -79,7 +79,7 @@ export function ProjectCards() {
   if (buckets.length === 0) {
     return (
       <Card className="p-4">
-        <p className="text-sm text-ink-60">
+        <p className="text-[12.5px] text-ink-60">
           Nothing stored yet. When you mention a durable rule while dictating —
           &ldquo;we always use zod for validation&rdquo; — Yappr remembers it and
           shows it here.
@@ -95,10 +95,10 @@ export function ProjectCards() {
           <div className="flex items-baseline justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h4 className="text-sm font-medium truncate">{bucketTitle(bucket.key)}</h4>
+                <h4 className="text-[13px] font-semibold truncate">{bucketTitle(bucket.key)}</h4>
                 <ScopeChip scope={bucket.key} />
               </div>
-              <p className="text-xs text-ink-60 mt-0.5">{bucketBlurb(bucket.key)}</p>
+              <p className="text-[11.5px] text-ink-60 mt-0.5">{bucketBlurb(bucket.key)}</p>
               {/* At-a-glance read: how much is in here, and is it stale?
                   Most useful on a project the user stopped working on
                   months ago that is still feeding prompts. */}
@@ -108,15 +108,15 @@ export function ProjectCards() {
             </div>
             {confirmingKey === bucket.key ? (
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-ink-60">Forget all?</span>
+                <span className="text-[11.5px] text-ink-60">Forget all?</span>
                 <button
-                  className="text-xs text-red-600 hover:underline"
+                  className="text-[11.5px] text-danger hover:underline"
                   onClick={() => void removeBucket(bucket.key)}
                 >
                   Yes, forget
                 </button>
                 <button
-                  className="text-xs text-ink-60 hover:underline"
+                  className="text-[11.5px] text-ink-60 hover:underline"
                   onClick={() => setConfirmingKey(null)}
                 >
                   Cancel
@@ -124,7 +124,7 @@ export function ProjectCards() {
               </div>
             ) : (
               <button
-                className="text-xs text-ink-60 hover:text-ink shrink-0"
+                className="text-[11.5px] text-ink-60 hover:text-ink shrink-0"
                 onClick={() => setConfirmingKey(bucket.key)}
               >
                 Forget all
@@ -135,11 +135,11 @@ export function ProjectCards() {
           <ul className="mt-3 flex flex-col gap-1.5">
             {bucket.facts.map(fact => (
               <li key={fact.id} className="flex items-start gap-2 group">
-                <span className="text-ink-40 select-none leading-5">·</span>
+                <span className="text-ink-45 select-none leading-5">·</span>
                 {/* Verbatim: the card has to show what is actually sent. */}
-                <span className="text-sm flex-1 leading-5">{fact.text}</span>
+                <span className="text-[12.5px] flex-1 leading-5">{fact.text}</span>
                 <button
-                  className="text-xs text-ink-40 hover:text-red-600 opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 leading-5"
+                  className="text-[11.5px] text-ink-45 hover:text-danger opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 leading-5"
                   onClick={() => void removeFact(fact.id)}
                   aria-label={`Forget: ${fact.text}`}
                 >

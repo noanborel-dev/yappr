@@ -20,8 +20,6 @@ export default function AboutTab() {
   return (
     <div className="max-w-[720px]">
       <SectionHead
-        ord="08"
-        label="About"
         headline={<>Yappr <em className="italic">{version}</em>.</>}
         body="Version, license, and where to look when something goes wrong."
       />
@@ -62,9 +60,6 @@ export default function AboutTab() {
 
       <GroupLabel className="mt-6">Diagnostics</GroupLabel>
       <Panel className="mb-6">
-        <SettingRow title="Transcription" desc="Runs on this Mac. Cleanup runs on Groq.">
-          <span className="text-[11.5px] font-mono text-ink-60">on-device · parakeet</span>
-        </SettingRow>
         <SettingRow title="Log file" desc="Every error the app has recorded, in plain text." last>
           <Pill variant="secondary" size="sm" onClick={() => window.yappr.revealLog()}>
             Reveal in Finder ↗
@@ -171,7 +166,7 @@ function LicenseCard({
             placeholder="Paste your license key…"
             spellCheck={false}
             autoComplete="off"
-            className="flex-1 bg-paper border border-line rounded-input px-3 py-2 text-[12px] font-mono placeholder:text-ink-45 focus:outline-none focus:border-cobalt focus:ring-2 focus:ring-cobalt-soft"
+            className="flex-1 bg-paper border border-line rounded-input px-3 py-2 text-[12px] font-mono placeholder:text-ink-45 focus:outline-none focus:border-ink-45 focus:ring-2 focus:ring-ink-08"
           />
           <Pill
             variant={saved ? 'ok' : 'primary'}

@@ -99,7 +99,7 @@ export function PolishFanout({
                     <BrandLogo brand={lane.logo} size={16} />
                   </span>
                   <span className="pap-card-app">{lane.app}</span>
-                  <span className="ml-auto text-[9px] font-mono uppercase tracking-[0.14em] text-ink-45">
+                  <span className="ml-auto text-[11px] text-ink-45">
                     {LEVEL_NAME[level]}
                   </span>
                 </div>

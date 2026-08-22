@@ -14,48 +14,59 @@
 import type { ReactNode } from 'react'
 
 interface Props {
-  /** Two-digit section ordinal, e.g. "03". */
+  /**
+   * Ordinal and eyebrow label, both now IGNORED.
+   *
+   * Every tab used to open with "01 · HOTKEY" in uppercase mono above a
+   * serif headline. Numbering implies a sequence to work through, and
+   * Settings has none — you land on the tab you came for. The eyebrow
+   * then repeated in words what the sidebar already said and what the
+   * headline said again, in the third typeface on the screen.
+   *
+   * Kept in the signature so the call sites can drop them one at a time
+   * rather than in one sweeping edit.
+   */
   ord?: string
   /** Eyebrow text — uppercased by CSS. */
-  label: string
+  label?: string
   /** Serif headline. Wrap the emphasized noun in <em>. */
   headline: ReactNode
   /** One sentence. If it needs two, the section is doing too much. */
-  body: ReactNode
+  body?: ReactNode
   /** Optional right-aligned status chip, sitting above the body copy. */
   meta?: ReactNode
 }
 
-export function SectionHead({ ord, label, headline, body, meta }: Props) {
+export function SectionHead({ label, headline, body, meta }: Props) {
+  void label
   return (
-    <header className="mb-6">
-      <div className="text-[10.5px] font-mono uppercase tracking-[0.18em] text-accent mb-3">
-        {ord && <span className="text-ink-45">{ord} · </span>}
-        {label}
-      </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,320px)] gap-8 items-end">
-        <h2 className="font-display text-[38px] leading-[1.02] tracking-[-0.02em] text-ink">
+    <header className="mb-8">
+      <div className="flex items-end justify-between gap-8">
+        <h2 className="font-display text-[44px] leading-[1.0] tracking-[-0.02em] text-ink max-w-[16ch]">
           {headline}
         </h2>
-        <div className="pb-1.5">
-          {meta && <div className="mb-2">{meta}</div>}
-          <p className="text-[12.5px] text-ink-60 leading-relaxed">{body}</p>
-        </div>
+        {meta && <div className="pb-2 shrink-0">{meta}</div>}
       </div>
-      <div className="h-px bg-line mt-5" />
+      {body && (
+        <p className="text-[13px] text-ink-60 leading-relaxed max-w-[54ch] mt-3">{body}</p>
+      )}
     </header>
   )
 }
 
 /**
- * A sub-heading inside a tab. Same mono eyebrow, no headline — used to
- * separate groups of controls without another serif line competing with
- * the section head.
+ * A sub-heading inside a tab.
+ *
+ * Was uppercase mono with wide letter-spacing — the same treatment as the
+ * section eyebrow, the stat captions and the metadata rows, so a label
+ * that exists only to group two switches carried the same visual weight
+ * as the page title. Now it is quiet sentence-case: present when you look
+ * for it, silent when you are not.
  */
 export function GroupLabel({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     <div
-      className={`text-[10.5px] font-mono uppercase tracking-[0.16em] text-ink-45 mb-2.5 ${className}`}
+      className={`text-[12px] text-ink-45 mb-2.5 ${className}`}
     >
       {children}
     </div>
