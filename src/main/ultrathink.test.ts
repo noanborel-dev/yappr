@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyUltrathink, isUltrathinkSurface, ULTRATHINK_KEYWORD } from './ultrathink'
+import { applyUltrathink, isUltrathinkSurface, warrantsDeepReasoning, ULTRATHINK_KEYWORD } from './ultrathink'
 
 const on = (text: string) => applyUltrathink(text, { enabled: true })
 
@@ -19,6 +19,7 @@ describe('the spoken forms the spec names', () => {
     expect(on('think really hard about this and fix the bug')).toEqual({
       text: 'ultrathink about this and fix the bug',
       applied: true,
+      trigger: 'explicit',
     })
   })
 
@@ -69,16 +70,18 @@ describe('what must NOT fire', () => {
 
   // The spec's explicit prohibition: never infer it from how big the
   // request looks.
-  it('never fires on a long or complex prompt by itself', () => {
+  // Length is deliberately not an input. This one is long and lists a
+  // lot, but every item is ordinary implementation work.
+  it('never fires on length or requirement count alone', () => {
     const long =
-      'refactor the auth module, add tests for every branch, update the docs, ' +
-      'migrate the database schema, and make sure the CI pipeline still passes'
+      'add a spinner to the settings page, add a toast when saving, update the ' +
+      'copy on the pricing page, bump the version number, and fix the typo in the readme'
     expect(on(long).applied).toBe(false)
   })
 
   it('leaves an ordinary instruction untouched', () => {
     const text = 'add a loading spinner to the settings page'
-    expect(on(text)).toEqual({ text, applied: false })
+    expect(on(text)).toEqual({ text, applied: false, trigger: null })
   })
 })
 
@@ -87,6 +90,74 @@ describe('the surface gate', () => {
   // else is just noise in the user's prompt.
   it('does nothing when disabled', () => {
     const text = 'think really hard about this'
-    expect(applyUltrathink(text, { enabled: false })).toEqual({ text, applied: false })
+    expect(applyUltrathink(text, { enabled: false })).toEqual({ text, applied: false, trigger: null })
+  })
+})
+
+
+// The user's ask: firing only on the spoken phrase misses the case that
+// matters most — handing Claude Code something genuinely hard and
+// getting default-effort reasoning because no magic phrase was said.
+describe('reasoning depth', () => {
+  it('fires on planning a stack — the case that prompted this', () => {
+    const out = on('draft a plan for moving us off this tech stack')
+    expect(out.applied).toBe(true)
+    expect(out.trigger).toBe('reasoning')
+  })
+
+  it('fires on architecture and data modelling', () => {
+    expect(warrantsDeepReasoning('rework the architecture of the sync layer')).toBe(true)
+    expect(warrantsDeepReasoning('come up with a data model for teams and permissions')).toBe(true)
+  })
+
+  it('fires on hard diagnosis', () => {
+    expect(warrantsDeepReasoning('find the root cause of the dropped events')).toBe(true)
+    expect(warrantsDeepReasoning('this test is flaky, work out why')).toBe(true)
+    expect(warrantsDeepReasoning('why does the paste fail when the app is backgrounded')).toBe(true)
+  })
+
+  it('fires when weighing options rather than executing one', () => {
+    expect(warrantsDeepReasoning('what are the trade-offs between polling and a websocket')).toBe(true)
+    expect(warrantsDeepReasoning('compare the two approaches for offline sync')).toBe(true)
+  })
+
+  // Ordinary verbs need a broad target before they imply depth.
+  it('needs scope before an ordinary verb counts', () => {
+    expect(warrantsDeepReasoning('design a button')).toBe(false)
+    expect(warrantsDeepReasoning('refactor this function')).toBe(false)
+    expect(warrantsDeepReasoning('refactor the whole codebase to use hooks')).toBe(true)
+    expect(warrantsDeepReasoning('migrate every service off the old client')).toBe(true)
+  })
+
+  it('leaves ordinary implementation work alone', () => {
+    expect(warrantsDeepReasoning('add a loading spinner to the settings page')).toBe(false)
+    expect(warrantsDeepReasoning('fix the typo in the readme')).toBe(false)
+    expect(warrantsDeepReasoning('')).toBe(false)
+  })
+
+  // No phrase to replace, so the keyword goes in front and the user's
+  // own wording survives untouched below it.
+  it('prepends the keyword and preserves the dictation', () => {
+    const out = on('plan out the migration across every service')
+    expect(out.text.startsWith(ULTRATHINK_KEYWORD)).toBe(true)
+    expect(out.text).toContain('plan out the migration across every service')
+  })
+
+  it('does not stack a second keyword', () => {
+    const out = on(`${ULTRATHINK_KEYWORD} plan out the whole migration across every service`)
+    expect(out.text.match(new RegExp(ULTRATHINK_KEYWORD, 'gi'))).toHaveLength(1)
+  })
+
+  // Explicit phrasing still wins, and still substitutes in place rather
+  // than prepending.
+  it('prefers the explicit route when both would fire', () => {
+    const out = on('think really hard about the architecture here')
+    expect(out.trigger).toBe('explicit')
+    expect(out.text).toBe('ultrathink about the architecture here')
+  })
+
+  it('stays off entirely on the wrong surface', () => {
+    const text = 'draft a plan for moving off this tech stack'
+    expect(applyUltrathink(text, { enabled: false })).toEqual({ text, applied: false, trigger: null })
   })
 })
