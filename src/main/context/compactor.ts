@@ -369,7 +369,8 @@ async function mineProjectFacts(apiKey: string): Promise<void> {
     // onboarding paste or the per-dictation detector (strict by design,
     // and only ever looking at one sentence).
     try {
-      const response = await client.chat.completions.create({
+      const response = await withRateLimitRetry('global-preference mining', () =>
+        client.chat.completions.create({
         model: backgroundModel(),
         messages: [
           { role: 'system', content: GLOBAL_PREFS_SYSTEM },
@@ -378,7 +379,7 @@ async function mineProjectFacts(apiKey: string): Promise<void> {
         temperature: 0.2,
         max_tokens: 400,
         ...(backgroundModel().startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
-      } as never, { timeout: 15000, maxRetries: 0 })
+      } as never, { timeout: 15000, maxRetries: 0 }))
       const raw = response.choices[0]?.message?.content ?? ''
       for (const text of parseProjectFacts(raw)) {
         if (addFact({ scope: 'global', text })) stored++
@@ -390,7 +391,8 @@ async function mineProjectFacts(apiKey: string): Promise<void> {
     for (const projectKey of projects) {
       const dictations = groups.get(projectKey) ?? []
       try {
-        const response = await client.chat.completions.create({
+        const response = await withRateLimitRetry(`project facts (${projectKey})`, () =>
+          client.chat.completions.create({
           model: backgroundModel(),
           messages: [
             { role: 'system', content: PROJECT_FACTS_SYSTEM },
@@ -399,7 +401,7 @@ async function mineProjectFacts(apiKey: string): Promise<void> {
           temperature: 0.2,
           max_tokens: 400,
           ...(backgroundModel().startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
-        } as never, { timeout: 15000, maxRetries: 0 })
+        } as never, { timeout: 15000, maxRetries: 0 }))
         const raw = response.choices[0]?.message?.content ?? ''
         for (const text of parseProjectFacts(raw)) {
           // addFact dedupes, so re-mining the same history across runs
@@ -417,6 +419,41 @@ async function mineProjectFacts(apiKey: string): Promise<void> {
   }
 }
 
+
+// Groq answers a 429 with the exact wait it wants ("try again in 1.8s").
+//
+// Mining is background work with nothing waiting on it, so that wait is
+// free — and skipping it is expensive. Observed on a real machine:
+// compaction spent 6306 of an 8000 TPM budget, mining asked for 1934,
+// and the whole pass was abandoned over a 1.8 SECOND wait. Nothing was
+// stored, and the UI had no way to say so, which reads exactly like a
+// broken feature.
+//
+// Bounded deliberately: two attempts, and only for waits short enough to
+// be worth sitting through. A minute-long backoff on a background job
+// that runs again next compaction is not worth holding a timer for.
+const MINING_RETRY_MAX_WAIT_MS = 15_000
+
+function retryAfterMs(err: unknown): number | null {
+  const message = err instanceof Error ? err.message : String(err ?? '')
+  if (!/429|rate limit/i.test(message)) return null
+  const m = /try again in ([\d.]+)\s*s/i.exec(message)
+  if (!m) return null
+  const ms = Math.ceil(parseFloat(m[1]) * 1000) + 250
+  return ms > 0 && ms <= MINING_RETRY_MAX_WAIT_MS ? ms : null
+}
+
+async function withRateLimitRetry<T>(label: string, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run()
+  } catch (err) {
+    const wait = retryAfterMs(err)
+    if (wait === null) throw err
+    logInfo(`[compactor] ${label} rate-limited — waiting`, { ms: wait })
+    await new Promise(resolve => setTimeout(resolve, wait))
+    return run()
+  }
+}
 
 /**
  * One-time backfill so the cards are not empty for 50 dictations.

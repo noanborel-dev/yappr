@@ -76,13 +76,24 @@ export function ProjectCards() {
 
   if (buckets === null) return null
 
+  // The empty state has to answer "is this broken?", because on a real
+  // machine it stayed blank for days and looked exactly like a bug. It
+  // was not: Yappr only keeps a rule it actually heard you state, and a
+  // history of one-off instructions ("add a spinner", "merge that")
+  // contains none. Saying only "nothing stored yet" left no way to tell
+  // that apart from a failure, and no way to act on it.
   if (buckets.length === 0) {
     return (
       <Card className="p-4">
-        <p className="text-[12.5px] text-ink-60">
-          Nothing stored yet. When you mention a durable rule while dictating —
-          &ldquo;we always use zod for validation&rdquo; — Yappr remembers it and
-          shows it here.
+        <p className="text-[12.5px] text-ink-60 leading-relaxed">
+          Nothing stored yet — Yappr only keeps rules it actually hears you say,
+          like &ldquo;we always use zod for validation&rdquo;. Ordinary requests
+          don&rsquo;t count, so this stays empty until you state one.
+        </p>
+        <p className="text-[12.5px] text-ink-60 leading-relaxed mt-2.5">
+          To fill it now, use <span className="text-ink">Copy prompt</span> above:
+          paste it into Claude or ChatGPT and paste the answer back. That imports
+          your preferences and projects in one go.
         </p>
       </Card>
     )
