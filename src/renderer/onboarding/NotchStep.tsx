@@ -49,6 +49,21 @@ export function NotchStep({ onNext }: { onNext: () => void }) {
   const [mode, setMode] = useState<Mode>('hidden')
   const [placeholder, setPlaceholder] = useState<number | null>(null)
 
+  // Hold the REAL indicator visible for as long as this step is open.
+  //
+  // The slider always wrote real settings, and the real shape always
+  // moved — but only while it happened to be on screen, and it is fully
+  // transparent at idle. So the only thing visibly responding was the
+  // mock drawn in this window, and the user was calibrating a picture of
+  // the notch against nothing.
+  //
+  // Now the thing being adjusted is the thing on the hardware. The mock
+  // below is demoted to a diagram of what to look for.
+  useEffect(() => {
+    void window.yappr.setIndicatorPreview(true)
+    return () => { void window.yappr.setIndicatorPreview(false) }
+  }, [])
+
   useEffect(() => {
     let alive = true
     Promise.all([window.yappr.getNotchGeometry(), window.yappr.getSettings()])
@@ -107,13 +122,19 @@ export function NotchStep({ onNext }: { onNext: () => void }) {
         <SliderStyles />
         <Head
           eyebrow="Display"
-          title={<>Line up the <em className="italic">edges</em>.</>}
-          lede="We estimated your notch. Drag until the shape meets the black."
+          title={<>Look <em className="italic">up</em>.</>}
+          lede="Yappr is on your notch right now. Drag until its edges meet the black."
         />
 
-        <div className="animate-slideUp" style={{ animationDelay: '60ms' }}>
+        {/* Demoted to a diagram. The live shape is on the hardware above
+            this window — showing a second one at full size invited the
+            user to calibrate the copy, which is exactly what happened. */}
+        <div className="animate-slideUp opacity-60" style={{ animationDelay: '60ms' }}>
           <Stage bandPx={Math.round(width * PT_TO_PX)} readout={`${width} pt`} />
         </div>
+        <p className="text-[11.5px] text-ink-45 mt-2">
+          For reference — the one to watch is at the top of your screen.
+        </p>
 
         <div className="mt-5 animate-slideUp" style={{ animationDelay: '140ms' }}>
           <WidthSlider

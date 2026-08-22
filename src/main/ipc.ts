@@ -66,17 +66,32 @@ export function clearHistory(): void {
  */
 export interface IpcHooks {
   onNotchGeometryChanged?: () => void
+  onIndicatorPreview?: (on: boolean) => void
 }
 
 export function registerIpcHandlers(hooks: IpcHooks = {}): void {
   ipcMain.handle(IPC.SETTINGS_GET, () => getSettings())
 
+  // Hold the indicator in a visible state while the user calibrates
+  // against it. Without this the thing being adjusted is invisible: the
+  // shape is fully transparent at idle, which is why the onboarding step
+  // ended up calibrating a drawing of the notch instead of the notch.
+  ipcMain.handle(IPC.INDICATOR_PREVIEW, (_e, on: boolean) => {
+    hooks.onIndicatorPreview?.(on === true)
+  })
+
   ipcMain.handle(IPC.SETTINGS_SET, (_e, partial) => {
-    const before = getSettings().notchWidthOverride
+    // Every setting that changes the SHAPE, not just the notch width.
+    // placeholderWidth and noNotchIndicator drive the same live geometry
+    // on a machine with no cutout, and they were not watched — so on
+    // those machines the calibration slider moved nothing on screen.
+    const b = getSettings()
+    const before = [b.notchWidthOverride, b.placeholderWidth, b.noNotchIndicator].join('|')
     setSettings(partial)
+    const a = getSettings()
     // The indicator reads geometry on mount and on display change, so a
     // calibration change would otherwise sit dormant until relaunch.
-    if (getSettings().notchWidthOverride !== before) {
+    if ([a.notchWidthOverride, a.placeholderWidth, a.noNotchIndicator].join('|') !== before) {
       hooks.onNotchGeometryChanged?.()
     }
     // Keep the worker warm. There is no tier to switch any more, but a

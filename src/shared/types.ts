@@ -263,6 +263,8 @@ export const IPC = {
   // mount and on display change, so a calibration slider would appear
   // to do nothing until the next launch.
   INDICATOR_GEOMETRY_CHANGED: 'indicator:geometry-changed',
+  // Hold the real indicator visible while calibrating against it.
+  INDICATOR_PREVIEW: 'indicator:preview',
   INDICATOR_RECENT: 'indicator:recent',
   INDICATOR_COPY_RECENT: 'indicator:copy-recent',
 } as const

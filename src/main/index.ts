@@ -1049,6 +1049,11 @@ app.whenReady().then(() => {
     onNotchGeometryChanged: () => {
       indicatorWindow?.webContents.send(IPC.INDICATOR_GEOMETRY_CHANGED)
     },
+    // 'peek' renders the full shape without implying the mic is open,
+    // which is what calibration needs: the real geometry, no recording.
+    onIndicatorPreview: (on: boolean) => {
+      broadcastState(on ? 'peek' : 'idle')
+    },
   })
   // A backlog can already exist from previous sessions — the counter is
   // persisted. Without this kick, polling would only begin after the NEXT
