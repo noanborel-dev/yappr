@@ -106,7 +106,7 @@ export function ContextStep({ onNext }: { onNext: () => void }) {
           onChange={(e) => setText(e.target.value)}
           rows={5}
           placeholder="Paste the answer here — or just write a couple of sentences about yourself."
-          className="w-full bg-paper border border-line rounded-[10px] px-3 py-2.5 text-[12.5px] leading-relaxed resize-none focus:outline-none focus:border-ink-45"
+          className="w-full bg-paper border border-line rounded-[10px] px-3 py-2.5 text-[12.5px] leading-relaxed resize-none focus:outline-none focus:border-accent"
         />
 
         <div className="flex items-center gap-3 mt-3">

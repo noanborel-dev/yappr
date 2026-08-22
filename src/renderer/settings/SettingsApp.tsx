@@ -74,15 +74,10 @@ export default function SettingsApp() {
           ))}
         </nav>
 
-        <div className="mt-auto pb-3 px-2 pt-3 border-t border-line text-[10px] font-mono text-ink-45">
-          {/* A status line, not a control. It used to read the configured
-              provider back to the user; there is nothing to configure now,
-              so it states the one arrangement the app has. */}
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-ok" />
-            on-device
-          </span>
-        </div>
+        {/* The sidebar used to end with an "on-device" status dot. It
+            was not a control and never changed — a permanent label for a
+            fact the user cannot act on, sitting in the corner drawing the
+            eye on every visit. */}
       </aside>
 
       {/* Each tab owns its own SectionHead. The shell used to render an

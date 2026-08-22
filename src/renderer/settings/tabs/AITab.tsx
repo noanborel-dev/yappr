@@ -211,7 +211,7 @@ function ContextMemoryCard() {
           onChange={(e) => setOverview(e.target.value)}
           placeholder="e.g. I'm Noan, building Yappr — a Mac dictation app. I work in TypeScript and Electron, talk a lot about prompts, Claude, and Groq. Casual when I'm texting, professional in email."
           rows={5}
-          className="w-full bg-paper border border-line rounded-input px-3 py-2.5 text-[12.5px] leading-relaxed placeholder:text-ink-45 focus:outline-none focus:border-ink-45 focus:ring-2 focus:ring-ink-08 resize-none"
+          className="w-full bg-paper border border-line rounded-input px-3 py-2.5 text-[12.5px] leading-relaxed placeholder:text-ink-45 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 resize-none"
           spellCheck
         />
 

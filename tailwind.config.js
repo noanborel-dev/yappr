@@ -26,6 +26,18 @@ const COLORS = {
   'volt-glow': 'rgba(90,143,232,0.6)',
 }
 const RADIUS = { input: '10px', card: '14px', hero: '18px', pill: '999px' }
+
+// Surface depth.
+//
+// Settings had no shadows at all, so every card sat perfectly flat and
+// the only thing separating it from the page was a hairline — which is
+// why sharpening those hairlines read as "outlined boxes" rather than as
+// cards. A shadow this soft is barely perceptible on its own; what it
+// does is let the border be quiet.
+const SHADOW = {
+  card: '0 1px 2px rgba(21,22,26,0.04), 0 1px 1px rgba(21,22,26,0.03)',
+  lift: '0 2px 8px rgba(21,22,26,0.06), 0 1px 2px rgba(21,22,26,0.04)',
+}
 const FONT = {
   sans: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
   // Instrument Serif is the landing's display face and the one the notch
@@ -41,6 +53,7 @@ module.exports = {
   content: ['./src/renderer/**/*.{ts,tsx,html}'],
   theme: {
     extend: {
+      boxShadow: { card: SHADOW.card, lift: SHADOW.lift },
       colors: {
         paper: COLORS.paper,
         cream2: COLORS.cream2,

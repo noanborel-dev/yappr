@@ -166,7 +166,7 @@ function LicenseCard({
             placeholder="Paste your license key…"
             spellCheck={false}
             autoComplete="off"
-            className="flex-1 bg-paper border border-line rounded-input px-3 py-2 text-[12px] font-mono placeholder:text-ink-45 focus:outline-none focus:border-ink-45 focus:ring-2 focus:ring-ink-08"
+            className="flex-1 bg-paper border border-line rounded-input px-3 py-2 text-[12px] font-mono placeholder:text-ink-45 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
           />
           <Pill
             variant={saved ? 'ok' : 'primary'}

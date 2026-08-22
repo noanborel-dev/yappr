@@ -70,7 +70,7 @@ export default function GeneralTab() {
           <select
             value={inputDeviceId ?? ''}
             onChange={(e) => handleSelectMic(e.target.value || null)}
-            className="bg-paper border border-line rounded-input px-3 py-1.5 text-[12px] focus:outline-none focus:border-ink-45 max-w-[240px]"
+            className="bg-paper border border-line rounded-input px-3 py-1.5 text-[12px] focus:outline-none focus:border-accent max-w-[240px]"
           >
             <option value="">Default — system microphone</option>
             {mics.map((d) => (
@@ -185,7 +185,7 @@ function OldModelCleanup() {
         <button
           onClick={remove}
           disabled={busy}
-          className="text-[11px] font-mono px-3 py-1.5 rounded-input border border-ink-08 hover:border-ink-45 disabled:opacity-50"
+          className="text-[11px] font-mono px-3 py-1.5 rounded-input border border-line-soft hover:border-accent/40 disabled:opacity-50"
         >
           {busy ? 'Removing…' : `Reclaim ${size}`}
         </button>
@@ -229,7 +229,7 @@ function CleanupKey() {
             placeholder="gsk_…"
             spellCheck={false}
             autoComplete="off"
-            className="flex-1 bg-paper border border-line rounded-input px-3 py-2.5 text-[12.5px] font-mono placeholder:text-ink-45 focus:outline-none focus:border-ink-45 focus:ring-2 focus:ring-ink-08"
+            className="flex-1 bg-paper border border-line rounded-input px-3 py-2.5 text-[12.5px] font-mono placeholder:text-ink-45 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
           />
           <Pill
             variant={result?.ok ? 'ok' : 'primary'}

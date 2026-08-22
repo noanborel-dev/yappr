@@ -78,7 +78,7 @@ export default function HistoryTab() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Search what you\u2019ve said…"
-          className="flex-1 bg-card border border-line rounded-input px-3.5 py-2.5 text-[12.5px] placeholder:text-ink-45 focus:outline-none focus:border-ink-45 focus:ring-2 focus:ring-ink-08"
+          className="flex-1 bg-card border border-line rounded-input px-3.5 py-2.5 text-[12.5px] placeholder:text-ink-45 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
         />
         {items.length > 0 && (
           <Pill variant="secondary" size="sm" onClick={clearAll}>
@@ -120,7 +120,7 @@ function HistoryItem({
 }) {
   const [expanded, setExpanded] = useState(false)
   return (
-    <div className="bg-card border border-line rounded-[12px] px-4 py-3 flex items-start gap-3 group hover:border-ink-45 transition-colors">
+    <div className="bg-card border border-line rounded-[12px] px-4 py-3 flex items-start gap-3 group hover:border-accent/40 transition-colors">
       <div className="flex-1 min-w-0">
         {/* Clamped: a dictated Claude Code prompt can run 40 lines, and
             unclamped entries turned the list into one entry per screen.
