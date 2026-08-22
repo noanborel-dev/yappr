@@ -4,14 +4,25 @@ import {
   buildRewriteSystemPrompt,
   buildRewriteUserMessage,
   normalizeEmailRewrite,
+  normalizeComposedEmail,
+  senderNameFromOverview,
   asksForEmailComposition,
 } from '../shared/rewrite-prompt'
 import { buildContextBlock } from './context/prompt-injector'
+import { getUserOverview } from './context/store'
 import { extractProjectKey } from './context/project-key'
 import { extractStandingPreferences } from './context/fact-scope'
 import { addFact } from './context/facts'
 import { applyUltrathink, isUltrathinkSurface } from './ultrathink'
 import { recordDictationStat } from './stats-store'
+// Where compose takes over in an email client, with no explicit ask.
+//
+// 12, matching the reformat floor in ai-intent: below this a dictation is
+// a reply, not a brief. The two thresholds are set independently and are
+// not required to agree, but they answer the same question — "is there
+// enough here to restructure?" — and landing on the same number is not a
+// coincidence worth breaking.
+const EMAIL_COMPOSE_MIN_WORDS = 12
 import { wordCount, speakingMsFromAudioBytes } from '../shared/dictation-stats'
 import { MODELS, BUILTIN_DICTIONARY, DICTIONARY_ALIASES, IDE_EDITORS, AGENTIC_AI_APP_NAMES } from '../shared/constants'
 import type { AppCategory, DictationResult, Settings, Strictness } from '../shared/types'
@@ -30,7 +41,7 @@ import { NoSpeechError, ModelUnsupportedError } from './errors'
 import { focusedAppRunningAiCli } from './terminal-ai-cli'
 import { classifyCodeSurface, isExplicitPromptRequest } from './ai-intent'
 import type { PromptDestination } from './ai-intent'
-import { cleanupSkipReason, cleanupRetryDecision, countWords } from './cleanup-policy'
+import { countWords, cleanupSkipReason, cleanupRetryDecision } from './cleanup-policy'
 
 // Apps that are PRIMARILY AI chat surfaces. Dictation here is always
 // a prompt to an AI assistant — route to 'ai_prompt' regardless of
@@ -308,6 +319,16 @@ function strictnessBucket(focused: FocusedApp): 'personal' | 'work' | 'writing' 
 // derived confidently. Null is a normal outcome, not a failure: only
 // global facts load, and anything learned lands in the unsorted bucket.
 // See context/project-key.ts on why guessing is worse than not knowing.
+// The name that goes under the sign-off. Read from the context overview,
+// which is the only place the app currently knows it.
+function senderFirstName(): string | null {
+  try {
+    return senderNameFromOverview(getUserOverview())
+  } catch {
+    return null
+  }
+}
+
 function dictationProjectKey(focused: FocusedApp): string | null {
   return extractProjectKey({
     surface: focused.surface,
@@ -1064,12 +1085,25 @@ export async function runDictationPipeline(
       + 'filler removal, tone matching and prompt shaping are off until then.'
     ))
   } else {
-    // Compose rather than clean when the dictation ASKS for an email.
+    // Compose rather than clean.
+    //
+    // Two ways in. The first is an explicit ask ("write an email to Sam")
+    // anywhere. The second is being IN an email client with something
+    // substantial to say: in Gmail or Outlook the destination already
+    // tells you the output is an email, and requiring the user to also
+    // say the word "email" while staring at a compose window is asking
+    // them to narrate what is on screen.
+    //
+    // The length floor is the guard. A quick reply — "sounds good", "yes
+    // Thursday works" — is the user's actual message and wants cleaning,
+    // not a greeting and a sign-off wrapped around four words. Compose
+    // only takes over once there is enough of a brief to compose FROM.
+    //
     // Hoisted because it drives two things that must agree: which prompt
     // is built, and how many tokens the reply is allowed — budgeting a
     // composed email like a cleaned one truncates it mid-sentence.
-    const composingEmail = effectiveCategory === 'email'
-      && asksForEmailComposition(transcript)
+    const composingEmail = asksForEmailComposition(transcript)
+      || (effectiveCategory === 'email' && countWords(transcript) >= EMAIL_COMPOSE_MIN_WORDS)
     const editor = IDE_EDITORS[focusedApp.bundleId]
     const strictness = strictnessFor(focusedApp, settings)
     const register = registerFor(focusedApp, effectiveCategory)
@@ -1101,6 +1135,20 @@ export async function runDictationPipeline(
           systemPrompt,
           expandsOutput: composingEmail,
         }))
+
+      // Compose output was never normalised — normalizeEmailRewrite only
+      // ever ran on select-and-rewrite — so every rule the prompt states
+      // about how an email ENDS was enforced by nothing.
+      //
+      // Both failures below were produced by the live model with the
+      // prohibitions already in the prompt, which is the whole argument
+      // for doing it here as well: "Thanks,\n[Your Name]" (the exact
+      // placeholder the prompt forbids by name) and a body that simply
+      // stopped, with no sign-off, reading as truncated in the compose
+      // window the user is about to send from.
+      if (composingEmail) {
+        cleaned = normalizeComposedEmail(cleaned, senderFirstName())
+      }
       // The 8B cleanup model occasionally ignores LENGTH_PRESERVATION
       // and summarizes long dictations down to a sentence. ai_prompt
       // legitimately restructures (rambling → structured prompt), so

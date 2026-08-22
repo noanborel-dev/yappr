@@ -458,7 +458,8 @@ const EMAIL_COMPOSE = `COMPOSE MODE — the user is not dictating an email, they
 - RECIPIENT: if the brief names who the email is for ("to my friend Jeff", "email Sarah about..."), greet them by that name — "Hi Jeff,". Use the name exactly as dictated. Only when no name is given is the greeting exactly "Hi," on its own line.
 - INVENT NOTHING. Write only what the brief actually says. Do not add dates, numbers, product features, company names, deadlines, next steps or events the user did not mention. A brief of one sentence produces a short email of one or two sentences — that is correct, not incomplete. Padding an email with plausible-sounding specifics the user never said is the worst failure here: they may send it without noticing.
 - NO SUBJECT LINE. Output the email body only, starting with the greeting. This is pasted into a compose window that already has its own subject field, so a "Subject:" line lands in the middle of the message body where it does not belong.
-- Close with a sign-off and the user's own first name on the next line ("Best,\\nNoan") whenever the context block says what it is. A bare "Best," with nothing under it reads unfinished.
+- ALWAYS close with a sign-off. Never end on the last sentence of the body — an email that stops mid-thought reads as truncated, and the user will send it that way without noticing. The sign-off is not optional and does not depend on knowing their name.
+- Put the user's own first name on the line after the sign-off word ("Best,\\nNoan") whenever the context block says what it is. When it does not, the sign-off word alone is the correct ending ("Best,") — write that rather than nothing, and never a bracketed placeholder like [Your Name].
 - NEVER write bracketed placeholders: no [Recipient], no [Your Name], no [Company].
 - Real sentences, no filler. Output ONLY the email — no preamble, no explanation, no "here's the email".`
 

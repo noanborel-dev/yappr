@@ -24,8 +24,26 @@ const EMAIL_COMMAND_RE = /\b(e-?mails?|e-?mailing)\b/i
 //
 // Requires a verb of composition next to the word, so "I replied to his
 // email" and "the email bounced" do not trigger it.
-const EMAIL_COMPOSE_RE =
-  /\b(?:write|draft|compose|send|reply\s+to|respond\s+to|answer)\s+(?:me\s+)?(?:an?|the|this)?\s*(?:\w+\s+){0,2}e-?mail\b/i
+// Two shapes, because people phrase this two ways.
+//
+//   1. a composition verb before the noun — "write an email to Sam"
+//   2. EMAIL ITSELF AS THE VERB — "email Sam I'm running late"
+//
+// Only the first was matched, so the second fell through to ordinary
+// cleanup and, being short, was skipped entirely: the user got the words
+// "email Sam I'm running late" pasted into their compose window.
+//
+// The second form is anchored to the START of the dictation, which is
+// what keeps it from firing on "check my email" or "the email bounced" —
+// as an imperative it can only be the first thing said.
+const EMAIL_COMPOSE_RE = new RegExp(
+  [
+    /\b(?:write|draft|compose|send|reply\s+to|respond\s+to|answer)\s+(?:me\s+)?(?:an?|the|this)?\s*(?:\w+\s+){0,2}e-?mail\b/
+      .source,
+    /^\s*(?:(?:can|could)\s+you\s+|please\s+|just\s+)*e-?mail\s+(?!me\b)\w+/.source,
+  ].join('|'),
+  'i',
+)
 
 export function asksForEmailComposition(transcript: string): boolean {
   return EMAIL_COMPOSE_RE.test(transcript)
@@ -189,4 +207,99 @@ export function normalizeEmailRewrite(text: string): string {
   const bodyText = body.join('\n')
   if (!subject) return bodyText
   return `Subject: ${subject}\n\n${bodyText}`
+}
+
+// ─── Composed-email normalisation ───────────────────────────────────
+//
+// normalizeEmailRewrite above runs only on select-and-rewrite. Dictation
+// compose output went out raw, so every rule the prompt states about
+// endings was enforced by nothing.
+//
+// Both of these were observed against gpt-oss-20b with the prohibitions
+// already in the prompt, which is the point: a prompt rule is a request.
+//
+//   "Thanks,\n[Your Name]"  — the exact placeholder the prompt forbids
+//                             by name, produced anyway when the context
+//                             block carried no first name.
+//   "…running late."        — body with no sign-off at all, which reads
+//                             as truncated in a compose window.
+
+const PLACEHOLDER_LINE_RE = /^\s*[\[<(]\s*(?:your|my|the)?\s*(?:name|recipient|first name|full name|signature|company|title)\s*[\]>)]\s*[.,]?\s*$/i
+const PLACEHOLDER_INLINE_RE = /[\[<]\s*(?:your|my|the)?\s*(?:name|recipient|first name|full name|signature|company|title)\s*[\]>]/gi
+
+/** Sign-off words, as the closing line of a message. */
+const SIGNOFF_RE = /^\s*(best|best regards|thanks|thank you|cheers|regards|kind regards|warmly|sincerely|talk soon|speak soon)\b[\s,.!—-]*$/i
+
+export function looksLikeSignoff(line: string): boolean {
+  return SIGNOFF_RE.test(line)
+}
+
+/**
+ * Make a composed email end properly.
+ *
+ * `userName` is the sender's first name when context knows it. Absent, the
+ * sign-off word stands alone — which is a correct ending, and is what the
+ * placeholder was standing in for.
+ */
+export function normalizeComposedEmail(text: string, userName?: string | null): string {
+  const name = (userName ?? '').trim()
+
+  let lines = (text ?? '').replace(/\r\n/g, '\n').split('\n')
+
+  // Drop placeholder lines outright, and strip inline ones in place.
+  lines = lines
+    .filter(l => !PLACEHOLDER_LINE_RE.test(l))
+    .map(l => l.replace(PLACEHOLDER_INLINE_RE, '').replace(/[ \t]{2,}/g, ' ').trimEnd())
+
+  // Trailing blanks would hide the real last line from the checks below.
+  while (lines.length > 0 && lines[lines.length - 1].trim() === '') lines.pop()
+  if (lines.length === 0) return ''
+
+  const last = lines[lines.length - 1]
+
+  // Ends on a sign-off word. Add the name under it when we know it, and
+  // normalise "Best regards." to "Best regards," — a full stop after a
+  // sign-off reads as the end of a sentence, not the start of a signature.
+  if (looksLikeSignoff(last)) {
+    lines[lines.length - 1] = last.trim().replace(/[\s,.!—-]*$/, ',')
+    if (name) lines.push(name)
+    return lines.join('\n')
+  }
+
+  // The name is already there, under a sign-off. Nothing to do.
+  if (name && last.trim().toLowerCase() === name.toLowerCase()) {
+    return lines.join('\n')
+  }
+
+  // No sign-off at all — the failure that reads as a truncated email.
+  lines.push('', 'Best,')
+  if (name) lines.push(name)
+  return lines.join('\n')
+}
+
+/**
+ * The sender's first name, from the context overview.
+ *
+ * The overview is prose the compaction model wrote — "Noan builds Yappr,
+ * a Mac dictation app" — so there is no field to read. The sign-off wants
+ * a name, and the alternative to reading one here is what the model
+ * already did unprompted: emit "[Your Name]" into a compose window.
+ *
+ * Deliberately narrow. It accepts only a capitalised first word followed
+ * by a verb that means "this is a person", which is the shape the
+ * compactor's overviews open with. Anything else returns null, and null
+ * is a correct outcome — the sign-off word then stands alone, which is a
+ * real ending rather than a placeholder.
+ */
+const OVERVIEW_NAME_RE =
+  /^\s*([A-Z][a-zA-Z'-]{1,20})\s+(?:is|builds|works|runs|writes|makes|leads|founded|studies)\b/
+
+export function senderNameFromOverview(overview: string | null | undefined): string | null {
+  const m = OVERVIEW_NAME_RE.exec((overview ?? '').trim())
+  if (!m) return null
+  const name = m[1]
+  // Shapes that pass the test but are not names. A sign-off reading
+  // "Best,\nThe" is worse than one with no name at all.
+  if (/^(the|they|this|that|he|she|it|we|i|a|an|his|her|their)$/i.test(name)) return null
+  return name
 }

@@ -13,6 +13,7 @@
 // correctness.
 
 import type { AppCategory } from '../shared/types'
+import { asksForEmailComposition } from '../shared/rewrite-prompt'
 
 const FILLER_RE = /\b(um+|uh+|er+|erm+|hmm*|uhh+|umm+)\b/i
 const STUTTER_RE = /\b(\w+)[, ]+\1\b/i  // "the the", "I, I"
@@ -63,7 +64,21 @@ export function cleanupSkipReason(transcript: string, category: AppCategory): Sk
   // the "um" is worse than the round-trip saved.
   if (hasDisfluency(transcript)) return 'none'
 
-  // Short-utterance bypass FIRST, before any category rule.
+  // A request to WRITE an email outranks length, for the same reason a
+  // stumble does: the raw text is not the output.
+  //
+  // "email Sam I'm running late" is five words, so the length bypass
+  // below skipped it and the pipeline pasted the REQUEST — the user got
+  // the words "email Sam I'm running late" in their compose window
+  // instead of an email. That is the "it only produced a short phrase"
+  // report, and it is not a prompt weakness: the prompt never ran.
+  //
+  // Every other skip is safe because the transcript IS the intended
+  // output and cleanup only polishes it. Compose is the one register
+  // where the transcript is a brief, so skipping cannot be a no-op.
+  if (asksForEmailComposition(transcript)) return 'none'
+
+  // Short-utterance bypass, before any category rule.
   //
   // Order matters and is load-bearing. Checking `category === 'code'`
   // first labels a six-word phrase 'code-verbatim', which the pipeline

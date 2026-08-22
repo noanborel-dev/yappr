@@ -169,3 +169,37 @@ describe('short code dictation with an AI CLI running (real log regression)', ()
     expect(cleanupSkipReason('um why does this take so long', 'code')).toBe('none')
   })
 })
+
+// A compose REQUEST is a brief, not the output. Every other skip is safe
+// because the transcript IS what the user meant to send and cleanup only
+// polishes it; compose is the one register where skipping pastes the
+// instruction instead of the result.
+describe('email composition outranks the length bypass', () => {
+  // The reported bug, in shape: five words, so the length rule skipped it
+  // and the compose window received the request itself.
+  it('does not skip a short compose request', () => {
+    expect(cleanupSkipReason("email Sam I'm running late", 'email')).toBe('none')
+    expect(cleanupSkipReason('write an email to Jeff', 'email')).toBe('none')
+    expect(cleanupSkipReason('draft an email about Friday', 'email')).toBe('none')
+  })
+
+  // The ask is what matters, not where it is said.
+  it('holds regardless of category', () => {
+    expect(cleanupSkipReason('send an email to Sam', 'other')).toBe('none')
+    expect(cleanupSkipReason('reply to his email now', 'code')).toBe('none')
+  })
+
+  // A carve-out, not a removal.
+  it('still skips short dictations that are not compose requests', () => {
+    expect(cleanupSkipReason('sounds good to me', 'email')).toBe('short-utterance')
+    expect(cleanupSkipReason('yes Thursday works', 'email')).toBe('short-utterance')
+    expect(cleanupSkipReason('git commit that', 'code')).toBe('short-utterance')
+  })
+
+  // The compose regex requires a verb of composition, and that has to keep
+  // holding here or every passing mention of email takes the LLM path.
+  it('is not fooled by the word email alone', () => {
+    expect(cleanupSkipReason('the email bounced', 'email')).toBe('short-utterance')
+    expect(cleanupSkipReason('check my email', 'email')).toBe('short-utterance')
+  })
+})
