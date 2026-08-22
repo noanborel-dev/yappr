@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import type { Settings } from '../../../shared/types'
 import type { NotchGeometry } from '../../global'
 import { Toggle } from '../../shared/ui/Toggle'
 import { Pill } from '../../shared/ui/Pill'
 import { Panel, SettingRow, StackRow } from '../../shared/ui/Panel'
 import { SectionHead, GroupLabel } from '../../shared/ui/SectionHead'
 import { MenuBar, NotchMark } from '../../shared/ui/NotchMark'
+import { LicenseCard } from '../LicenseCard'
 import {
   clampPlaceholderWidth,
   PLACEHOLDER_MIN_PT,
@@ -17,9 +19,14 @@ export default function GeneralTab() {
   const [inputDeviceId, setInputDeviceId] = useState<string | null>(null)
   const [audioCues, setAudioCues] = useState<boolean>(true)
   const [pauseMedia, setPauseMedia] = useState<boolean>(true)
+  // Whole-settings object, for the license card that moved here from the
+  // About tab. The rows above each track their own field because they
+  // write independently; the card needs the object.
+  const [settings, setSettings] = useState<Settings | null>(null)
 
   useEffect(() => {
     window.yappr.getLaunchAtLogin().then(setLaunchAtLogin)
+    window.yappr.getSettings().then(setSettings)
   }, [])
 
   useEffect(() => {
@@ -61,12 +68,11 @@ export default function GeneralTab() {
     <div className="max-w-[720px]">
       <SectionHead
         headline={<>The <em className="italic">quiet</em> settings.</>}
-        body="Which mic, what happens at login, and how the indicator sits in your notch."
       />
 
       <GroupLabel>Input</GroupLabel>
       <Panel className="mb-6">
-        <SettingRow title="Microphone" desc="Which input device Yappr records from.">
+        <SettingRow title="Microphone">
           <select
             value={inputDeviceId ?? ''}
             onChange={(e) => handleSelectMic(e.target.value || null)}
@@ -82,7 +88,6 @@ export default function GeneralTab() {
         </SettingRow>
         <SettingRow
           title="Audio cues"
-          desc="A subtle blip when recording starts and ends."
         >
           <Toggle on={audioCues} onChange={toggleAudioCues} label="Audio cues" />
         </SettingRow>
@@ -107,7 +112,6 @@ export default function GeneralTab() {
       <Panel className="mb-6">
         <SettingRow
           title="Launch at login"
-          desc="Yappr starts in the background when you log in."
         >
           {launchAtLogin === null ? (
             <span className="text-[11px] text-ink-45">Loading…</span>
@@ -132,6 +136,21 @@ export default function GeneralTab() {
       <GroupLabel className="mt-6">Cleanup key</GroupLabel>
       <CleanupKey />
       <OldModelCleanup />
+
+      {/* Both rescued from the About tab when it was removed. The license
+          is the one thing in Settings a user can be genuinely blocked by,
+          so it cannot live behind a nav entry that no longer exists. */}
+      <GroupLabel className="mt-6">License</GroupLabel>
+      <LicenseCard settings={settings} onChange={setSettings} />
+
+      <GroupLabel className="mt-6">Diagnostics</GroupLabel>
+      <Panel>
+        <SettingRow title="Log file" last>
+          <Pill variant="secondary" size="sm" onClick={() => window.yappr.revealLog()}>
+            Reveal in Finder ↗
+          </Pill>
+        </SettingRow>
+      </Panel>
     </div>
   )
 }

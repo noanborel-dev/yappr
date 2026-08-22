@@ -27,7 +27,6 @@ export default function AITab() {
     <div className="max-w-[720px]">
       <SectionHead
         headline={<>Rambling in. <em className="italic">Sections</em> out.</>}
-        body="Watch where every piece goes. Nothing is summarised away — it's just filed."
       />
 
       {/* The site's Section 01, at full width. The notch above it runs on
@@ -39,20 +38,11 @@ export default function AITab() {
           too many — this is the one that shows WHERE each phrase went. */}
       <PromptShapingStage />
 
-      <GroupLabel className="mt-6">Anywhere else</GroupLabel>
-      <Panel className="mb-7">
-        <SettingRow
-          title="Select and rewrite"
-          desc="Highlight text in any app, hold your key and say what to change — “make this formal”, “turn into bullets”. The selection is replaced in place."
-          last
-        >
-          <span className="text-[11.5px] text-ink-45">
-            always on
-          </span>
-        </SettingRow>
-      </Panel>
-
-      <GroupLabel>Memory</GroupLabel>
+      {/* "Select and rewrite" was a row here that read "always on" and
+          offered no control. A settings page is a list of things you can
+          change; an entry you cannot act on is documentation filed in the
+          wrong place, and it pushed the one section here that IS
+          adjustable further down the page. */}
       <ContextMemoryCard />
     </div>
   )
@@ -195,8 +185,7 @@ function ContextMemoryCard() {
   return (
     <Panel>
       <StackRow
-        title="Background context"
-        desc="A short paragraph about you — what you work on, names you say often, how formal you are where. Yappr passes it to the cleanup model so the polish sounds like you. Stays on this Mac."
+        title="What Yappr knows about you"
         aside={
           <Toggle
             on={enabled}
@@ -261,8 +250,7 @@ function ContextMemoryCard() {
       </StackRow>
 
       <StackRow
-        title="Keep it current"
-        desc={`Every ${threshold} dictations, Yappr rewrites the paragraph above from your recent transcripts. Runs only while you're idle, and needs a Groq key.`}
+        title="Update it automatically"
         aside={
           <Toggle
             on={settings.autoContextUpdate}
@@ -297,8 +285,7 @@ function ContextMemoryCard() {
       {/* Spec §1.4. Sits below the overview because it answers the
           question the overview provokes: "what else does it know?" */}
       <StackRow
-        title="What Yappr knows"
-        desc="Rules you mentioned while dictating, kept per project. Global ones go into every dictation; project ones only when you're working on that project. Delete anything that's wrong."
+        title="Remembered rules"
         last
       >
         <ProjectCards />

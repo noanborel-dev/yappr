@@ -37,7 +37,7 @@ export default function DictionaryTab() {
     <div className="max-w-[720px]">
       <SectionHead
         headline={<>Names &amp; <em className="italic">jargon</em>, recognized.</>}
-        body="Add what Whisper keeps mishearing. Common terms — Claude, GitHub, OAuth, kubectl — are already built in."
+        body="Add the words it keeps getting wrong."
       />
 
       <MishearingStrip />
@@ -90,10 +90,11 @@ export default function DictionaryTab() {
         </div>
       )}
 
-      <p className="text-[10.5px] text-ink-45 mt-5 leading-relaxed">
-        Whisper caps its prompt at 224 tokens, so past roughly 40 terms the oldest
-        stop being biased. Keep the list to words it actually gets wrong.
-      </p>
+      {/* Removed: "Whisper caps its prompt at 224 tokens, so past
+          roughly 40 terms the oldest stop being biased." True, and an
+          implementation detail the person adding "kubectl" to a list has
+          no use for. The actionable half of it — keep the list short —
+          is already implied by a list you have to maintain by hand. */}
     </div>
   )
 }

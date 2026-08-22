@@ -62,42 +62,7 @@ export default function HistoryTab() {
     <div className="max-w-[720px]">
       <SectionHead
         headline={<>Every <em className="italic">word</em>, kept.</>}
-        body="Everything you've dictated, and where it went. Stays on this Mac, never synced."
       />
-
-      {/* Two weeks of activity, then three numbers — all of them true of
-          the kept history and nothing more. The old strip added a streak,
-          a busiest hour, a longest dictation and a "time saved vs typing
-          at 40 wpm" — the last being both invented arithmetic and a speed
-          claim the product deliberately doesn't make. */}
-      {/* The landing page's build-bench photo, same crop and the same
-          line it carries there. The Dashboard opens on numbers, and a
-          page of figures reads as a report rather than as the product —
-          this is the one place the app can say who it is for before it
-          starts counting.
-          Scrim is a left-weighted gradient rather than a flat overlay so
-          the text sits on darkness while the right of the frame stays
-          legible as a photograph. */}
-      <div className="relative rounded-card overflow-hidden shadow-glass mb-6 h-[168px]">
-        <img
-          src={buildBench}
-          alt="A workbench mid-project: prototype parts, hand tools and a laptop pushed to one side."
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'linear-gradient(100deg, rgba(10,11,15,0.86) 0%, rgba(10,11,15,0.62) 46%, rgba(10,11,15,0.18) 100%)',
-          }}
-        />
-        <div className="relative h-full flex flex-col justify-end px-7 pb-6">
-          <h3 className="font-display text-[30px] leading-[1.05] tracking-[-0.01em] text-white">
-            Made for people who <em className="italic">build things</em>.
-          </h3>
-          <p className="text-[12.5px] text-white/70 mt-1.5">Not for dictating memos.</p>
-        </div>
-      </div>
 
       <Headline stats={stats} />
       {stats.total > 0 && <Activity days={stats.days} />}
@@ -302,23 +267,43 @@ function Headline({ stats }: { stats: DictationStats }) {
   const saved = stats.minutesSavedThisMonth
   return (
     <div className="mb-8">
-      {/* One figure carries the page. Four equal boxes gave every number
-          the same weight, and on a young install three of them read the
-          same value — "16 dictations / 16 this week / 16 today" — which
-          looks broken rather than sparse. Minutes saved is the one number
-          that answers "was this worth it", so it gets the size. */}
-      <div className="bg-card border border-line-soft rounded-card shadow-card px-7 py-8 mb-3">
-        <div className="flex items-baseline gap-3">
-          <div className="font-display text-[76px] leading-[0.85] tracking-[-0.03em] tabular-nums">
-            {saved === null ? '—' : compactNumber(saved)}
+      {/* The photo is the hero's BACKGROUND, not a box above it.
+          As a separate band it was a second thing competing with the
+          number for the top of the page; behind the number it does the
+          job an image should do here — carry the figure instead of
+          sitting next to it.
+          The scrim is heavy on the left where the digits sit and thins
+          out to the right, so the type stays on near-solid darkness while
+          the workbench is still legible as a photograph. */}
+      <div className="relative rounded-card overflow-hidden shadow-glass mb-3">
+        <img
+          src={buildBench}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(100deg, rgba(8,9,12,0.94) 0%, rgba(8,9,12,0.86) 38%, rgba(8,9,12,0.55) 72%, rgba(8,9,12,0.30) 100%)',
+          }}
+        />
+        <div className="relative px-8 py-9">
+          <div className="flex items-baseline gap-4">
+            {/* 116px. The ask was for this to be unmissable, and at 76
+                it still sat in the same size class as a headline. */}
+            <div className="font-display text-[116px] leading-[0.82] tracking-[-0.035em] tabular-nums text-white">
+              {saved === null ? '—' : compactNumber(saved)}
+            </div>
+            <div className="font-display italic text-[30px] leading-none text-white/75 pb-2">
+              minutes saved
+            </div>
           </div>
-          <div className="font-display italic text-[26px] leading-none text-ink-60 pb-1">
-            minutes saved
-          </div>
+          <p className="text-[12.5px] text-white/55 mt-4">
+            this month, against typing at {TYPING_WPM} words a minute
+          </p>
         </div>
-        <p className="text-[12.5px] text-ink-45 mt-3.5">
-          this month, against typing at {TYPING_WPM} words a minute
-        </p>
       </div>
 
       {/* Supporting numbers, deliberately small. */}

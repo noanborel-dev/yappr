@@ -69,7 +69,6 @@ export default function HotkeysTab() {
     <div className="max-w-[720px]">
       <SectionHead
         headline={<>Hold <em className="italic">{KEY_NAME[glyph] ?? glyph}</em>. Say anything.</>}
-        body="One key does three things. Click the keycap to bind a different one."
       />
 
       <div className="flex items-center gap-5 mb-6">
@@ -79,14 +78,20 @@ export default function HotkeysTab() {
           onClick={() => setListening(l => !l)}
         />
         <div className="min-w-0">
+          {/* Only the LISTENING state gets prose now. Idle, this block
+              used to read "Push to talk / Release and the polished text
+              lands in whatever app you were in" directly above three
+              cards that name Tap, Hold and Double-tap — the same fact,
+              twice, a hundred pixels apart. Rebinding is a mode with a
+              rule you cannot guess, so that copy stays. */}
           <div className="text-[13px] font-semibold">
-            {listening ? 'Press any key…' : 'Push to talk'}
+            {listening ? 'Press any key…' : 'Your key'}
           </div>
-          <p className="text-[11.5px] text-ink-60 mt-1 leading-relaxed max-w-[38ch]">
-            {listening
-              ? 'The next key you press becomes your dictation key. Modifiers work on their own.'
-              : 'Release and the polished text lands in whatever app you were in.'}
-          </p>
+          {listening && (
+            <p className="text-[11.5px] text-ink-60 mt-1 leading-relaxed max-w-[38ch]">
+              The next key you press becomes your dictation key. Modifiers work on their own.
+            </p>
+          )}
           <button
             onClick={() => setListening(l => !l)}
             className="text-[12.5px] text-ink-45 hover:text-ink mt-2.5 transition-colors"
@@ -114,10 +119,10 @@ export default function HotkeysTab() {
 
 type Mode = 'tap' | 'hold' | 'double'
 
-const PANELS: Array<{ mode: Mode; ord: string; name: string; line: string }> = [
-  { mode: 'tap', ord: '01', name: 'Tap', line: 'Toggle recording on. Tap again to stop.' },
-  { mode: 'hold', ord: '02', name: 'Hold', line: 'Record while held. Release to finish.' },
-  { mode: 'double', ord: '03', name: 'Double-tap', line: 'Paste your last dictation again.' },
+const PANELS: Array<{ mode: Mode; name: string; line: string }> = [
+  { mode: 'tap', name: 'Tap', line: 'Toggle recording on. Tap again to stop.' },
+  { mode: 'hold', name: 'Hold', line: 'Record while held. Release to finish.' },
+  { mode: 'double', name: 'Double-tap', line: 'Paste your last dictation again.' },
 ]
 
 // Each frame is [notch state, is the key down]. Advanced on a fixed tick,
@@ -193,7 +198,7 @@ function Gestures({ glyph }: { glyph: string }) {
       {/* One shared stage. Three separate looping mocks side by side would
           be three animations in one viewport — the page rules cap that at
           one, and they were right: it read as noise. */}
-      <div className="bg-[linear-gradient(135deg,#6E83A8_0%,#5A7196_55%,#4F6585_100%)] relative">
+      <div className="bg-[linear-gradient(180deg,#15161A_0%,#0A0B0F_100%)] relative">
         <MenuBar>
           <NotchMark state={state} notchWidth={92} />
         </MenuBar>
@@ -226,7 +231,6 @@ function Gestures({ glyph }: { glyph: string }) {
                   on ? 'text-accent' : 'text-ink-45',
                 ].join(' ')}
               >
-                {p.ord}
               </div>
               <div className="font-display italic text-[24px] leading-none tracking-tight text-ink">
                 {p.name}

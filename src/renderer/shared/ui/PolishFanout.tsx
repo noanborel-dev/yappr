@@ -14,16 +14,31 @@ const RAW = 'hey yeah friday works — actually could we do 2 instead of 12? I h
 
 type Lane = {
   id: keyof CategoryStrictness
-  app: string
+  /** What this register IS — the row is the setting now, not a demo app. */
+  title: string
+  /** The apps it covers. Was implied by the app name alone, which meant
+   *  "Slack" had to stand in for every work surface. */
+  apps: string
   logo: BrandSlug
   /** Output per strictness level, in this destination's register. */
   out: Record<Strictness, string>
 }
 
+// Three registers, and each card IS its setting — no separate list of
+// rows underneath repeating the same three names with the same three
+// controls.
+//
+// Slack lost its own lane. It and Gmail were two cards for one register:
+// both are work, both read from `strictness.work`, so changing either
+// moved the same value and the pair implied a distinction that does not
+// exist. Work is one lane now and names the apps it covers; the third is
+// writing and AI, which had no card at all despite being the register
+// that shapes prompts.
 const LANES: Lane[] = [
   {
     id: 'personal',
-    app: 'iMessage',
+    title: 'Personal messaging',
+    apps: 'iMessage · WhatsApp · Telegram',
     logo: 'imessage',
     out: {
       1: 'hey yeah friday works could we do 2 instead of 12 i have a lunch then',
@@ -33,17 +48,8 @@ const LANES: Lane[] = [
   },
   {
     id: 'work',
-    app: 'Slack',
-    logo: 'slack',
-    out: {
-      1: 'hey yeah friday works could we do 2 instead of 12, i have a lunch then',
-      2: 'Hey — Friday works, could we do 2 instead of 12? I have a lunch then.',
-      3: 'Friday works for me. Could we move it to 2 rather than 12? I have a lunch conflict at noon.',
-    },
-  },
-  {
-    id: 'writing',
-    app: 'Gmail',
+    title: 'Work messaging',
+    apps: 'Gmail · Slack · Outlook · Teams',
     logo: 'gmail',
     out: {
       1: 'friday works — could we do 2 instead of 12? i have a lunch then',
@@ -51,16 +57,31 @@ const LANES: Lane[] = [
       3: 'Hi —\n\nFriday works for me. Could we shift to 2pm instead of 12? I have a lunch conflict at noon.\n\nThanks,\nNoan',
     },
   },
+  {
+    id: 'writing',
+    title: 'Writing & AI',
+    apps: 'Claude · ChatGPT · Notion · Docs',
+    logo: 'claude',
+    out: {
+      1: 'friday works, could we do 2 instead of 12? i have a lunch then',
+      2: 'Friday works — could we do 2 instead of 12? I have a lunch then.',
+      3: 'Friday works. Could we move the meeting to 2pm rather than 12pm? I have a lunch conflict at noon.',
+    },
+  },
 ]
 
 export function PolishFanout({
   strictness,
   onPick,
+  onLevel,
   active,
 }: {
   strictness: CategoryStrictness
   /** Clicking a card focuses that context's row below. */
   onPick?: (id: keyof CategoryStrictness) => void
+  /** Set a register's level from its own card. When omitted the cards
+   *  are read-only, which is how the landing page uses this. */
+  onLevel?: (id: keyof CategoryStrictness, level: Strictness) => void
   active?: keyof CategoryStrictness | 'code' | null
 }) {
   const [revealed, setRevealed] = useState(false)
@@ -107,19 +128,42 @@ export function PolishFanout({
                   <span className="pap-card-logo">
                     <BrandLogo brand={lane.logo} size={16} />
                   </span>
-                  <span className="pap-card-app">{lane.app}</span>
-                  <span className="ml-auto text-[11px] text-ink-45">
-                    {LEVEL_NAME[level]}
-                  </span>
+                  <span className="pap-card-app">{lane.title}</span>
                 </div>
+                <div className="text-[11px] text-ink-45 px-1 -mt-0.5 mb-2">{lane.apps}</div>
 
                 <div className={`pap-card-body pap-card-body--${lane.id}`}>
-                  {lane.id === 'writing' ? (
+                  {lane.id === 'work' ? (
                     <pre className="pap-prose">{lane.out[level]}</pre>
                   ) : (
                     <span className={`pap-bubble pap-bubble--${lane.id}`}>{lane.out[level]}</span>
                   )}
                 </div>
+
+                {/* The control lives WITH its preview. It used to sit in a
+                    separate panel below, so choosing a level meant reading
+                    one list, moving to another, and mapping the two by
+                    name — the demo showed the result of a setting you
+                    could not reach from it. */}
+                {onLevel && (
+                  <div
+                    className="flex items-center gap-0.5 bg-ink/[0.05] rounded-pill p-0.5 mt-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {([1, 2, 3] as Strictness[]).map((lvl) => (
+                      <button
+                        key={lvl}
+                        onClick={() => onLevel(lane.id, lvl)}
+                        className={[
+                          'flex-1 px-2 py-1 rounded-pill text-[11px] font-medium transition-all duration-150',
+                          level === lvl ? 'bg-ink text-paper' : 'text-ink-60 hover:text-ink',
+                        ].join(' ')}
+                      >
+                        {LEVEL_NAME[lvl]}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )
           })}

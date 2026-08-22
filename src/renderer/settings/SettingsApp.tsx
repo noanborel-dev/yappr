@@ -5,20 +5,36 @@ import DictionaryTab from './tabs/DictionaryTab'
 import PolishTab from './tabs/PolishTab'
 import AITab from './tabs/AITab'
 import HistoryTab from './tabs/HistoryTab'
-import AboutTab from './tabs/AboutTab'
 import { Wordmark } from '../shared/ui/Wordmark'
+import { NavIcon, type NavIconName } from './NavIcon'
 
-const TABS = ['Dashboard', 'Hotkey', 'Polish', 'AI', 'Dictionary', 'General', 'About'] as const
+const TABS = ['Dashboard', 'Hotkey', 'Polish', 'AI', 'Dictionary', 'Settings'] as const
 type Tab = typeof TABS[number]
 
 // Grouped rather than run together. The old flat list mixed "what Yappr
 // does with your voice" (Polish, AI, Dictionary) with "how Yappr is wired
 // up" (General, About) in one undifferentiated column, so nothing in it
 // told you where to look for anything.
+// About is gone — it was a page of links wrapped around two things that
+// belong with the other preferences, so its license card and log-file
+// row moved into Settings rather than being deleted with the tab.
+//
+// Settings sits alone at the bottom, away from the voice pages. It is
+// the only entry you visit to configure the machine rather than the
+// writing.
+const ICONS: Record<Tab, NavIconName> = {
+  Dashboard: 'dashboard',
+  Hotkey: 'hotkey',
+  Polish: 'polish',
+  AI: 'ai',
+  Dictionary: 'dictionary',
+  Settings: 'settings',
+}
+
 const GROUPS: Array<{ label: string | null; tabs: Tab[] }> = [
   { label: null, tabs: ['Dashboard'] },
   { label: 'Voice', tabs: ['Hotkey', 'Polish', 'AI', 'Dictionary'] },
-  { label: 'Setup', tabs: ['General', 'About'] },
+  { label: null, tabs: ['Settings'] },
 ]
 
 export default function SettingsApp() {
@@ -57,14 +73,19 @@ export default function SettingsApp() {
                     onClick={() => setTab(t)}
                     aria-current={on ? 'page' : undefined}
                     className={[
-                      'text-left px-2.5 py-[7px] rounded-[9px] text-[12.5px] transition-colors duration-150',
-                      on ? 'bg-ink text-paper' : 'text-ink-60 hover:text-ink hover:bg-ink/[0.05]',
+                      // Heavier and darker than before. At 12.5px in
+                      // ink-60 the inactive rows read as disabled next to
+                      // a solid black active pill; medium weight at full
+                      // ink makes the list look navigable rather than
+                      // greyed out.
+                      'text-left px-2.5 py-[7px] rounded-[9px] text-[13px] font-medium transition-colors duration-150',
+                      on ? 'bg-ink text-paper' : 'text-ink hover:bg-ink/[0.05]',
                     ].join(' ')}
                   >
                     <span className="inline-flex items-center gap-2.5">
-                      <span
-                        className={`w-1 h-1 rounded-full transition-colors ${on ? 'bg-accent' : 'bg-ink/20'}`}
-                      />
+                      <span className={on ? 'text-paper' : 'text-ink-45'}>
+                        <NavIcon name={ICONS[t]} />
+                      </span>
                       {t}
                     </span>
                   </button>
@@ -94,8 +115,7 @@ export default function SettingsApp() {
         {tab === 'Polish' && <PolishTab />}
         {tab === 'AI' && <AITab />}
         {tab === 'Dictionary' && <DictionaryTab />}
-        {tab === 'General' && <GeneralTab />}
-        {tab === 'About' && <AboutTab />}
+        {tab === 'Settings' && <GeneralTab />}
       </main>
     </div>
   )

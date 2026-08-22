@@ -133,11 +133,19 @@ export function PromptShapingStage() {
       {/* The indicator hangs from a menu bar, as it must — and moves
           through the same states the text below is moving through.
 
-          The strip needs a desktop behind it. Over cream, a translucent
-          white bar is invisible, and the shape read as floating in the
-          middle of the pane — which is the one thing the notch may never
-          appear to do. */}
-      <div className="-mx-9 mb-6 bg-[linear-gradient(135deg,#6E83A8_0%,#5A7196_55%,#4F6585_100%)]">
+          The strip still needs SOMETHING behind it: over cream a
+          translucent white bar is invisible, and the shape then reads as
+          floating in the middle of the pane, which is the one thing a
+          notch may never appear to do.
+
+          It used to be a slate-blue gradient standing in for a desktop
+          wallpaper. That put the only large blue field in the app
+          directly behind the one element that is supposed to disappear
+          into black hardware — the shape sat ON the band instead of
+          growing out of it. Near-black does the same structural job and
+          lets the notch merge with it, which is what it does on a real
+          screen. */}
+      <div className="-mx-9 mb-6 bg-[linear-gradient(180deg,#15161A_0%,#0A0B0F_100%)]">
         <MenuBar>
           <NotchMark state={NOTCH_FOR[phase]} notchWidth={92} />
         </MenuBar>
