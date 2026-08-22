@@ -3,7 +3,7 @@
 // outdated marks for several brands and (2) were missing Slack and
 // other trademark-removed icons entirely.
 import imessage from '../logos/imessage.png'
-import gmail from '../logos/gmail.webp'
+import gmail from '../logos/gmail.png'
 import notion from '../logos/notion.png'
 import slack from '../logos/slack.png'
 import claude from '../logos/claude.png'
