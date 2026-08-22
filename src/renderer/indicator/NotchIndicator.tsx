@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { YapprMark } from '../shared/ui/YapprMark'
 import {
   resolve,
   fromPipelineState,
@@ -721,14 +722,14 @@ export default function NotchIndicator() {
                 onClick={micClickable ? startFromNotch : undefined}
                 title={micClickable ? 'Start dictating' : undefined}
                 style={{
-                  fontFamily: '"Instrument Serif", "Cormorant Garamond", Georgia, serif',
-                  fontStyle: 'italic',
-                  fontSize: LABEL_SIZE,
-                  lineHeight: 1,
-                  letterSpacing: '-.005em',
-                  color: 'rgba(255,255,255,.92)',
-                  textShadow: '0 1px 2px rgba(0,0,0,.35)',
-                  whiteSpace: 'nowrap',
+                  // The wrapper keeps the hit target, padding and hover
+                  // transition. The MARK itself is the shared bare lockup
+                  // — this used to restate the font stack, the italic, the
+                  // letter-spacing and a third white value inline, which
+                  // is how the live indicator drifted from both the notch
+                  // mockup and the brand pill.
+                  display: 'inline-flex',
+                  alignItems: 'center',
                   flex: 'none',
                   cursor: micClickable ? 'pointer' : 'default',
                   padding: micClickable ? '3px 7px' : 0,
@@ -736,7 +737,7 @@ export default function NotchIndicator() {
                   transition: 'background 160ms ease, color 160ms ease',
                 }}
               >
-                Yappr
+                <YapprMark lockup="bare" tone="dark" dot={false} style={{ fontSize: LABEL_SIZE }} />
               </span>
             )}
             {/* The key the user actually bound, read from settings. A

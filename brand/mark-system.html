@@ -1,0 +1,581 @@
+<title>Yappr Mark</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  /* Yappr's own palette. A specimen sheet for an identity is the one place
+     where borrowing a different palette would be wrong — the page has to be
+     evidence that the system holds together. */
+  :root {
+    --ground:   #F6F2E7;
+    --surface:  #FBF9F1;
+    --ink:      #15161A;
+    --ink-60:   rgba(21,22,26,0.60);
+    --ink-40:   rgba(21,22,26,0.40);
+    --rule:     #D9D2BD;
+    --rule-soft:#E9E2CB;
+    --accent:   #C8553D;
+    --dot:      #E84A3A;
+    --shell:    #0A0B0F;
+    --on-dark:  rgba(255,255,255,0.92);
+
+    --serif: "Instrument Serif", Georgia, serif;
+    --sans:  "IBM Plex Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --mono:  "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+
+  /* Dark: the ground inverts to the shell the mark already lives on, so the
+     page becomes the same near-black the product uses. Specimen plates keep
+     their own fixed grounds either way — that is what they are for. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #101116;
+      --surface:  #16171D;
+      --ink:      #F2EFE6;
+      --ink-60:   rgba(242,239,230,0.60);
+      --ink-40:   rgba(242,239,230,0.38);
+      --rule:     #2B2C34;
+      --rule-soft:#232430;
+      --accent:   #E0755C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:   #101116;
+    --surface:  #16171D;
+    --ink:      #F2EFE6;
+    --ink-60:   rgba(242,239,230,0.60);
+    --ink-40:   rgba(242,239,230,0.38);
+    --rule:     #2B2C34;
+    --rule-soft:#232430;
+    --accent:   #E0755C;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 56px 32px 120px; }
+
+  /* ── Masthead ─────────────────────────────────────────────────── */
+  .masthead { border-bottom: 1px solid var(--rule); padding-bottom: 36px; margin-bottom: 48px; }
+  .masthead h1 {
+    font-family: var(--serif);
+    font-size: clamp(44px, 7vw, 76px);
+    font-weight: 400;
+    line-height: 0.98;
+    letter-spacing: -0.02em;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+  .masthead h1 em { font-style: italic; }
+  .lede { font-size: 17px; color: var(--ink-60); max-width: 62ch; margin: 0; }
+
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 10px 28px;
+    margin-top: 26px;
+    font-family: var(--mono); font-size: 12px; color: var(--ink-40);
+  }
+
+  /* ── Sections ─────────────────────────────────────────────────── */
+  section { margin-top: 64px; }
+  h2 {
+    font-family: var(--serif);
+    font-size: 32px; font-weight: 400; line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+  }
+  .sub { color: var(--ink-60); max-width: 64ch; margin: 0 0 28px; }
+  p { max-width: 66ch; }
+
+  /* ── The three originals ──────────────────────────────────────── */
+  .origins { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .origin { background: var(--surface); padding: 24px; }
+  .origin-stage {
+    background: var(--shell);
+    border-radius: 10px;
+    padding: 22px 18px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 18px;
+    min-height: 78px;
+  }
+  .origin h3 { font-family: var(--mono); font-size: 12px; font-weight: 500; margin: 0 0 10px; color: var(--ink); }
+  .origin dl { margin: 0; font-family: var(--mono); font-size: 11.5px; line-height: 1.9; }
+  .origin dt { color: var(--ink-40); display: inline; }
+  .origin dd { display: inline; margin: 0 0 0 6px; }
+  .origin dd::after { content: ""; display: block; }
+  .flag { color: var(--accent); }
+
+  .verdict {
+    margin-top: 28px;
+    border-left: 2px solid var(--accent);
+    padding: 4px 0 4px 20px;
+    font-size: 16px;
+    max-width: 68ch;
+  }
+
+  /* ── Plate grid ───────────────────────────────────────────────── */
+  .plates { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .plate { background: var(--surface); display: flex; flex-direction: column; }
+  .stage {
+    min-height: 132px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 26px 20px;
+  }
+  .stage--dark  { background: var(--shell); }
+  .stage--light { background: #FBF9F1; }
+  .stage--cream { background: #F6F2E7; }
+  .stage--photo {
+    background:
+      radial-gradient(120% 120% at 20% 10%, #3d4a63 0%, #1d2330 55%, #12161f 100%);
+  }
+  .caption { padding: 16px 20px 20px; border-top: 1px solid var(--rule-soft); }
+  .caption h3 { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
+  .caption code {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ink-40);
+    display: block; margin-bottom: 8px;
+    overflow-x: auto; white-space: nowrap;
+  }
+  .caption p { font-size: 13px; color: var(--ink-60); margin: 0; max-width: none; }
+
+  /* ── The mark, drawn in CSS exactly as the component draws it ──── */
+  .pill {
+    display: inline-flex; align-items: center;
+    border-radius: 999px;
+  }
+  .pill--dark  { background: #0A0B0F; box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), inset 0 -1px 0 rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.12); }
+  .pill--light { background: #FBF9F1; box-shadow: inset 0 0 0 1px rgba(21,22,26,0.10), 0 1px 2px rgba(0,0,0,0.18); }
+  .word { font-family: var(--serif); font-style: italic; line-height: 1; letter-spacing: -0.005em; white-space: nowrap; }
+  .word--dark  { color: rgba(255,255,255,0.92); text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+  .word--ink   { color: #15161A; }
+  .word--white { color: #FFFFFF; }
+  .dot { border-radius: 999px; flex: none; }
+
+  /* Size scale — the same four steps the component ships. */
+  .s-hero    { padding: 9px 22px;   gap: 12px; }
+  .s-hero    .word { font-size: 30px; }
+  .s-hero    .dot  { width: 9px; height: 9px; }
+  .s-button  { padding: 6px 14px;   gap: 9px;  }
+  .s-button  .word { font-size: 18px; }
+  .s-button  .dot  { width: 6px; height: 6px; }
+  .s-inline  { padding: 4.5px 10px; gap: 7px;  }
+  .s-inline  .word { font-size: 14px; }
+  .s-inline  .dot  { width: 5px; height: 5px; }
+  .s-favicon { padding: 3.5px 8px;  gap: 5px;  }
+  .s-favicon .word { font-size: 11px; }
+  .s-favicon .dot  { width: 4px; height: 4px; }
+
+  .dot--red   { background: #E84A3A; }
+  .dot--ink   { background: #15161A; }
+  .dot--white { background: #FFFFFF; }
+  .dot--live  { background: #E84A3A; box-shadow: 0 0 10px #E84A3A; }
+
+  .icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 66px; height: 66px; border-radius: 15px;
+    background: #0A0B0F;
+  }
+  .icon--circle { border-radius: 999px; }
+  .icon--outline { background: transparent; box-shadow: inset 0 0 0 3px currentColor; }
+  .icon .dot { width: 20px; height: 20px; }
+
+  .stack { display: inline-flex; flex-direction: column; align-items: center; gap: 8px; }
+
+  .sizerow { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; justify-content: center; }
+
+  /* ── Rules table ──────────────────────────────────────────────── */
+  .rules { border: 1px solid var(--rule); }
+  .rule-row { display: grid; grid-template-columns: 26px 1fr; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--rule-soft); align-items: start; }
+  .rule-row:last-child { border-bottom: 0; }
+  .yes, .no { font-family: var(--mono); font-size: 15px; line-height: 1.5; }
+  .yes { color: #3D7E3D; }
+  .no  { color: var(--dot); }
+  .rule-row p { margin: 0; font-size: 14px; }
+  .rule-row strong { font-weight: 600; }
+
+  /* ── Swatches ─────────────────────────────────────────────────── */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .sw { background: var(--surface); padding: 0 0 14px; }
+  .sw-chip { height: 62px; }
+  .sw-body { padding: 12px 14px 0; }
+  .sw-name { font-size: 13px; font-weight: 600; margin: 0 0 2px; }
+  .sw-hex  { font-family: var(--mono); font-size: 11.5px; color: var(--ink-40); font-variant-numeric: tabular-nums; }
+  .sw-use  { font-size: 12.5px; color: var(--ink-60); margin: 6px 0 0; }
+
+  footer { margin-top: 72px; padding-top: 28px; border-top: 1px solid var(--rule); font-family: var(--mono); font-size: 12px; color: var(--ink-40); }
+
+  a { color: var(--accent); }
+  a:focus-visible, .plate:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div style="margin-bottom:26px">
+      <span class="pill pill--dark s-hero">
+        <span class="dot dot--red"></span>
+        <span class="word word--dark">Yappr</span>
+      </span>
+    </div>
+    <h1>One mark,<br><em>every surface</em>.</h1>
+    <p class="lede">
+      Yappr drew its logo three times — once for the menu bar, once for the app,
+      once for the page — and the three disagreed about which black they were.
+      This is the single system that replaces them.
+    </p>
+    <div class="meta">
+      <span>14 variations</span>
+      <span>2 axes · 4 sizes</span>
+      <span>Instrument Serif italic</span>
+      <span>src/renderer/shared/ui/YapprMark.tsx</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>What was wrong</h2>
+    <p class="sub">
+      Not that the three looked different — that the primary one contradicted
+      what it claimed to be.
+    </p>
+
+    <div class="origins">
+      <div class="origin">
+        <div class="origin-stage">
+          <span class="pill s-button" style="background:linear-gradient(180deg,#0E1018 0%,#08090E 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.18)">
+            <span class="dot dot--red" style="box-shadow:0 0 4px rgba(232,74,58,.55)"></span>
+            <span class="word" style="color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35)">Yappr</span>
+          </span>
+        </div>
+        <h3>Wordmark.tsx</h3>
+        <dl>
+          <dt>black</dt><dd class="flag">#0E1018 → #08090E</dd>
+          <dt>text</dt><dd class="flag">#FFFFFF</dd>
+          <dt>font</dt><dd>longhand string</dd>
+          <dt>used by</dt><dd>app, page, onboarding</dd>
+        </dl>
+      </div>
+
+      <div class="origin">
+        <div class="origin-stage">
+          <span class="word word--dark" style="font-size:18px">Yappr</span>
+        </div>
+        <h3>NotchMark.tsx</h3>
+        <dl>
+          <dt>black</dt><dd>#0A0B0F (shell)</dd>
+          <dt>text</dt><dd class="flag">rgba(255,255,255,.92)</dd>
+          <dt>font</dt><dd>SERIF const</dd>
+          <dt>used by</dt><dd>settings mockups</dd>
+        </dl>
+      </div>
+
+      <div class="origin">
+        <div class="origin-stage">
+          <span class="word word--dark" style="font-size:18px">Yappr</span>
+        </div>
+        <h3>NotchIndicator.tsx</h3>
+        <dl>
+          <dt>black</dt><dd>#0A0B0F (shell)</dd>
+          <dt>text</dt><dd>rgba(255,255,255,.92)</dd>
+          <dt>font</dt><dd class="flag">longhand, inline</dd>
+          <dt>used by</dt><dd>the live indicator</dd>
+        </dl>
+      </div>
+    </div>
+
+    <p class="verdict">
+      The pill's own source comment says it <em>“mirrors the actual indicator
+      pill the user sees in the wild.”</em> It was painted <code style="font-family:var(--mono);font-size:14px">#0E1018</code>
+      while the notch it depicts is <code style="font-family:var(--mono);font-size:14px">#0A0B0F</code>.
+      Put the logo beside the hardware and the illusion the mark is built on
+      comes apart. Everything else — two whites, two ways of naming one font,
+      three copies that drift — follows from nobody owning the mark.
+    </p>
+  </section>
+
+  <section>
+    <h2>The system</h2>
+    <p class="sub">
+      Two axes and a size scale, not a folder of files. Every useful
+      combination is reachable; nothing is a special case.
+    </p>
+
+    <div class="rules">
+      <div class="rule-row">
+        <span class="yes">01</span>
+        <p><strong>Lockup</strong> — what gets drawn. <code style="font-family:var(--mono);font-size:12.5px">pill · bare · icon · stacked</code></p>
+      </div>
+      <div class="rule-row">
+        <span class="yes">02</span>
+        <p><strong>Tone</strong> — what it's drawn on. <code style="font-family:var(--mono);font-size:12.5px">dark · light · ink · white</code></p>
+      </div>
+      <div class="rule-row">
+        <span class="yes">03</span>
+        <p><strong>Size</strong> — how big. <code style="font-family:var(--mono);font-size:12.5px">hero · button · inline · favicon</code>, each step ≈0.62 of the one above, so the dot-to-letter relationship holds as it shrinks.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The fourteen</h2>
+    <p class="sub">Each shown at real size, on the ground it is actually for.</p>
+
+    <div class="plates">
+
+      <div class="plate">
+        <div class="stage stage--cream">
+          <span class="pill pill--dark s-hero"><span class="dot dot--red"></span><span class="word word--dark">Yappr</span></span>
+        </div>
+        <div class="caption">
+          <h3>Pill · hero</h3>
+          <code>lockup="pill" tone="dark" size="hero"</code>
+          <p>The primary lockup. Landing hero, splash, anywhere the mark is the subject.</p>
+        </div>
+      </div>
+
+      <div class="plate">
+        <div class="stage stage--cream">
+          <span class="pill pill--dark s-button"><span class="dot dot--red"></span><span class="word word--dark">Yappr</span></span>
+        </div>
+        <div class="caption">
+          <h3>Pill · button</h3>
+          <code>size="button"</code>
+          <p>Default. Nav bars, headers, anywhere it sits beside interface type.</p>
+        </div>
+      </div>
+
+      <div class="plate">
+        <div class="stage stage--cream">
+          <span class="pill pill--dark s-inline"><span class="dot dot--red"></span><span class="word word--dark">Yappr</span></span>
+        </div>
+        <div class="caption">
+          <h3>Pill · inline</h3>
+          <code>size="inline"</code>
+          <p>Settings sidebar and onboarding. The size that ships in the app today.</p>
+        </div>
+      </div>
+
+      <div class="plate">
+        <div class="stage stage--cream">
+          <span class="pill pill--dark s-favicon"><span class="dot dot--red"></span><span class="word word--dark">Yappr</span></span>
+        </div>
+        <div class="caption">
+          <h3>Pill · favicon</h3>
+          <code>size="favicon"</code>
+          <p>The floor. Below this the serif's thin strokes break up — use the icon instead.</p>
+        </div>
+      </div>
+
+      <div class="plate">
+        <div class="stage stage--cream">
+          <span class="pill pill--dark s-button"><span class="word word--dark">Yappr</span></span>
+        </div>
+        <div class="caption">
+          <h3>Pill · quiet</h3>
+          <code>dot={false}</code>
+          <p>Footers, invoices, legal. A red dot in running text reads as a bullet or a typo, not a brand cue.</p>
+        </div>
+      </div>
+
+      <div class="plate">
+        <div class="stage stage--photo">
+          <span class="pill pill--light s-button"><span class="dot dot--red"></span><span class="word word--ink">Yappr</span></span>
+        </div>
+        <div class="caption">
+          <h3>Pill · light</h3>
+          <code>tone="light"</code>
+          <p>Inverted, for photography and dark sections where the dark pill would disappear.</p>
+        </div>
+      </div>
+
+      <div class="plate">
+        <div class="stage stage--dark">
+          <span class="word word--dark" style="font-size:18px">Yappr</span>
+        </div>
+        <div class="caption">
+          <h3>Bare · on dark</h3>
+          <code>lockup="bare"</code>
+          <p>Inside the notch. The hardware is already the pill — drawing another would be a pill inside a pill.</p>
+        </div>
+      </div>
+
+      <div class="plate">
+        <div class="stage stage--light">
+          <span class="word word--ink" style="font-size:18px">Yappr</span>
+        </div>
+        <div class="caption">
+          <h3>Bare · on light</h3>
+          <code>lockup="bare" tone="ink"</code>
+          <p>Documents and print, where a black lozenge would be a second ink for no reason.</p>
+        </div>
+      </div>
+
+      <div class="plate">
+        <div class="stage stage--light">
+          <span class="pill s-button"><span class="dot dot--ink"></span><span class="word word--ink">Yappr</span></span>
+        </div>
+        <div class="caption">
+          <h3>Mono · ink</h3>
+          <code>tone="ink"</code>
+          <p>One colour. Embossing, stamps, single-plate print — the dot drops to ink rather than adding a plate.</p>
+        </div>
+      </div>
+
+      <div class="plate">
+        <div class="stage stage--photo">
+          <span class="pill s-button"><span class="dot dot--white"></span><span class="word word--white">Yappr</span></span>
+        </div>
+        <div class="caption">
+          <h3>Mono · white</h3>
+          <code>tone="white"</code>
+          <p>Knockout for video and dark photography. Full #FFF here — .92 goes muddy over a busy image.</p>
+        </div>
+      </div>
+
+      <div class="plate">
+        <div class="stage stage--cream">
+          <span class="icon"><span class="dot dot--red"></span></span>
+        </div>
+        <div class="caption">
+          <h3>Icon · squircle</h3>
+          <code>lockup="icon"</code>
+          <p>App icon and favicon. Corner radius is 22% of the side, matching the macOS squircle.</p>
+        </div>
+      </div>
+
+      <div class="plate">
+        <div class="stage stage--cream">
+          <span class="icon icon--circle"><span class="dot dot--red"></span></span>
+        </div>
+        <div class="caption">
+          <h3>Icon · circle</h3>
+          <code>brand/svg/yappr-icon-circle.svg</code>
+          <p>Avatars. Social platforms mask to a circle anyway; shipping the circle stops the corners clipping unevenly.</p>
+        </div>
+      </div>
+
+      <div class="plate">
+        <div class="stage stage--dark">
+          <span class="pill s-button" style="background:#0A0B0F"><span class="dot dot--live"></span><span class="word word--dark">Yappr</span></span>
+        </div>
+        <div class="caption">
+          <h3>Recording</h3>
+          <code>recording</code>
+          <p>Live state only. The dot gains its glow while the mic is open — never decorative.</p>
+        </div>
+      </div>
+
+      <div class="plate">
+        <div class="stage stage--cream">
+          <span class="stack"><span class="dot dot--red" style="width:9px;height:9px"></span><span class="word word--ink" style="font-size:22px">Yappr</span></span>
+        </div>
+        <div class="caption">
+          <h3>Stacked</h3>
+          <code>lockup="stacked"</code>
+          <p>Narrow columns and square crops, where the horizontal lockup would have to shrink to fit.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>The scale</h2>
+    <p class="sub">Four steps, shown together. The dot never becomes a full stop.</p>
+    <div class="plates" style="grid-template-columns:1fr">
+      <div class="plate">
+        <div class="stage stage--cream" style="min-height:150px">
+          <div class="sizerow">
+            <span class="pill pill--dark s-hero"><span class="dot dot--red"></span><span class="word word--dark">Yappr</span></span>
+            <span class="pill pill--dark s-button"><span class="dot dot--red"></span><span class="word word--dark">Yappr</span></span>
+            <span class="pill pill--dark s-inline"><span class="dot dot--red"></span><span class="word word--dark">Yappr</span></span>
+            <span class="pill pill--dark s-favicon"><span class="dot dot--red"></span><span class="word word--dark">Yappr</span></span>
+          </div>
+        </div>
+        <div class="caption">
+          <h3>hero · button · inline · favicon</h3>
+          <code>30px · 18px · 14px · 11px</code>
+          <p>Below favicon, stop setting the word and switch to the icon lockup.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Values</h2>
+    <p class="sub">Four colours carry the whole mark.</p>
+    <div class="swatches">
+      <div class="sw">
+        <div class="sw-chip" style="background:#0A0B0F"></div>
+        <div class="sw-body">
+          <p class="sw-name">Shell</p>
+          <span class="sw-hex">#0A0B0F</span>
+          <p class="sw-use">The pill, and the notch it depicts. One value, not two.</p>
+        </div>
+      </div>
+      <div class="sw">
+        <div class="sw-chip" style="background:#E84A3A"></div>
+        <div class="sw-body">
+          <p class="sw-name">Dot</p>
+          <span class="sw-hex">#E84A3A</span>
+          <p class="sw-use">Recording red — deliberately not the brand terracotta.</p>
+        </div>
+      </div>
+      <div class="sw">
+        <div class="sw-chip" style="background:#15161A"></div>
+        <div class="sw-body">
+          <p class="sw-name">Ink</p>
+          <span class="sw-hex">#15161A</span>
+          <p class="sw-use">The mark on cream or paper.</p>
+        </div>
+      </div>
+      <div class="sw">
+        <div class="sw-chip" style="background:#0A0B0F;position:relative">
+          <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.92);font-family:var(--serif);font-style:italic;font-size:22px">Yappr</span>
+        </div>
+        <div class="sw-body">
+          <p class="sw-name">On dark</p>
+          <span class="sw-hex">rgba(255,255,255,.92)</span>
+          <p class="sw-use">Not #FFF — pure white blooms and fattens the serif's thin strokes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Rules</h2>
+    <p class="sub">Short, because a rule nobody remembers is not a rule.</p>
+    <div class="rules">
+      <div class="rule-row"><span class="no">✕</span><p>Don't put the pill lockup inside the notch. The hardware is the pill — you'd be nesting one inside another.</p></div>
+      <div class="rule-row"><span class="no">✕</span><p>Don't light the dot unless the mic is genuinely open. It is a state, not an ornament.</p></div>
+      <div class="rule-row"><span class="no">✕</span><p>Don't set the word below 11px. Use the icon lockup instead.</p></div>
+      <div class="rule-row"><span class="no">✕</span><p>Don't swap the dot to terracotta for brand tidiness. Red-means-recording is worth more than a matching palette.</p></div>
+      <div class="rule-row"><span class="no">✕</span><p>Don't re-declare the font, the italic or the colours locally. That is precisely how there came to be three.</p></div>
+      <div class="rule-row"><span class="yes">✓</span><p>Do reach for <code style="font-family:var(--mono);font-size:12.5px">tone="light"</code> over photography, and <code style="font-family:var(--mono);font-size:12.5px">tone="ink"</code> anywhere a second colour costs money.</p></div>
+      <div class="rule-row"><span class="yes">✓</span><p>Do drop the dot in footers, invoices and legal copy, where it reads as punctuation.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Files</h2>
+    <p class="sub">The component is canonical. The SVGs are for everywhere the component cannot go.</p>
+    <div class="rules">
+      <div class="rule-row"><span class="yes">◆</span><p><strong>YapprMark.tsx</strong> — every lockup, tone and size. Import this in the app; <code style="font-family:var(--mono);font-size:12.5px">Wordmark</code> still resolves to it, so existing call sites keep working.</p></div>
+      <div class="rule-row"><span class="yes">◆</span><p><strong>brand/svg/yappr-icon-*.svg</strong> — squircle, circle, light, mono ink, mono white. No text, so these are genuinely portable: nothing to install, nothing to fall back.</p></div>
+      <div class="rule-row"><span class="no">△</span><p><strong>brand/svg/yappr-pill-*.svg</strong> and <strong>yappr-wordmark-*.svg</strong> carry live <code style="font-family:var(--mono);font-size:12.5px">&lt;text&gt;</code>, so they need Instrument Serif present. Before sending one outside this repo, outline the text — otherwise it silently renders as Georgia and the mark is quietly wrong.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    Yappr mark system · one component, 14 variations · replaces Wordmark.tsx, NotchMark's local wordmark and NotchIndicator's inline copy
+  </footer>
+
+</div>

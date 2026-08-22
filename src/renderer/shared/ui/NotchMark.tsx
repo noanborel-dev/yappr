@@ -19,6 +19,7 @@
 
 import type { ReactNode } from 'react'
 import { STATES, ACCENT, DANGER, LABEL_SIZE, type NotchState } from '../../indicator/notch-states'
+import { YapprMark } from './YapprMark'
 
 /** Waveform geometry, matching useIndicatorAudio's constants. */
 const BAR_COUNT = 9
@@ -296,27 +297,12 @@ function Waveform() {
   )
 }
 
-// The one place the app says who it is. The notch itself is the charcoal
-// pill the brand mark normally draws, so the mark sheds its container and
-// keeps only the italic serif.
+// The mark inside the notch uses the shared BARE lockup: the hardware is
+// already the pill, so drawing another one would be a pill inside a pill.
+// It used to be a local copy of the same italic serif, which is how the
+// notch and the brand pill ended up on different whites.
 function Wordmark() {
-  return (
-    <span
-      style={{
-        fontFamily: SERIF,
-        fontStyle: 'italic',
-        fontSize: LABEL_SIZE,
-        lineHeight: 1,
-        letterSpacing: '-.005em',
-        color: 'rgba(255,255,255,.92)',
-        textShadow: '0 1px 2px rgba(0,0,0,.35)',
-        whiteSpace: 'nowrap',
-        flex: 'none',
-      }}
-    >
-      Yappr
-    </span>
-  )
+  return <YapprMark lockup="bare" tone="dark" dot={false} style={{ fontSize: LABEL_SIZE }} />
 }
 
 function KeyHint({ glyph }: { glyph: string }) {

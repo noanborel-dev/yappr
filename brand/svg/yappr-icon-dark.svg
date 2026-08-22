@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Yappr">
+  <!-- Icon lockup, dark. Fully self-contained: no text, no font dependency. -->
+  <rect width="512" height="512" rx="113" fill="#0A0B0F"/>
+  <circle cx="256" cy="256" r="77" fill="#E84A3A"/>
+</svg>

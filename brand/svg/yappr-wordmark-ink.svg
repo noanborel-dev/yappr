@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 48" width="160" height="48" role="img" aria-label="Yappr">
+  <!-- Bare wordmark, one colour. No pill: for use inside the notch, or on
+       paper where a black lozenge would be a second ink. -->
+  <text x="0" y="34" font-family="Instrument Serif, Cormorant Garamond, Georgia, serif"
+        font-style="italic" font-size="34" letter-spacing="-0.17" fill="#15161A">Yappr</text>
+</svg>
