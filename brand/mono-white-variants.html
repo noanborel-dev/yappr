@@ -1,164 +1,139 @@
-<title>Yappr Mono White</title>
+<title>Yappr Atmosphere</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 
 <style>
-  /* Every specimen here is white-on-blue, so the page itself is dark:
-     on cream the plates would each be a bright rectangle floating on a
-     light field, and you would be judging the contrast of the page
-     rather than of the mark. */
+  /* Single-theme on purpose. Every specimen is a charcoal-blue plate
+     judged against a ground; letting the ground flip would change the
+     answer, so it is fixed and painted explicitly. */
   :root {
     --ground:  #0C0D11;
     --surface: #141520;
-    --raised:  #1B1C28;
     --text:    #F2F1EE;
     --text-60: rgba(242,241,238,0.62);
     --text-40: rgba(242,241,238,0.40);
     --rule:    rgba(242,241,238,0.10);
-    --pick:    #7FA8F0;
+    --pick:    #8FB4F2;
+    --no:      #E8776A;
+    --yes:     #7FD6A8;
 
     --serif: "Instrument Serif", Georgia, serif;
     --sans:  "IBM Plex Sans", -apple-system, system-ui, sans-serif;
     --mono:  "IBM Plex Mono", ui-monospace, Menlo, monospace;
+
+    /* THE ATMOSPHERE — mirrors --atmosphere in YapprLanding/app/globals.css,
+       BRAND_ATMOSPHERE in src/renderer/shared/ui/YapprMark.tsx, and
+       YapprLanding/app/icon.svg. */
+    --atmosphere:
+      radial-gradient(58% 120% at 26% 8%, rgba(214,222,232,0.90), rgba(214,222,232,0) 60%),
+      radial-gradient(46% 80% at 88% 34%, rgba(150,167,190,0.42), rgba(150,167,190,0) 66%),
+      radial-gradient(120% 120% at 58% 112%, #0F1926 14%, rgba(15,25,38,0) 72%),
+      linear-gradient(148deg, #56677F 0%, #2B3950 44%, #172130 100%);
+
+    /* THE WING — the live notch. Centre is #000 and must stay #000. */
+    --wing: linear-gradient(90deg, #2B3950 0%, #172130 14%, #000 32%, #000 68%, #172130 86%, #2B3950 100%);
   }
-  /* Deliberately single-theme. Judging white-on-blue against a light
-     page would change the answer, so the ground is fixed and painted
-     explicitly rather than inherited from the host. */
 
   * { box-sizing: border-box; }
 
   body {
-    margin: 0;
-    background: var(--ground);
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: 15px;
-    line-height: 1.6;
+    margin: 0; background: var(--ground); color: var(--text);
+    font-family: var(--sans); font-size: 15px; line-height: 1.6;
     -webkit-font-smoothing: antialiased;
   }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 56px 32px 110px; }
 
-  .wrap { max-width: 1120px; margin: 0 auto; padding: 56px 32px 120px; }
-
-  header { border-bottom: 1px solid var(--rule); padding-bottom: 32px; margin-bottom: 20px; }
+  header { border-bottom: 1px solid var(--rule); padding-bottom: 34px; }
   h1 {
-    font-family: var(--serif);
-    font-size: clamp(40px, 6vw, 66px);
-    font-weight: 400; line-height: 1.0; letter-spacing: -0.02em;
+    font-family: var(--serif); font-size: clamp(40px, 6vw, 64px);
+    font-weight: 400; line-height: 1.02; letter-spacing: -0.02em;
     margin: 0 0 14px; text-wrap: balance;
   }
   h1 em { font-style: italic; }
-  .lede { color: var(--text-60); max-width: 60ch; margin: 0; font-size: 16px; }
-  .note {
-    margin-top: 22px; padding: 14px 18px;
-    border-left: 2px solid var(--pick);
-    background: rgba(127,168,240,0.06);
-    font-size: 14px; color: var(--text-60);
-    max-width: 72ch;
-  }
-  .note strong { color: var(--text); font-weight: 600; }
+  .lede { color: var(--text-60); max-width: 62ch; margin: 0; font-size: 16px; }
 
   h2 {
-    font-family: var(--serif); font-weight: 400;
-    font-size: 27px; letter-spacing: -0.01em;
-    margin: 52px 0 4px;
+    font-family: var(--serif); font-weight: 400; font-size: 27px;
+    letter-spacing: -0.01em; margin: 54px 0 4px;
   }
-  .sub { color: var(--text-40); margin: 0 0 22px; font-size: 14px; max-width: 62ch; }
+  .sub { color: var(--text-40); margin: 0 0 22px; font-size: 14px; max-width: 64ch; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 18px; }
   .grid--wide { grid-template-columns: 1fr; }
 
-  .plate {
-    background: var(--surface);
-    border: 1px solid var(--rule);
-    border-radius: 14px;
-    overflow: hidden;
-  }
-  .stage { display: flex; align-items: center; justify-content: center; padding: 34px 22px; }
-  .stage--tall { min-height: 210px; }
-  .cap { padding: 14px 18px 17px; border-top: 1px solid var(--rule); display: flex; gap: 14px; align-items: baseline; }
-  .num {
-    font-family: var(--mono); font-size: 12px; font-weight: 500;
-    color: var(--pick); flex: none; font-variant-numeric: tabular-nums;
-  }
-  .cap h3 { font-size: 14px; font-weight: 600; margin: 0 0 3px; }
-  .cap p { margin: 0; font-size: 12.5px; color: var(--text-40); }
-
-  /* ── Gradient grounds ─────────────────────────────────────────────
-     Three families, so the choice of GRADIENT is separable from the
-     choice of shape. Same mark on all of them. */
-  .g-deep   { background: radial-gradient(120% 120% at 20% 10%, #3D4A63 0%, #1D2330 55%, #12161F 100%); }
-  .g-cobalt { background: radial-gradient(130% 130% at 25% 5%,  #5A8FE8 0%, #2E4C86 48%, #16203A 100%); }
-  .g-dawn   { background: linear-gradient(150deg, #EEF3FC 0%, #9FBDF0 42%, #4C79D0 100%); }
+  .plate { background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; }
+  .stage { display: flex; align-items: center; justify-content: center; padding: 36px 22px; min-height: 190px; }
+  .stage--hangs { align-items: flex-start; padding-top: 0; }
+  .cap { padding: 15px 18px 18px; border-top: 1px solid var(--rule); }
+  .cap h3 { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
+  .cap p  { margin: 0; font-size: 12.5px; color: var(--text-40); }
+  .cap code { font-family: var(--mono); font-size: 11.5px; color: var(--text-60); }
 
   /* ── The mark ─────────────────────────────────────────────────── */
-  .mark { display: inline-flex; align-items: center; gap: 11px; }
-  .mark--stack { flex-direction: column; gap: 9px; }
+  .atmo { background: var(--atmosphere); }
   .word {
-    font-family: var(--serif); font-style: italic;
-    line-height: 1; letter-spacing: -0.005em; white-space: nowrap;
-    color: #FFFFFF;
+    font-family: var(--serif); font-style: italic; line-height: 1;
+    letter-spacing: -0.005em; white-space: nowrap; color: #FFFFFF;
   }
-  .word--ink { color: #12161F; }
-  .dot { border-radius: 999px; flex: none; background: #FFFFFF; }
-  .dot--ink { background: #12161F; }
+  .dot { border-radius: 999px; flex: none; background: #E84A3A; }
 
-  .sz-l .word { font-size: 34px; } .sz-l .dot { width: 10px; height: 10px; }
-  .sz-m .word { font-size: 24px; } .sz-m .dot { width: 8px;  height: 8px; }
-  .sz-s .word { font-size: 17px; } .sz-s .dot { width: 6px;  height: 6px; }
-
-  .circle, .squircle {
-    display: flex; align-items: center; justify-content: center;
-    width: 132px; height: 132px; flex: none;
-  }
-  .circle   { border-radius: 999px; }
-  .squircle { border-radius: 29px; }
-  .circle .word, .squircle .word { font-size: 26px; }
-
-  .icononly { width: 26px; height: 26px; border-radius: 999px; background: #FFF; }
-
-  /* Background-sized: a real 16:9 fill, scaled down. */
-  .banner { width: 100%; aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; }
-  .banner--wide { aspect-ratio: 40 / 9; }
-
-  footer { margin-top: 68px; padding-top: 26px; border-top: 1px solid var(--rule); font-family: var(--mono); font-size: 12px; color: var(--text-40); }
-
-  /* ── Notch shape ──────────────────────────────────────────────────
-     A notch HANGS from a top edge — flat across the top, straight
-     sides, generously rounded bottom corners. That is why it needs an
-     edge to hang from, and why it stops working the moment there
-     isn't one (see the floor section). */
   .notch {
-    border-radius: 0 0 24px 24px;
-    padding: 15px 32px 17px;
-    display: inline-flex; align-items: center; gap: 11px;
+    border-radius: 0 0 24px 24px; padding: 16px 32px 18px;
+    display: inline-flex; align-items: center; gap: 12px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 8px 24px rgba(16,22,31,.34);
   }
-  .notch--sm { border-radius: 0 0 14px 14px; padding: 9px 18px 10px; gap: 7px; }
-  .notch--xs { border-radius: 0 0 9px 9px;   padding: 6px 11px 7px;  gap: 5px; }
-  .notch .word { font-size: 30px; }
-  .notch--sm .word { font-size: 17px; }
-  .notch--xs .word { font-size: 11px; }
-  .notch--sm .dot { width: 6px; height: 6px; }
-  .notch--xs .dot { width: 4px; height: 4px; }
+  .notch .word { font-size: 32px; }
+  .notch .dot  { width: 10px; height: 10px; }
+  .notch--sm { border-radius: 0 0 13px 13px; padding: 9px 17px 11px; gap: 7px; }
+  .notch--sm .word { font-size: 18px; }
+  .notch--sm .dot  { width: 6px; height: 6px; }
 
-  /* The stage a notch hangs from: mark pinned to the top edge. */
-  .hangs { align-items: flex-start; padding-top: 0; }
-  .hangs--tall { min-height: 210px; }
-
-  /* Live-state demo: same silhouette, different fill. */
-  .bar-idle   { background: radial-gradient(120% 120% at 20% 10%, #3D4A63 0%, #1D2330 55%, #12161F 100%); }
-  .bar-listen { background: radial-gradient(120% 130% at 50% 0%, #7FA8F0 0%, #3E63B8 45%, #16203A 100%); }
-  .bar-work   { background: repeating-linear-gradient(115deg, #2E4C86 0 12px, #24406F 12px 24px); }
-  .lvl { display: flex; align-items: center; gap: 3px; height: 16px; }
-  .lvl i { width: 3px; border-radius: 2px; background: rgba(255,255,255,0.92); display: block; }
-
-  .fail { position: relative; }
-  .fail::after {
-    content: ""; position: absolute; inset: 0;
-    box-shadow: inset 0 0 0 1px rgba(232,74,58,0.55);
-    border-radius: 14px; pointer-events: none;
+  .circle {
+    width: 128px; height: 128px; border-radius: 999px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 8px 24px rgba(16,22,31,.34);
   }
-  .verdict { font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; }
-  .verdict--no  { color: #E8776A; }
-  .verdict--yes { color: #7FD6A8; }
+  .circle .word { font-size: 27px; }
+  .circle--sm { width: 44px; height: 44px; }
+  .circle--sm .word { font-size: 9.5px; }
+
+  /* ── The live notch ───────────────────────────────────────────── */
+  .bar {
+    display: flex; align-items: center; height: 34px;
+    border-radius: 0 0 13px 13px; background: var(--wing);
+    box-shadow: 0 10px 28px rgba(0,0,0,.5), inset 0 -1px 0 rgba(255,255,255,.08);
+    overflow: hidden;
+  }
+  .bar .housing { width: 132px; flex: none; }
+  .bar .side { display: flex; align-items: center; gap: 7px; padding: 0 13px; flex: none; }
+  .lvl { display: flex; align-items: center; gap: 2.5px; height: 13px; }
+  .lvl i { width: 2px; border-radius: 1px; background: #5A8FE8; display: block; }
+  .bar .word { font-size: 15px; }
+  .bar .dot { width: 6px; height: 6px; }
+  .menubar {
+    background: rgba(255,255,255,.10); border-bottom: 1px solid rgba(255,255,255,.16);
+    height: 34px; position: relative; backdrop-filter: blur(8px);
+  }
+  .menubar > span { position: absolute; left: 50%; top: 0; transform: translateX(-50%); }
+  .desk { background: linear-gradient(160deg, #4C5B77 0%, #2A3550 60%, #1A2230 100%); }
+
+  /* ── Swatches ─────────────────────────────────────────────────── */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .sw { border: 1px solid var(--rule); border-radius: 11px; overflow: hidden; }
+  .sw i { display: block; height: 64px; }
+  .sw div { padding: 9px 12px 11px; font-family: var(--mono); font-size: 11.5px; }
+  .sw b { display: block; font-family: var(--sans); font-size: 12.5px; font-weight: 600; margin-bottom: 2px; }
+  .sw span { color: var(--text-40); }
+
+  .verdict { font-family: var(--mono); font-size: 11px; }
+  .v-no  { color: var(--no); }
+  .v-yes { color: var(--yes); }
+
+  .rule { border-left: 2px solid var(--pick); background: rgba(143,180,242,0.06);
+          padding: 15px 18px; margin: 24px 0 0; font-size: 14px; color: var(--text-60); max-width: 74ch; }
+  .rule strong { color: var(--text); font-weight: 600; }
+
+  footer { margin-top: 66px; padding-top: 26px; border-top: 1px solid var(--rule);
+           font-family: var(--mono); font-size: 12px; color: var(--text-40); }
 
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
@@ -166,332 +141,140 @@
 <div class="wrap">
 
   <header>
-    <div style="margin-bottom:28px">
-      <span class="mark sz-m"><span class="dot"></span><span class="word">Yappr</span></span>
+    <div style="margin-bottom:30px">
+      <span class="notch notch--sm atmo"><span class="dot"></span><span class="word">Yappr</span></span>
     </div>
-    <h1>Mono white,<br><em>and the notch</em>.</h1>
+    <h1>The charcoal-blue<br><em>atmosphere</em>.</h1>
     <p class="lede">
-      The same white mark across three gradient families and six shapes —
-      including your idea of keeping the notch as the container. Nothing here
-      is installed yet; pick by number and I'll wire the chosen ones into the
-      site and the app.
-    </p>
-    <p class="note">
-      <strong>Nothing has been changed yet.</strong> The landing page still
-      carries the old notch mark and the app is untouched. Three decisions:
-      which <strong>gradient</strong> (deep · cobalt · dawn), whether the
-      <strong>container</strong> is a notch or a plain lockup, and what the
-      <strong>small sizes</strong> fall back to — because the notch has a floor
-      and 20 shows exactly where it is.
+      What shipped. The notch is now the container rather than a picture of
+      hardware, so it renders the same on a notchless MacBook, a PC and a
+      phone. Live on branch <code style="font-family:var(--mono);font-size:14px">worktree-settings-polish</code>.
     </p>
   </header>
 
-  <h2>The three gradients</h2>
-  <p class="sub">Same mark, same size, three grounds. This is the first choice.</p>
+  <h2>The palette</h2>
+  <p class="sub">Five values. Black is not one of them — black belongs to the camera housing.</p>
+  <div class="swatches">
+    <div class="sw"><i style="background:#D6DEE8"></i><div><b>Mist</b><span>#D6DEE8 · the highlight</span></div></div>
+    <div class="sw"><i style="background:#96A7BE"></i><div><b>Haze</b><span>#96A7BE · falloff</span></div></div>
+    <div class="sw"><i style="background:#56677F"></i><div><b>Slate</b><span>#56677F · plate only</span></div></div>
+    <div class="sw"><i style="background:#2B3950"></i><div><b>Charcoal</b><span>#2B3950 · body, wing tips</span></div></div>
+    <div class="sw"><i style="background:#172130"></i><div><b>Abyss</b><span>#172130 · deepest</span></div></div>
+  </div>
+
+  <p class="rule">
+    <strong>Slate never touches the live notch.</strong> The logo plate can
+    afford it — it is an object on a page. The indicator sits in the menu bar
+    over whatever you are doing, and a lift that bright at the ends turns a
+    piece of hardware into a floating widget.
+  </p>
+
+  <h2>Website — the notch, centred</h2>
+  <p class="sub">Hangs from the top edge of the page, where the notch is on the machine.</p>
   <div class="grid">
     <div class="plate">
-      <div class="stage stage--tall g-deep">
-        <span class="mark sz-l"><span class="dot"></span><span class="word">Yappr</span></span>
+      <div class="stage stage--hangs" style="background:#F4F5F8">
+        <span class="notch atmo"><span class="dot"></span><span class="word">Yappr</span></span>
       </div>
-      <div class="cap"><span class="num">01</span><div>
-        <h3>Deep</h3>
-        <p>The one from the specimen sheet. Slate-blue, nearly black at the edges — quiet, and the mark carries it.</p>
-      </div></div>
+      <div class="cap"><h3>On the cream page</h3>
+        <p>The plate carries its own contrast, so the mark needs nothing from the page behind it.</p></div>
     </div>
-
     <div class="plate">
-      <div class="stage stage--tall g-cobalt">
-        <span class="mark sz-l"><span class="dot"></span><span class="word">Yappr</span></span>
+      <div class="stage stage--hangs" style="background:#0A0B0F">
+        <span class="notch atmo"><span class="dot"></span><span class="word">Yappr</span></span>
       </div>
-      <div class="cap"><span class="num">02</span><div>
-        <h3>Cobalt</h3>
-        <p>Built from the brand's own blue, <code style="font-family:var(--mono);font-size:11.5px">#5A8FE8</code> — the notch accent. Brighter, more product than editorial.</p>
-      </div></div>
-    </div>
-
-    <div class="plate">
-      <div class="stage stage--tall g-dawn">
-        <span class="mark sz-l"><span class="dot dot--ink"></span><span class="word word--ink">Yappr</span></span>
-      </div>
-      <div class="cap"><span class="num">03</span><div>
-        <h3>Dawn</h3>
-        <p>Literally blue-to-white. The mark has to flip to ink here — white on a near-white top would vanish.</p>
-      </div></div>
+      <div class="cap"><h3>On dark</h3>
+        <p>Still separates, because the highlight is lighter than any ground it sits on.</p></div>
     </div>
   </div>
 
-  <h2>Circular</h2>
-  <p class="sub">Avatars, app icon, favicon. Social platforms mask to a circle anyway.</p>
-  <div class="grid">
-    <div class="plate">
-      <div class="stage"><span class="circle g-deep"><span class="word">Yappr</span></span></div>
-      <div class="cap"><span class="num">04</span><div>
-        <h3>Circle · wordmark</h3>
-        <p>Word only. Legible down to about 64px before the serif closes up.</p>
-      </div></div>
-    </div>
-
-    <div class="plate">
-      <div class="stage"><span class="circle g-cobalt"><span class="word">Yappr</span></span></div>
-      <div class="cap"><span class="num">05</span><div>
-        <h3>Circle · cobalt</h3>
-        <p>Same, brighter ground. Holds up better as a tiny avatar than the deep one.</p>
-      </div></div>
-    </div>
-
-    <div class="plate">
-      <div class="stage"><span class="circle g-cobalt"><span class="icononly"></span></span></div>
-      <div class="cap"><span class="num">06</span><div>
-        <h3>Circle · dot only</h3>
-        <p>The floor. Below 32px the word is unreadable and this is the only honest option.</p>
-      </div></div>
-    </div>
-  </div>
-
-  <h2>Squircle</h2>
-  <p class="sub">macOS app icon and favicon. Corner radius is 22% of the side.</p>
-  <div class="grid">
-    <div class="plate">
-      <div class="stage"><span class="squircle g-deep"><span class="word">Yappr</span></span></div>
-      <div class="cap"><span class="num">07</span><div>
-        <h3>Squircle · deep</h3>
-        <p>Dock icon. Sits quietly beside other app icons rather than shouting.</p>
-      </div></div>
-    </div>
-
-    <div class="plate">
-      <div class="stage"><span class="squircle g-cobalt"><span class="word">Yappr</span></span></div>
-      <div class="cap"><span class="num">08</span><div>
-        <h3>Squircle · cobalt</h3>
-        <p>Same shape, more visible in a crowded Dock.</p>
-      </div></div>
-    </div>
-
-    <div class="plate">
-      <div class="stage"><span class="squircle g-cobalt"><span class="icononly"></span></span></div>
-      <div class="cap"><span class="num">09</span><div>
-        <h3>Squircle · dot only</h3>
-        <p>16px favicon. What the browser tab actually gets.</p>
-      </div></div>
-    </div>
-  </div>
-
-  <h2>Background-sized</h2>
-  <p class="sub">Full-bleed fills — the site header, an og:image, a title card.</p>
-  <div class="grid grid--wide">
-    <div class="plate">
-      <div class="banner--wide banner g-deep">
-        <span class="mark sz-l"><span class="dot"></span><span class="word">Yappr</span></span>
-      </div>
-      <div class="cap"><span class="num">10</span><div>
-        <h3>Site header · deep</h3>
-        <p>40:9 strip. Replaces the notch mark at the top of the landing page — no hardware to depend on, so it renders the same on every device.</p>
-      </div></div>
-    </div>
-
-    <div class="plate">
-      <div class="banner g-cobalt">
-        <span class="mark sz-l"><span class="dot"></span><span class="word">Yappr</span></span>
-      </div>
-      <div class="cap"><span class="num">11</span><div>
-        <h3>Social card · cobalt</h3>
-        <p>16:9, for og:image and link previews. Centred so a platform crop cannot clip the mark.</p>
-      </div></div>
-    </div>
-
-    <div class="plate">
-      <div class="banner g-dawn">
-        <span class="mark mark--stack sz-l"><span class="dot dot--ink"></span><span class="word word--ink">Yappr</span></span>
-      </div>
-      <div class="cap"><span class="num">12</span><div>
-        <h3>Stacked · dawn</h3>
-        <p>Square-ish crops and title cards. The stack survives a centre crop that would cut a horizontal lockup in half.</p>
-      </div></div>
-    </div>
-  </div>
-
-  <h2>The notch, as the logo itself</h2>
+  <h2>Favicon and social — the circle</h2>
   <p class="sub">
-    Your idea, built. The notch stops being a picture of hardware and becomes
-    the container — a drawn shape holding the gradient and the white word. It
-    renders identically on a notchless MacBook, a PC and a phone, which is
-    exactly the failure you started from.
+    The one place the notch cannot go. These slots are free-floating squares
+    masked to a circle, and a notch detached from a top edge is just a rounded
+    rectangle — the pill this system replaced.
   </p>
   <div class="grid">
     <div class="plate">
-      <div class="stage hangs hangs--tall" style="background:#0A0B0F">
-        <span class="notch g-deep"><span class="dot"></span><span class="word">Yappr</span></span>
+      <div class="stage" style="background:#0A0B0F">
+        <span class="circle atmo"><span class="word">Yappr</span></span>
       </div>
-      <div class="cap"><span class="num">13</span><div>
-        <h3>Notch · deep</h3>
-        <p>Hangs from the top edge of whatever it sits on. The shape reads as a notch only because of that edge.</p>
-      </div></div>
+      <div class="cap"><h3>Avatar <span class="verdict v-yes">holds</span></h3>
+        <p>64px and up. What a social profile actually shows.</p></div>
     </div>
-
     <div class="plate">
-      <div class="stage hangs hangs--tall" style="background:#0A0B0F">
-        <span class="notch g-cobalt"><span class="dot"></span><span class="word">Yappr</span></span>
-      </div>
-      <div class="cap"><span class="num">14</span><div>
-        <h3>Notch · cobalt</h3>
-        <p>Same shape on the brand blue. Reads as product; the deep one reads as editorial.</p>
-      </div></div>
-    </div>
-
-    <div class="plate">
-      <div class="stage hangs hangs--tall" style="background:#F4F5F8">
-        <span class="notch g-deep"><span class="dot"></span><span class="word">Yappr</span></span>
-      </div>
-      <div class="cap"><span class="num">15</span><div>
-        <h3>Notch · on light</h3>
-        <p>The one that matters for the site. The plate carries its own contrast, so the mark needs nothing from the page behind it.</p>
-      </div></div>
-    </div>
-  </div>
-
-  <h2>As the site header</h2>
-  <p class="sub">The full-width strip with the notch hanging into it — what replaces the current top bar.</p>
-  <div class="grid grid--wide">
-    <div class="plate">
-      <div style="background:#F4F5F8">
-        <div style="display:flex;justify-content:center">
-          <span class="notch g-deep"><span class="dot"></span><span class="word">Yappr</span></span>
-        </div>
-        <div style="padding:46px 30px 54px;text-align:center">
-          <div style="font-family:var(--serif);font-size:38px;color:#12161F;letter-spacing:-0.02em">Hold. Speak. Done.</div>
-          <div style="color:#5B6072;font-size:14px;margin-top:8px">Push-to-talk dictation for macOS</div>
-        </div>
-      </div>
-      <div class="cap"><span class="num">16</span><div>
-        <h3>Centred, hanging</h3>
-        <p>Nothing hardware-dependent. Every visitor sees the same mark in the same place.</p>
-      </div></div>
-    </div>
-
-    <div class="plate">
-      <div style="background:#F4F5F8">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <span class="notch notch--sm g-deep" style="border-radius:0 0 14px 0;padding-left:22px">
-            <span class="dot"></span><span class="word">Yappr</span>
-          </span>
-          <span style="font-size:12.5px;color:#5B6072;padding:14px 22px 0">Download · Pricing · Docs</span>
-        </div>
-        <div style="padding:46px 30px 54px">
-          <div style="font-family:var(--serif);font-size:38px;color:#12161F;letter-spacing:-0.02em">Hold. Speak. Done.</div>
-          <div style="color:#5B6072;font-size:14px;margin-top:8px">Push-to-talk dictation for macOS</div>
-        </div>
-      </div>
-      <div class="cap"><span class="num">17</span><div>
-        <h3>Left-anchored</h3>
-        <p>Corner variant — the outer radius drops, so it reads as tucked into the corner rather than floating.</p>
-      </div></div>
-    </div>
-  </div>
-
-  <h2>Where the notch stops working</h2>
-  <p class="sub">
-    This is the constraint, and it is worth seeing before you commit. A notch is
-    defined by the edge it hangs from. Take the edge away and the silhouette is
-    just a rounded rectangle.
-  </p>
-  <div class="grid">
-    <div class="plate">
-      <div class="stage hangs" style="background:#0A0B0F;min-height:126px">
-        <span class="notch notch--sm g-cobalt"><span class="dot"></span><span class="word">Yappr</span></span>
-      </div>
-      <div class="cap"><span class="num">18</span><div>
-        <h3>Small, still hanging <span class="verdict verdict--yes">holds</span></h3>
-        <p>Anchored to an edge, the shape survives down to about 17px type.</p>
-      </div></div>
-    </div>
-
-    <div class="plate fail">
-      <div class="stage" style="background:#0A0B0F;min-height:126px">
-        <span class="notch notch--sm g-cobalt" style="border-radius:8px 8px 14px 14px">
+      <div class="stage" style="background:#0A0B0F;gap:22px">
+        <span class="circle circle--sm atmo"><span class="word">Yappr</span></span>
+        <span class="notch notch--sm atmo" style="border-radius:6px 6px 11px 11px;transform:scale(.62);transform-origin:left center">
           <span class="dot"></span><span class="word">Yappr</span>
         </span>
       </div>
-      <div class="cap"><span class="num">19</span><div>
-        <h3>Floating, no edge <span class="verdict verdict--no">fails</span></h3>
-        <p>The same shape detached is a pill. Nothing says notch — and you already ruled out a pill.</p>
-      </div></div>
-    </div>
-
-    <div class="plate fail">
-      <div class="stage" style="background:#0A0B0F;min-height:126px;gap:26px">
-        <span class="notch notch--xs g-cobalt"><span class="dot"></span><span class="word">Yappr</span></span>
-        <span class="squircle g-cobalt" style="width:32px;height:32px;border-radius:7px">
-          <span class="icononly" style="width:9px;height:9px"></span>
-        </span>
-      </div>
-      <div class="cap"><span class="num">20</span><div>
-        <h3>Favicon size <span class="verdict verdict--no">fails</span></h3>
-        <p>At 16&ndash;32px the notch is an illegible blob. The squircle beside it is the honest fallback — same gradient, so it still reads as the same brand.</p>
-      </div></div>
+      <div class="cap"><h3>Favicon size <span class="verdict v-no">the floor</span></h3>
+        <p>At 16&ndash;32px the word goes to mush in both. The circle at least keeps a recognisable silhouette; the notch does not. Worth revisiting with a dot-only fallback.</p></div>
     </div>
   </div>
 
-  <h2>What happens to the app&rsquo;s real notch</h2>
+  <h2>The live notch</h2>
   <p class="sub">
-    Your question, and the interesting one. If the logo is a notch and the live
-    overlay is a notch, they collide — unless the logo is defined as the overlay
-    <em>at rest</em>. Then it is not a collision, it is one object in three states.
+    Centre stays <code>#000</code>. Not a preference — it is the illusion the
+    whole indicator rests on.
   </p>
-  <div class="grid">
-    <div class="plate">
-      <div class="stage hangs" style="background:#0A0B0F;min-height:152px">
-        <span class="notch bar-idle"><span class="dot"></span><span class="word">Yappr</span></span>
-      </div>
-      <div class="cap"><span class="num">21</span><div>
-        <h3>Rest &mdash; and this is the logo</h3>
-        <p>Idle overlay and brand mark are the same drawing. Nothing extra to maintain, and the brand is the thing you actually use.</p>
-      </div></div>
-    </div>
-
-    <div class="plate">
-      <div class="stage hangs" style="background:#0A0B0F;min-height:152px">
-        <span class="notch bar-listen">
-          <span class="lvl">
-            <i style="height:6px"></i><i style="height:13px"></i><i style="height:16px"></i>
-            <i style="height:9px"></i><i style="height:14px"></i><i style="height:5px"></i>
-          </span>
-        </span>
-      </div>
-      <div class="cap"><span class="num">22</span><div>
-        <h3>Listening</h3>
-        <p>Gradient lifts toward the light blue, wordmark gives way to levels. Same silhouette throughout.</p>
-      </div></div>
-    </div>
-
-    <div class="plate">
-      <div class="stage hangs" style="background:#0A0B0F;min-height:152px">
-        <span class="notch bar-work"><span class="word" style="font-size:17px">Cleaning up</span></span>
-      </div>
-      <div class="cap"><span class="num">23</span><div>
-        <h3>Working</h3>
-        <p>The one state that must <em>not</em> look like the logo — the user needs to know something is still happening.</p>
-      </div></div>
-    </div>
-  </div>
-
-  <h2>At size</h2>
-  <p class="sub">The horizontal lockup on each ground, at the three sizes the site would actually use.</p>
   <div class="grid grid--wide">
     <div class="plate">
-      <div class="stage g-deep" style="gap:38px;flex-wrap:wrap">
-        <span class="mark sz-l"><span class="dot"></span><span class="word">Yappr</span></span>
-        <span class="mark sz-m"><span class="dot"></span><span class="word">Yappr</span></span>
-        <span class="mark sz-s"><span class="dot"></span><span class="word">Yappr</span></span>
+      <div class="desk" style="padding-bottom:44px">
+        <div class="menubar">
+          <span class="bar">
+            <span class="side"><span class="dot"></span><span class="lvl">
+              <i style="height:5px"></i><i style="height:11px"></i><i style="height:13px"></i>
+              <i style="height:7px"></i><i style="height:12px"></i><i style="height:4px"></i>
+            </span></span>
+            <span class="housing"></span>
+            <span class="side"><span class="word">listening</span></span>
+          </span>
+        </div>
       </div>
-      <div class="cap"><span class="num">—</span><div>
-        <h3>34px · 24px · 17px</h3>
-        <p>Below 17px the dot starts reading as punctuation rather than a mark. That is the floor for the word lockup.</p>
-      </div></div>
+      <div class="cap"><h3>Black under the housing, charcoal at the wings</h3>
+        <p>
+          The ramp finishes by 32%, so the colour is already black <em>before</em>
+          the hardware starts rather than at its edge. The eye finds a seam far
+          more easily than a ramp — and the middle of this shape overlaps the
+          physical camera housing, so anything but true black there gives the
+          trick away.
+        </p></div>
+    </div>
+  </div>
+
+  <p class="rule">
+    <strong>The fillets moved too.</strong> They fill the corner against a
+    wing&rsquo;s <em>outer</em> edge, so leaving them black would have drawn a
+    dark notch either side of the shape — the exact seam they exist to remove.
+  </p>
+
+  <h2>Two things tried and reverted</h2>
+  <p class="sub">Recorded so they are not tried again.</p>
+  <div class="grid">
+    <div class="plate">
+      <div class="stage" style="background:#15161A">
+        <span class="notch notch--sm atmo" style="opacity:.5"><span class="dot"></span><span class="word">Yappr</span></span>
+      </div>
+      <div class="cap"><h3>Footer mark hanging from the border <span class="verdict v-no">reverted</span></h3>
+        <p>Doctrinally right, visually dead: the section above the footer is also dark, so a 64px mark landed on a dark-on-dark seam and vanished. It went back in the column — being visible beats being correct.</p></div>
+    </div>
+    <div class="plate">
+      <div class="stage stage--hangs" style="background:#0A0B0F">
+        <span class="notch" style="background:linear-gradient(180deg,#C7D0DC 0%,#1E2836 55%,#10161F 100%)">
+          <span class="dot"></span><span class="word">Yappr</span>
+        </span>
+      </div>
+      <div class="cap"><h3>A wide top-edge highlight <span class="verdict v-no">reverted &times;3</span></h3>
+        <p>A highlight as wide as the plate reaches both edges at the same height, and the eye reads any edge-to-edge change as a ramp however soft it is. The fix is a highlight taller than it is wide, running off the top and bottom.</p></div>
     </div>
   </div>
 
   <footer>
-    Nothing installed · reply with the numbers you want and I'll build them as SVG and wire them into the site and app
+    Three files hold these values and none can import the others —
+    YapprLanding/app/globals.css · src/renderer/shared/ui/YapprMark.tsx ·
+    YapprLanding/app/icon.svg. Change all three together.
   </footer>
 
 </div>
