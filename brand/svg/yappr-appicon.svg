@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Yappr">
+  <!--
+    Source for assets/icon.icns and assets/icon.png (the macOS app icon:
+    Dock, Finder, Cmd-Tab, About). Regenerate with
+    scripts/generate-app-icon.sh.
+
+    NOT full-bleed, unlike the iOS tile. macOS does not mask app icons;
+    whatever shape the file contains is the shape on screen. The platform
+    convention is a rounded square inset from the canvas, so the artwork
+    supplies both the squircle and the surrounding transparency. A
+    full-bleed square here would sit in the Dock as a hard-edged block
+    beside every other rounded icon.
+
+    Geometry follows Apple's Big Sur grid: the shape is 824 of the 1024
+    canvas (100 inset all round) with a corner radius of 185, which is
+    22.5 percent of the side.
+
+    The dot and waveform from the previous icon are gone. They were
+    drawing the indicator's CONTENTS at Dock size, where a 3px bar is
+    noise; the mark reads better as the mark. The tray icon keeps them
+    because at 22px in the menu bar the wordmark would be illegible and
+    the dot is the only thing that survives.
+
+    No double hyphen may appear in these comments: XML forbids it and
+    sips rejects the whole file rather than naming the line.
+  -->
+  <defs>
+    <radialGradient id="a-plate" cx="0.5" cy="0.5" r="0.62">
+      <stop offset="0"    stop-color="#16305C" stop-opacity="0"/>
+      <stop offset="0.12" stop-color="#16305C" stop-opacity="0"/>
+      <stop offset="0.24" stop-color="#1C3660" stop-opacity="0.16"/>
+      <stop offset="0.38" stop-color="#284676" stop-opacity="0.34"/>
+      <stop offset="0.52" stop-color="#365A96" stop-opacity="0.54"/>
+      <stop offset="0.66" stop-color="#446EB6" stop-opacity="0.72"/>
+      <stop offset="0.82" stop-color="#507ED0" stop-opacity="0.88"/>
+      <stop offset="1"    stop-color="#5A8FE8" stop-opacity="1"/>
+    </radialGradient>
+    <linearGradient id="a-sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="0.46" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="a-clip">
+      <rect x="100" y="100" width="824" height="824" rx="185" ry="185"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#a-clip)">
+    <rect x="100" y="100" width="824" height="824" fill="#000000"/>
+    <rect x="100" y="100" width="824" height="824" fill="url(#a-plate)"/>
+    <rect x="100" y="100" width="824" height="824" fill="url(#a-sheen)"/>
+  </g>
+
+  <!-- Hairline rim, so the icon still has an edge against a light Dock. -->
+  <rect x="101" y="101" width="822" height="822" rx="184" ry="184"
+        fill="none" stroke="#FFFFFF" stroke-opacity="0.14" stroke-width="2"/>
+
+  <!--
+    SKEWED, not font-style="italic".
+
+    sips silently ignores font-style and rasterises roman, so the first
+    version of this icon shipped the wordmark upright — the one thing the
+    Yappr mark is never allowed to be. Naming the face "Georgia Italic"
+    is worse: it matches nothing and falls back to a sans.
+
+    A skew is a synthetic oblique, which a real italic beats on letter
+    shapes. It is still the right trade here, because this file is only
+    ever rasterised by sips. YapprLanding/app/icon.svg is served to
+    browsers instead and keeps font-style, since browsers have Georgia's
+    true italic.
+
+    The translate cancels the skew's horizontal drift: skewX(a) maps
+    (x,y) to (x + y*tan(a), y), so at y=512 with a=-11 the text moves
+    left by 512*tan(11) = 99.5. Translating back by that keeps it centred.
+  -->
+  <g transform="translate(99.5,0) skewX(-11)">
+    <text
+      x="512" y="512"
+      text-anchor="middle"
+      dominant-baseline="central"
+      font-family="Georgia, 'Times New Roman', serif"
+      font-size="176"
+      letter-spacing="-2"
+      fill="#FFFFFF"
+    >Yappr</text>
+  </g>
+</svg>

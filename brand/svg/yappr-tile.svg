@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="Yappr">
+  <!--
+    Source for YapprLanding/app/apple-icon.png (the iOS "Add to Home
+    Screen" tile). Regenerate with:
+
+      sips -s format png -z 180 180 brand/svg/yappr-tile.svg
+           (dash-dash)out YapprLanding/app/apple-icon.png
+
+    The flag is written that way on purpose: XML forbids a double hyphen
+    inside a comment, and sips refuses the whole file with "Cannot
+    extract image from file" if one appears here.
+
+    FULL-BLEED, unlike app/icon.svg which is a circle on transparency.
+    iOS composites a touch icon onto its own square tile and applies its
+    own rounding, so transparent corners come out as whatever the OS puts
+    behind them rather than as a circle. The plate fills the square and
+    lets iOS do the masking.
+
+    Same radial falloff as "plate-radial" in globals.css (leading dashes
+    omitted — XML forbids a double hyphen inside a comment).
+  -->
+  <defs>
+    <radialGradient id="t-plate" cx="0.5" cy="0.5" r="0.62">
+      <stop offset="0"    stop-color="#16305C" stop-opacity="0"/>
+      <stop offset="0.12" stop-color="#16305C" stop-opacity="0"/>
+      <stop offset="0.24" stop-color="#1C3660" stop-opacity="0.16"/>
+      <stop offset="0.38" stop-color="#284676" stop-opacity="0.34"/>
+      <stop offset="0.52" stop-color="#365A96" stop-opacity="0.54"/>
+      <stop offset="0.66" stop-color="#446EB6" stop-opacity="0.72"/>
+      <stop offset="0.82" stop-color="#507ED0" stop-opacity="0.88"/>
+      <stop offset="1"    stop-color="#5A8FE8" stop-opacity="1"/>
+    </radialGradient>
+    <linearGradient id="t-sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#FFFFFF" stop-opacity="0.13"/>
+      <stop offset="0.46" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="180" height="180" fill="#000000"/>
+  <rect width="180" height="180" fill="url(#t-plate)"/>
+  <rect width="180" height="180" fill="url(#t-sheen)"/>
+
+  <!--
+    SKEWED, not font-style="italic": sips ignores font-style and
+    rasterises roman, which would ship the wordmark upright. The translate
+    cancels the skew's drift — skewX(a) maps (x,y) to (x + y*tan(a), y),
+    so at y=90 with a=-11 the text shifts left by 90*tan(11) = 17.5.
+
+    app/icon.svg keeps font-style instead, because browsers render it
+    directly and have Georgia's true italic.
+  -->
+  <g transform="translate(17.5,0) skewX(-11)">
+    <text
+      x="90" y="90"
+      text-anchor="middle"
+      dominant-baseline="central"
+      font-family="Georgia, 'Times New Roman', serif"
+      font-size="43"
+      letter-spacing="-0.5"
+      fill="#FFFFFF"
+    >Yappr</text>
+  </g>
+</svg>
