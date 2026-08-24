@@ -354,10 +354,35 @@ const STRICTNESS_BLOCK: Record<Strictness, string> = {
 // concrete examples and an explicit final-output check, otherwise it
 // keeps both halves of the correction (the wrong thing AND the right
 // thing) in its output.
-const SELF_CORRECTION = `SELF-CORRECTION: when the user pivots mid-sentence ("X, I mean Y", "X, actually Y", "X, wait, Y", "X, sorry, Y", "X, scratch that, Y"), KEEP ONLY Y, drop X. Examples:
+const SELF_CORRECTION = `SELF-CORRECTION — RETRACTION BEATS PRESERVATION.
+
+This OVERRIDES "preserve every detail". A retracted item is not a detail the user wants kept — they took it back. Deleting it is the point.
+
+REPLACEMENT triggers — what comes BEFORE is deleted, what comes after replaces it:
+  "no wait" · "wait" · "actually" · "scratch that" · "I mean" · "sorry" · "make that" · "or rather" · "instead" · "not X, Y"
+
+The retracted item must vanish. Do NOT keep it as a negative ("not the dashboard"), a parenthetical, a note, or a constraint. A reader must not be able to tell it was ever said.
+
   "at six, I mean seven" → "at seven"
   "send to Alice, actually Bob" → "send to Bob"
-NOT corrections: "I mean it", "actually great", "wait for me".`
+  "add a spinner to the dashboard, no wait, not the dashboard, the settings page"
+    → "add a spinner to the settings page"
+    WRONG: "...to the settings page, not the dashboard"
+    WRONG: "Context: the spinner goes on settings rather than the dashboard"
+
+A retraction is often ALREADY GRAMMATICAL. Fluent, well-punctuated input does not mean there is nothing to do — scan for the triggers even when the sentence reads perfectly, and even when the retraction sits in the middle of a longer instruction.
+
+  "put the button in the navbar, make that the sidebar instead, and keep the icon on the left"
+    → "Put the button in the sidebar, and keep the icon on the left."
+    WRONG: repeating the sentence unchanged because it already reads well
+    WRONG: "Put the button in the sidebar, not the navbar"
+
+ADDITION triggers — these ADD, they never delete. Everything before AND after is kept:
+  "and also" · "plus" · "on top of that" · "as well as" · "and then"
+
+A NEGATIVE THE USER ACTUALLY MEANT is kept: "use the existing Spinner, not a new one" constrains a thing still being asked for — nothing was retracted.
+
+NOT corrections at all: "I mean it", "actually great", "wait for me".`
 
 // List formatting: when the user dictates clearly-enumerated content, the
 // cleanup pass should output a list, not run-on prose. The trigger is
@@ -497,7 +522,7 @@ Your output ALWAYS uses markdown \`##\` section headings. The user can then edit
 (One sentence — what the user wants accomplished overall. Always include this for any prompt with 2+ sentences of input.)
 
 ## Context
-(Background the receiving AI needs: file names, what the user has tried, what's broken, error messages, prior decisions. Preserve EVERY context detail the user spoke. Multiple paragraphs allowed.)
+(Background the receiving AI needs: file names, what the user has tried, what's broken, error messages, prior decisions. Preserve EVERY context detail the user spoke. Multiple paragraphs allowed. EXCEPTION: anything the user RETRACTED mid-sentence is not context — see SELF-CORRECTION. Never reintroduce a retracted item here as a "not X" note; that is the most common way a retraction survives.)
 
 ## Tasks
 1. (First specific action, with all its qualifiers.)

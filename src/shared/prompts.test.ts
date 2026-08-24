@@ -61,8 +61,17 @@ describe('ai_prompt destination shaping', () => {
   // Judged worth it because C4 removes whole reformat CALLS on three
   // routes that previously fired at any length — fewer calls at slightly
   // higher cost each. This is a CEILING to stop silent drift, not a target.
+  //
+  // Raised 14,000 → 15,500 when the self-correction rules were fixed.
+  // The guard did its job: it caught a +1,622 char growth. That growth is
+  // deliberate, not drift. Each piece of it was verified against live Groq
+  // and removing any of them reintroduced a failure — the override clause,
+  // the "already grammatical" clause, and the worked examples were each
+  // load-bearing (see self-correction.test.ts for what and why). Cost is
+  // ~+400 tokens on a cached prefix, so the per-call marginal cost is
+  // small; correctness on retractions is the product's differentiator.
   it('keeps the agentic prompt under its size ceiling', () => {
-    expect(agentic().length).toBeLessThan(14000)
+    expect(agentic().length).toBeLessThan(15500)
   })
 
   it('keeps the chat prompt smaller than the agentic one', () => {
