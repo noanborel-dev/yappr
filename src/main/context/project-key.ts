@@ -25,6 +25,24 @@ export interface ProjectKeySource {
   windowTitle: string
   /** Resolved surface name for browsers — 'Lovable', 'v0', 'Bolt'. */
   appName?: string | null
+  /**
+   * Does this surface OWN a project whose name its title carries?
+   *
+   * Lovable, v0, Bolt and Replit do: the tab is a project you are
+   * building, and its title is that project's name. Claude, ChatGPT and
+   * Gemini do not: the tab is a CONVERSATION, and its title is whatever
+   * the chat happened to be about.
+   *
+   * Without this the two were indistinguishable, and real installs ended
+   * up with project cards called "creating tiktok-style slideshows for
+   * yapper" and "full macos app redesign mockup" — chat titles filed as
+   * codebases. Wrong keys are worse than missing ones: a missing key is
+   * visibly unsorted, a wrong one silently feeds one project's facts
+   * into another.
+   *
+   * The caller decides, because it owns the app tables.
+   */
+  appOwnsProject?: boolean
   /** Active tab title, browsers only. */
   tabTitle?: string | null
 }
@@ -193,7 +211,13 @@ function fromTerminalTitle(title: string): string | null {
  * can never mint a project. The builder's own name is dropped wherever it
  * sits, and what remains must be a single plausible name.
  */
-function fromBrowserTitle(title: string, appName: string | null | undefined): string | null {
+function fromBrowserTitle(
+  title: string,
+  appName: string | null | undefined,
+  appOwnsProject: boolean,
+): string | null {
+  // A chat surface names conversations, not projects.
+  if (!appOwnsProject) return null
   if (!appName) return null
   const app = appName.trim().toLowerCase()
   if (!app) return null
@@ -232,7 +256,7 @@ export function extractProjectKey(src: ProjectKeySource): string | null {
       // Prefer the tab title: the window title of a browser is usually
       // the tab title anyway, but it can lag behind on tab switch.
       const tab = (src.tabTitle ?? '').trim() || title
-      return tab ? fromBrowserTitle(tab, src.appName) : null
+      return tab ? fromBrowserTitle(tab, src.appName, src.appOwnsProject === true) : null
     }
     default:
       return null

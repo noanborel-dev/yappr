@@ -218,6 +218,10 @@ export const IPC = {
   CONTEXT_FACTS_LIST: 'context:facts:list',
   CONTEXT_FACT_DELETE: 'context:fact:delete',
   CONTEXT_BUCKET_DELETE: 'context:bucket:delete',
+  // Editing. Added when project keys turned out to be fallible — a wrong
+  // name needs correcting, not deleting.
+  CONTEXT_BUCKET_RENAME: 'context:bucket:rename',
+  CONTEXT_FACT_UPDATE: 'context:fact:update',
   // Spec §1.3 — the onboarding paste, split into buckets rather than
   // stored as one blob that loads for every project.
   CONTEXT_IMPORT: 'context:import',

@@ -335,6 +335,9 @@ function dictationProjectKey(focused: FocusedApp): string | null {
     windowTitle: focused.windowTitle,
     appName: focused.name,
     tabTitle: focused.tabTitle,
+    // Only the app-builders own a project. A Claude or ChatGPT tab is a
+    // conversation, and its title was being filed as a codebase name.
+    appOwnsProject: AGENTIC_AI_APP_NAMES.has(focused.name),
   })
 }
 

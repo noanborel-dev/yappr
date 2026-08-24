@@ -31,6 +31,10 @@ contextBridge.exposeInMainWorld('yappr', {
     ipcRenderer.invoke(IPC.CONTEXT_FACT_DELETE, id),
   deleteContextBucket: (key: string): Promise<number> =>
     ipcRenderer.invoke(IPC.CONTEXT_BUCKET_DELETE, key),
+  renameContextBucket: (from: string, to: string): Promise<boolean> =>
+    ipcRenderer.invoke(IPC.CONTEXT_BUCKET_RENAME, from, to),
+  updateContextFact: (id: number, text: string): Promise<boolean> =>
+    ipcRenderer.invoke(IPC.CONTEXT_FACT_UPDATE, id, text),
   importContext: (payload: OnboardingImport): Promise<{ stored: number }> =>
     ipcRenderer.invoke(IPC.CONTEXT_IMPORT, payload),
   setIndicatorPreview: (on: boolean): Promise<void> =>

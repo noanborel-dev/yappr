@@ -49,6 +49,8 @@ function ScopeChip({ scope }: { scope: string }) {
 export function ProjectCards() {
   const [buckets, setBuckets] = useState<FactBucket[] | null>(null)
   const [confirmingKey, setConfirmingKey] = useState<string | null>(null)
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+  const [editingFact, setEditingFact] = useState<number | null>(null)
   // Captured once per mount rather than read per row, so every card on
   // the screen dates from the same instant.
   const [now] = useState(() => Date.now())
@@ -62,6 +64,30 @@ export function ProjectCards() {
   }
 
   useEffect(() => { void reload() }, [])
+
+  // Everywhere is the global scope, not a project name. Unsorted is the
+  // ABSENCE of a key — renaming it would file facts that share nothing
+  // under one project, which is the failure the unsorted bucket exists
+  // to prevent.
+  function isRenameable(key: string): boolean {
+    return key !== GLOBAL_KEY && key !== UNSORTED_KEY
+  }
+
+  async function saveName(from: string, next: string) {
+    setEditingKey(null)
+    const to = next.trim()
+    if (!to || to === from) return
+    await window.yappr.renameContextBucket(from, to)
+    await reload()
+  }
+
+  async function saveFact(id: number, next: string) {
+    setEditingFact(null)
+    const text = next.trim()
+    if (!text) return
+    await window.yappr.updateContextFact(id, text)
+    await reload()
+  }
 
   async function removeFact(id: number) {
     await window.yappr.deleteContextFact(id)
@@ -106,7 +132,33 @@ export function ProjectCards() {
           <div className="flex items-baseline justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h4 className="text-[13px] font-semibold truncate">{bucketTitle(bucket.key)}</h4>
+                {/* Renameable — except Everywhere, which is not a project
+                    name but the global scope itself, and Unsorted, which
+                    is the absence of a key rather than one you can fix by
+                    typing. Renaming Unsorted would file everything in it
+                    under one project the facts do not share. */}
+                {editingKey === bucket.key ? (
+                  <input
+                    autoFocus
+                    defaultValue={bucket.key}
+                    onBlur={(e) => void saveName(bucket.key, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                      if (e.key === 'Escape') setEditingKey(null)
+                    }}
+                    className="text-[13px] font-semibold bg-paper border border-line rounded-[6px] px-2 py-0.5 min-w-0 focus:outline-none focus:border-accent"
+                  />
+                ) : isRenameable(bucket.key) ? (
+                  <button
+                    className="text-[13px] font-semibold truncate hover:text-ink-60"
+                    onClick={() => setEditingKey(bucket.key)}
+                    title="Click to rename"
+                  >
+                    {bucketTitle(bucket.key)}
+                  </button>
+                ) : (
+                  <h4 className="text-[13px] font-semibold truncate">{bucketTitle(bucket.key)}</h4>
+                )}
                 <ScopeChip scope={bucket.key} />
               </div>
               <p className="text-[11.5px] text-ink-60 mt-0.5">{bucketBlurb(bucket.key)}</p>
@@ -147,8 +199,29 @@ export function ProjectCards() {
             {bucket.facts.map(fact => (
               <li key={fact.id} className="flex items-start gap-2 group">
                 <span className="text-ink-45 select-none leading-5">·</span>
-                {/* Verbatim: the card has to show what is actually sent. */}
-                <span className="text-[12.5px] flex-1 leading-5">{fact.text}</span>
+                {/* Editable in place. The card still shows what is
+                    actually sent — the edit changes what IS sent, rather
+                    than dressing up what was stored. */}
+                {editingFact === fact.id ? (
+                  <input
+                    autoFocus
+                    defaultValue={fact.text}
+                    onBlur={(e) => void saveFact(fact.id, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                      if (e.key === 'Escape') setEditingFact(null)
+                    }}
+                    className="text-[12.5px] flex-1 leading-5 bg-paper border border-line rounded-[6px] px-2 py-0.5 focus:outline-none focus:border-accent"
+                  />
+                ) : (
+                  <button
+                    className="text-[12.5px] flex-1 leading-5 text-left hover:text-ink-60"
+                    onClick={() => setEditingFact(fact.id)}
+                    title="Click to edit"
+                  >
+                    {fact.text}
+                  </button>
+                )}
                 <button
                   className="text-[11.5px] text-ink-45 hover:text-danger opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 leading-5"
                   onClick={() => void removeFact(fact.id)}

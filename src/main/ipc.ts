@@ -15,6 +15,7 @@ import {
 } from './local-download'
 import { HISTORY_LIMIT } from '../shared/constants'
 import { loadDictationStats, clearDictationStats } from './stats-store'
+import { renameBucket, updateFact } from './context/facts'
 import {
   loadPersistedHistory,
   persistHistoryEntry,
@@ -143,6 +144,11 @@ export function registerIpcHandlers(hooks: IpcHooks = {}): void {
   ipcMain.handle(IPC.CONTEXT_FACTS_LIST, () => listBuckets())
   ipcMain.handle(IPC.CONTEXT_FACT_DELETE, (_e, id: number) =>
     typeof id === 'number' ? deleteFact(id) : false)
+  ipcMain.handle(IPC.CONTEXT_BUCKET_RENAME, (_e, from: string, to: string) =>
+    typeof from === 'string' && typeof to === 'string' ? renameBucket(from, to) : false)
+  ipcMain.handle(IPC.CONTEXT_FACT_UPDATE, (_e, id: number, text: string) =>
+    typeof id === 'number' && typeof text === 'string' ? updateFact(id, text) : false)
+
   ipcMain.handle(IPC.CONTEXT_BUCKET_DELETE, (_e, key: string) =>
     typeof key === 'string' ? deleteBucket(key) : 0)
 

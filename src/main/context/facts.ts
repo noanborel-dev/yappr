@@ -182,7 +182,65 @@ export function hasAnyFacts(): boolean {
   }
 }
 
-/** Delete one fact. The UI offers view and delete, nothing else. */
+/**
+ * Rename a project bucket, moving every fact in it.
+ *
+ * The cards were deliberately read-and-delete only: the store shows what
+ * you actually said, and an editor invites rewriting it. That reasoning
+ * held while the only way in was your own words. It stopped holding once
+ * the KEY could be wrong — a Claude conversation title filed as a
+ * codebase is not something the user said, and deleting the whole card
+ * to fix a name throws away correct facts to correct a label.
+ *
+ * INSERT OR IGNORE then delete the stragglers: the unique index is
+ * (scope, project_key, text), so moving a fact whose text already exists
+ * in the destination would throw. Merging two cards is a legitimate
+ * thing to want and should not fail on a duplicate.
+ */
+export function renameBucket(from: string, to: string): boolean {
+  const db = getDb()
+  if (!db) return false
+  const target = to.trim().toLowerCase().replace(/\s+/g, ' ')
+  if (!target || target === from) return false
+  try {
+    db.prepare(
+      `INSERT OR IGNORE INTO context_facts (scope, project_key, text, created_at)
+       SELECT scope, ?, text, created_at FROM context_facts
+        WHERE scope = 'project' AND project_key = ?`,
+    ).run(target, from)
+    db.prepare("DELETE FROM context_facts WHERE scope = 'project' AND project_key = ?").run(from)
+    invalidate()
+    logInfo('[context/facts] bucket renamed', { from, to: target })
+    return true
+  } catch (err) {
+    logError('[context/facts] rename failed', err)
+    return false
+  }
+}
+
+/**
+ * Edit one fact's text.
+ *
+ * Returns false when the text is not storable, or when the edit collides
+ * with a fact already in that bucket. Refusing the collision is right:
+ * silently merging would make a row vanish under the user's cursor.
+ */
+export function updateFact(id: number, text: string): boolean {
+  const db = getDb()
+  if (!db) return false
+  const next = normalizeFactText(text)
+  if (!next) return false
+  try {
+    const result = db.prepare('UPDATE context_facts SET text = ? WHERE id = ?').run(next, id)
+    invalidate()
+    return result.changes > 0
+  } catch (err) {
+    logError('[context/facts] update failed', err)
+    return false
+  }
+}
+
+/** Delete one fact. */
 export function deleteFact(id: number): boolean {
   const db = getDb()
   if (!db) return false

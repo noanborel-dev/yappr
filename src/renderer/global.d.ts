@@ -60,6 +60,8 @@ declare global {
       listContextFacts: () => Promise<FactBucket[]>
       deleteContextFact: (id: number) => Promise<boolean>
       deleteContextBucket: (key: string) => Promise<number>
+      renameContextBucket: (from: string, to: string) => Promise<boolean>
+      updateContextFact: (id: number, text: string) => Promise<boolean>
       importContext: (payload: OnboardingImport) => Promise<{ stored: number }>
       setIndicatorPreview: (on: boolean) => Promise<void>
       generateContext: (seed: string) => Promise<{ ok: boolean; error?: string; stored: number; overview?: string }>

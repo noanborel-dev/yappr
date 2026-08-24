@@ -9,11 +9,22 @@ import {
 
 const editor = (windowTitle: string): ProjectKeySource => ({ surface: 'editor', windowTitle })
 const terminal = (windowTitle: string): ProjectKeySource => ({ surface: 'terminal', windowTitle })
+// An app-BUILDER: the tab is a project and its title is that project's
+// name. Distinct from `chat` below, where the title is a conversation.
 const browser = (tabTitle: string, appName: string): ProjectKeySource => ({
   surface: 'browser',
   windowTitle: tabTitle,
   tabTitle,
   appName,
+  appOwnsProject: true,
+})
+
+const chat = (tabTitle: string, appName: string): ProjectKeySource => ({
+  surface: 'browser',
+  windowTitle: tabTitle,
+  tabTitle,
+  appName,
+  appOwnsProject: false,
 })
 
 describe('editor titles', () => {
@@ -135,8 +146,12 @@ describe('browser app-builders', () => {
   })
 
   it('falls back to the window title when no tab title is available', () => {
-    expect(extractProjectKey({ surface: 'browser', windowTitle: 'yappr – Lovable', appName: 'Lovable' }))
-      .toBe('yappr')
+    expect(extractProjectKey({
+      surface: 'browser',
+      windowTitle: 'yappr – Lovable',
+      appName: 'Lovable',
+      appOwnsProject: true,
+    })).toBe('yappr')
   })
 })
 
