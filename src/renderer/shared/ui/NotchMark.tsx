@@ -19,7 +19,7 @@
 
 import type { ReactNode } from 'react'
 import { STATES, ACCENT, DANGER, LABEL_SIZE, type NotchState } from '../../indicator/notch-states'
-import { YapprMark } from './YapprMark'
+import { YapprMark, BRAND_WING, BRAND_CHARCOAL } from './YapprMark'
 
 /** Waveform geometry, matching useIndicatorAudio's constants. */
 const BAR_COUNT = 9
@@ -31,7 +31,6 @@ const WAVE_HEIGHT = 13
 // syncing into a single pulsing block.
 const WAVE_PROFILE = [0.35, 0.7, 1, 0.55, 0.85, 0.45, 0.95, 0.6, 0.3]
 
-const SHELL = '#0A0B0F'
 const SERIF = '"Instrument Serif", "Cormorant Garamond", Georgia, serif'
 
 interface Props {
@@ -101,9 +100,12 @@ export function NotchMark({
           display: 'flex',
           alignItems: 'center',
           height,
-          // Flat near-black. A gradient reads as a panel sitting on the
-          // screen; flat plus a hairline rim reads as part of the machine.
-          background: idle ? 'transparent' : SHELL,
+          // Imported from the real indicator rather than restated: black
+          // under the centre band so it merges with the housing, lifting
+          // to charcoal blue only at the wings. A VERTICAL gradient here
+          // would read as a panel sitting on the screen — this one runs
+          // across, which is what keeps the middle looking like hardware.
+          background: idle ? 'transparent' : BRAND_WING,
           borderRadius: `0 0 ${idle ? 15 : 19}px ${idle ? 15 : 19}px`,
           boxShadow: idle
             ? 'none'
@@ -366,10 +368,12 @@ function Fillet({ side }: { side: 'left' | 'right' }) {
         width: 13,
         height: 13,
         pointerEvents: 'none',
+        // Matches the wing's outer edge, not the housing — see the same
+        // note in NotchIndicator's filletStyle.
         background:
           side === 'left'
-            ? 'radial-gradient(circle at 0% 100%, transparent 0 13px, #0A0B0F 13.5px)'
-            : 'radial-gradient(circle at 100% 100%, transparent 0 13px, #0A0B0F 13.5px)',
+            ? `radial-gradient(circle at 0% 100%, transparent 0 13px, ${BRAND_CHARCOAL} 13.5px)`
+            : `radial-gradient(circle at 100% 100%, transparent 0 13px, ${BRAND_CHARCOAL} 13.5px)`,
       }}
     />
   )

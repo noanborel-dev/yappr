@@ -28,6 +28,35 @@
   --pill-bg-2:    rgba(14, 16, 22, 0.74);
   --pill-dot:     #e84a3a;
   --pill-glow:    rgba(232, 74, 58, 0.8);
+
+  /* ── The atmosphere ─────────────────────────────────────────────
+     The brand plate: charcoal blue with a cool highlight drifting
+     across it. Mirrors BRAND_ATMOSPHERE in
+     src/renderer/shared/ui/YapprMark.tsx, which is the source of
+     truth — this is a separate Next project and cannot import it, so
+     any change to these values has to be made in both places.
+
+     Four layers, not one gradient: a single ramp reads as a ramp
+     however you set the stops. The drift comes from soft radials at
+     different positions fading to full transparency, so no two points
+     on the plate resolve the same way. */
+  --mist:         #d6dee8;
+  --haze:         #96a7be;
+  --slate:        #56677f;
+  --charcoal:     #2b3950;
+  --abyss:        #172130;
+
+  /* The highlight is TALLER than it is wide (58% × 120%) and sits off to
+     one side. That is what makes it a pool of light rather than a band:
+     a highlight as wide as the plate reaches both edges at the same
+     height, and the eye reads any edge-to-edge change as a ramp no
+     matter how soft it is. Keeping it narrow and letting it run off the
+     top and bottom instead gives light falling ACROSS the plate. */
+  --atmosphere:
+    radial-gradient(58% 120% at 26% 8%, rgba(214, 222, 232, 0.90), rgba(214, 222, 232, 0) 60%),
+    radial-gradient(46% 80% at 88% 34%, rgba(150, 167, 190, 0.42), rgba(150, 167, 190, 0) 66%),
+    radial-gradient(120% 120% at 58% 112%, #0f1926 14%, rgba(15, 25, 38, 0) 72%),
+    linear-gradient(148deg, #56677f 0%, #2b3950 44%, #172130 100%);
 }
 
 /* Tailwind 4 theme bridge — exposes tokens as utility classes */
@@ -87,8 +116,10 @@ body {
 
 /* ============================================================
    Brand mark dot — the only survivor of the old pill CSS.
-   PillLogo (nav / footer / final CTA) is the BRAND mark: a charcoal pill
-   with the wordmark. That is deliberate and unchanged.
+   PillLogo (nav / footer / final CTA) is the BRAND mark: the notch
+   silhouette carrying the charcoal-blue --atmosphere plate and the
+   wordmark. Not a pill, and not flat charcoal — the filename survives
+   only to avoid churn across its three call sites.
 
    The recording INDICATOR is a different object entirely — see the
    .ni-* block below, ported from src/renderer/indicator/. The app source
@@ -3889,10 +3920,14 @@ body {
   display: inline-flex;
   align-items: center;
   user-select: none;
-  /* Same flat near-black as the indicator shell — the mark and the app
-     are the same object now, so they can't be two different blacks. */
-  background: #0a0b0f;
-  color: var(--cream);
+  /* The charcoal-blue atmosphere. This used to be the indicator's flat
+     #0a0b0f, on the reasoning that the mark and the app must not be two
+     different blacks. That still holds — but the live indicator is no
+     longer flat black either: its centre is #000 to merge with the
+     housing and its wings lift to charcoal. This plate is the wing
+     colour, so the mark and the app still agree. */
+  background: var(--atmosphere);
+  color: #fff;
   font-family: var(--font-serif);
   font-style: italic;
   line-height: 1;
@@ -3948,18 +3983,33 @@ body {
 .ni-fillet.off { opacity: 0; }
 .ni-fillet--l {
   left: -11px;
-  background: radial-gradient(circle at 0% 100%, transparent 0 11px, #0a0b0f 11.5px);
+  background: radial-gradient(circle at 0% 100%, transparent 0 11px, #2b3950 11.5px);
 }
 .ni-fillet--r {
   right: -11px;
-  background: radial-gradient(circle at 100% 100%, transparent 0 11px, #0a0b0f 11.5px);
+  background: radial-gradient(circle at 100% 100%, transparent 0 11px, #2b3950 11.5px);
 }
 
-/* Flat near-black, NOT a gradient. A vertical gradient reads as a panel
-   sitting on the screen; flat + hairline rim reads as part of the machine.
-   Square at the top — it hangs from the menu bar. */
+/* True black under the centre, lifting to charcoal at the wings — the
+   same treatment as BRAND_WING in the app's YapprMark.tsx, because this
+   is a portrait of that indicator and the two cannot be different colours.
+
+   The old note here said flat, NOT a gradient. It was right about
+   VERTICAL gradients: top-down shading reads as a panel sitting on the
+   screen. Across the shape is the opposite — the centre overlaps the
+   physical camera housing, so anything but #000 there is a visible seam,
+   and lifting only at the wings is what lets the middle disappear into
+   the hardware. Square at the top: it hangs from the menu bar. */
 .ni-shell {
-  background: #0a0b0f;
+  background: linear-gradient(
+    90deg,
+    #2b3950 0%,
+    #172130 14%,
+    #000 32%,
+    #000 68%,
+    #172130 86%,
+    #2b3950 100%
+  );
   overflow: hidden;
   border-bottom-left-radius: 11px;
   border-bottom-right-radius: 11px;

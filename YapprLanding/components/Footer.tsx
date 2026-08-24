@@ -43,6 +43,13 @@ export function Footer() {
     >
       <div className="max-w-[1240px] mx-auto px-8 grid gap-10 grid-cols-1 md:grid-cols-[1.4fr_repeat(3,1fr)]">
         <div>
+          {/* Stays in the column rather than hanging from the footer's top
+              border. Hanging it there was tried and looked worse: the
+              section above the footer is dark too, so the mark landed on
+              a dark-on-dark seam at 64px wide and simply disappeared.
+              The "a notch needs an edge" rule earns its keep on the
+              primary mark; down here it is a small brand tag, and being
+              visible beats being doctrinally correct. */}
           <PillLogo size="sm" />
           <p
             className="m-0 mt-4 text-[13.5px] leading-[1.55] max-w-[280px]"

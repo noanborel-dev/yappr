@@ -11,12 +11,26 @@ export function Nav() {
         borderBottom: "1px solid var(--line-soft)",
       }}
     >
-      <div className="max-w-[1240px] mx-auto px-10 h-[72px] flex items-center gap-8">
-        <a href="#top" aria-label="Yappr home" className="flex items-center">
-          <PillLogo size="md" hanging />
-        </a>
+      {/* The mark hangs from the centre of the top edge, where the notch
+          is on the machine. It is absolutely positioned rather than a
+          flex child so it stays centred on the VIEWPORT regardless of
+          how wide the nav links and buttons grow — a centred flex item
+          drifts as soon as the two sides are uneven, and a logo that
+          moves when you add a nav link is not centred, it is coincidental.
 
-        <ul className="hidden md:flex gap-7 flex-1 ml-6 list-none">
+          Taking it out of the flow means it can no longer push the links
+          aside, so the links wait for `lg` rather than `md`: at 768px the
+          centred mark and the last link occupy the same pixels. */}
+      <a
+        href="#top"
+        aria-label="Yappr home"
+        className="absolute left-1/2 top-0 -translate-x-1/2 z-10 flex"
+      >
+        <PillLogo size="md" />
+      </a>
+
+      <div className="max-w-[1240px] mx-auto px-10 h-[72px] flex items-center gap-8">
+        <ul className="hidden lg:flex gap-7 flex-1 list-none">
           {[
             { href: "#demo", label: "Try it" },
             { href: "#features", label: "Features" },

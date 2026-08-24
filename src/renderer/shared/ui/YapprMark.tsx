@@ -55,8 +55,73 @@ export const BRAND_DOT = '#E84A3A'
 
 export const BRAND_SERIF = '"Instrument Serif", "Cormorant Garamond", Georgia, serif'
 
-export type MarkLockup = 'pill' | 'bare' | 'icon' | 'stacked'
-export type MarkTone = 'dark' | 'light' | 'ink' | 'white'
+// ─── The atmosphere ─────────────────────────────────────────────────
+//
+// A charcoal-blue field with a cool highlight drifting across it, rather
+// than a flat plate. Reference was a soft-focus navy photograph — the
+// quality wanted is that it MOVES: light pooling in one corner and
+// falling away, not a ramp from A to B.
+//
+// Which is why this is four overlapping layers and not one gradient. A
+// single linear-gradient reads as a ramp no matter which stops it gets;
+// the drift comes from soft radials at different positions and radii
+// fading to full transparency, so no two points on the plate resolve the
+// same way. The reference's highlight is warm taupe — this one is cooled
+// to blue-grey, because a warm highlight over charcoal blue turns muddy
+// where they meet.
+
+/** The lighter white. Cool, so it stays in the blue family. */
+export const BRAND_MIST = '#D6DEE8'
+/** Mid tone, where the highlight falls off. */
+export const BRAND_HAZE = '#96A7BE'
+/** The transition into the body colour. */
+export const BRAND_SLATE = '#56677F'
+/** The charcoal blue the whole system is named for. */
+export const BRAND_CHARCOAL = '#2B3950'
+/** Deepest corner. Not black — black is reserved for the housing. */
+export const BRAND_ABYSS = '#172130'
+
+/**
+ * The plate. Logo containers only — never the live notch (see BRAND_WING).
+ *
+ * The highlight is TALLER than it is wide (58% × 120%) and sits off to
+ * one side. That is what makes it a pool of light rather than a band: a
+ * highlight as wide as the plate reaches both edges at the same height,
+ * and the eye reads any edge-to-edge change as a ramp however soft it
+ * is. Keeping it narrow and letting it run off the top and bottom
+ * instead gives light falling ACROSS the plate, which is the quality the
+ * reference had and the first three attempts did not.
+ */
+export const BRAND_ATMOSPHERE = [
+  `radial-gradient(58% 120% at 26% 8%, rgba(214,222,232,0.90), rgba(214,222,232,0) 60%)`,
+  `radial-gradient(46% 80% at 88% 34%, rgba(150,167,190,0.42), rgba(150,167,190,0) 66%)`,
+  `radial-gradient(120% 120% at 58% 112%, #0F1926 14%, rgba(15,25,38,0) 72%)`,
+  `linear-gradient(148deg, ${BRAND_SLATE} 0%, ${BRAND_CHARCOAL} 44%, ${BRAND_ABYSS} 100%)`,
+].join(', ')
+
+/**
+ * The live notch shell — and the one rule that cannot bend.
+ *
+ * The centre of this shape overlaps the physical camera housing, which is
+ * true black. Anything else there is a visible seam, and the illusion the
+ * whole indicator rests on is that the middle IS the hardware. So the
+ * centre stays #000 and only the wings, which hang off the sides of the
+ * housing and were never pretending to be hardware, lift to charcoal.
+ *
+ * 32% / 68% rather than a hard edge: the eye finds a seam far more easily
+ * than a ramp, so the transition happens across the part of the shape
+ * already clear of the housing.
+ *
+ * Note this uses CHARCOAL → ABYSS → black, and never touches SLATE. The
+ * logo plate can afford SLATE because it is an object on a page; this
+ * thing sits in the menu bar over whatever the user is doing, and a lift
+ * that bright at the ends turns a piece of hardware into a floating
+ * widget. The brand colour is present, at the quietest end of its range.
+ */
+export const BRAND_WING = `linear-gradient(90deg, ${BRAND_CHARCOAL} 0%, ${BRAND_ABYSS} 14%, #000 32%, #000 68%, ${BRAND_ABYSS} 86%, ${BRAND_CHARCOAL} 100%)`
+
+export type MarkLockup = 'pill' | 'bare' | 'icon' | 'stacked' | 'notch' | 'circle'
+export type MarkTone = 'dark' | 'light' | 'ink' | 'white' | 'atmosphere'
 export type MarkSize = 'hero' | 'button' | 'inline' | 'favicon'
 
 // Sizes are a scale, not four unrelated numbers: each step is roughly
@@ -107,6 +172,16 @@ const TONES: Record<MarkTone, ToneSpec> = {
     text: '#FFFFFF',
     dot: '#FFFFFF',
     shadow: null,
+  },
+  // The charcoal-blue plate. The primary mark on the site and the app
+  // icon. Text is full #FFFFFF here, not BRAND_ON_DARK: .92 exists to
+  // stop the serif blooming against flat near-black, and this plate is
+  // lighter and textured enough that .92 reads as grey instead.
+  atmosphere: {
+    surface: BRAND_ATMOSPHERE,
+    text: '#FFFFFF',
+    dot: BRAND_DOT,
+    shadow: 'inset 0 1px 0 rgba(255,255,255,0.16), 0 8px 24px rgba(16,22,31,0.34)',
   },
 }
 
@@ -175,6 +250,58 @@ export function YapprMark({
     return (
       <span className={`inline-flex items-center ${className}`} style={{ gap: s.gap, ...style }}>
         {dotEl}
+        {word}
+      </span>
+    )
+  }
+
+  // NOTCH — the shape the product actually is: flat across the top,
+  // rounded only at the bottom, so it HANGS from an edge.
+  //
+  // The caller has to supply that edge. A notch with nothing above it is
+  // a rounded rectangle, and a rounded rectangle with a word in it is a
+  // pill — which is the mark this system exists to replace. Anywhere
+  // there is no top edge to hang from, use `circle` instead.
+  if (lockup === 'notch') {
+    return (
+      <span
+        className={`inline-flex items-center ${className}`}
+        style={{
+          gap: s.gap,
+          padding: `${s.padY * 1.15}px ${s.padX * 1.25}px ${s.padY * 1.35}px`,
+          // Square on top, rounded at the bottom.
+          borderRadius: `0 0 ${s.px * 0.8}px ${s.px * 0.8}px`,
+          background: t.surface ?? BRAND_BLACK,
+          boxShadow: t.shadow ?? undefined,
+          ...style,
+        }}
+      >
+        {dotEl}
+        {word}
+      </span>
+    )
+  }
+
+  // CIRCLE — for favicons, avatars and social profiles, which mask to a
+  // circle whatever you hand them.
+  //
+  // This is where the notch cannot go: those slots have no top edge, and
+  // below roughly 32px the notch silhouette is an unreadable blob. Same
+  // plate and same word, so it still reads as one system.
+  if (lockup === 'circle') {
+    const box = s.px * 3.1
+    return (
+      <span
+        className={`inline-flex items-center justify-center shrink-0 ${className}`}
+        style={{
+          width: box,
+          height: box,
+          borderRadius: 999,
+          background: t.surface ?? BRAND_BLACK,
+          boxShadow: t.shadow ?? undefined,
+          ...style,
+        }}
+      >
         {word}
       </span>
     )

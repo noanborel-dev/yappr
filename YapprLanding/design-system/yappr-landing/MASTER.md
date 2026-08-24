@@ -73,6 +73,14 @@ the FAQ, verbatim and not to be reworded.
 --pill-dot:     #E84A3A;
 --pill-glow:    rgba(232,74,58,0.8);
 --pill-blur:    34px;
+
+/* The atmosphere — the brand plate. Mirrored in the app's YapprMark.tsx
+   and in app/icon.svg; change all three together. */
+--mist:         #D6DEE8;  /* the highlight */
+--haze:         #96A7BE;  /* where it falls off */
+--slate:        #56677F;  /* plate only — never the live notch wings */
+--charcoal:     #2B3950;  /* the body colour, and the wing tips */
+--abyss:        #172130;  /* deepest. NOT black — black is the housing */
 ```
 
 Light mode only. No dark mode — the cream IS the brand.
@@ -112,8 +120,30 @@ Headlines drop the period unless the sentence is the punchline. Italic is reserv
 
 ### 1. Two different objects — do not merge them
 
-**The brand mark** (`PillLogo.tsx`) is a charcoal pill with a red dot and the
-wordmark in italic serif. Nav, footer, final CTA. Unchanged, still correct.
+**The brand mark** (`PillLogo.tsx`) is the **notch silhouette** — square across
+the top, rounded only at the bottom — carrying the charcoal-blue *atmosphere*
+plate, a red dot and the wordmark in italic serif. Nav (centred, hanging from
+the top edge), footer, final CTA.
+
+It is no longer a pill and no longer flat charcoal. The filename survives to
+avoid churn across three call sites; the shape and fill do not.
+
+**The atmosphere** is defined once as `--atmosphere` in `app/globals.css` and
+mirrored in two places that cannot import it — `BRAND_ATMOSPHERE` in the app's
+`src/renderer/shared/ui/YapprMark.tsx`, and `app/icon.svg`. **Change all three
+together.**
+
+Its highlight is deliberately taller than it is wide and sits off to one side.
+A highlight as wide as the plate reaches both edges at the same height, and the
+eye reads any edge-to-edge change as a ramp however soft it is. Narrow, running
+off the top and bottom, gives light falling *across* the plate instead. Three
+earlier attempts were all ramps; this is the fix, not a preference.
+
+**Where the notch cannot go:** favicons, avatars, and any social profile slot.
+Those are free-floating squares masked to a circle, and a notch detached from a
+top edge is just a rounded rectangle — i.e. the pill this system replaced. Use
+the circle (`app/icon.svg`) there. Below ~32px the wordmark stops being legible
+at all.
 
 **The recording indicator** is NOT that pill. It is the **notch indicator**
 (`NotchIndicator.tsx`, ported from `src/renderer/indicator/`). The app source
@@ -132,15 +162,30 @@ Pulled from `src/renderer/indicator/NotchIndicator.tsx` + `notch-states.ts`.
 **Re-pull rather than approximate** if the app changes.
 
 ```css
-background: #0A0B0F;            /* flat. NOT a gradient — a gradient reads as
-                                   a panel sitting on the screen; flat + a
-                                   hairline rim reads as part of the machine */
+/* HORIZONTAL only. True black under the centre band, lifting to charcoal
+   at the wings. Mirrors BRAND_WING in the app's YapprMark.tsx. */
+background: linear-gradient(90deg,
+  #2B3950 0%, #172130 14%, #000 32%, #000 68%, #172130 86%, #2B3950 100%);
 border-radius: 0 0 11px 11px;   /* square on top — it HANGS from the menu bar */
 box-shadow:
   0 10px 28px rgba(0,0,0,.5),
   inset 0 -1px 0 rgba(255,255,255,.08),
   inset 0 0 0 1px rgba(255,255,255,.05);
 ```
+
+The previous spec here said *flat, NOT a gradient*. That was right about
+**vertical** gradients — top-down shading reads as a panel sitting on the
+screen — and it is still right about them. Across the shape is the opposite
+case: the centre overlaps the physical camera housing, so anything but `#000`
+there is a visible seam, and the illusion the whole indicator rests on is that
+the middle **is** the hardware. Lifting only at the wings, which never pretended
+to be hardware, is what lets the middle disappear. The ramp finishes by 32% so
+the colour is already black *before* the housing starts, not at its edge.
+
+The wings use `CHARCOAL → ABYSS → black` and never touch `SLATE`. The logo
+plate can afford `SLATE` because it is an object on a page; this sits in the
+menu bar over whatever the user is doing, and a lift that bright at the ends
+turns a piece of hardware into a floating widget.
 
 **The organizing rule, from the design handoff — this is load-bearing:**
 the shape is asymmetric with fixed meaning.

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Yappr">
+  <!--
+    The circular mark, for the favicon and any social avatar.
+
+    Circle rather than the notch on purpose: a notch is defined by the top
+    edge it hangs from, and every one of these slots is a free-floating
+    square that gets masked to a circle. Detached, the notch silhouette is
+    just a rounded rectangle, so it would lose the one thing that makes it
+    the Yappr shape. Same plate and same word, so it still reads as the
+    same system.
+
+    Georgia italic, not Instrument Serif: favicons render before any
+    webfont is available and cannot load one, so naming Instrument Serif
+    here would silently fall back to whatever the OS picks. Georgia is on
+    effectively every machine and is the closest widely-installed match.
+
+    The gradient mirrors the "atmosphere" custom property in globals.css
+    (written without its leading dashes here: XML forbids a double hyphen
+    inside a comment, and the browser refuses to render the whole file) and
+    BRAND_ATMOSPHERE in the app's YapprMark.tsx. Three places, no way to
+    share them; change all three together.
+  -->
+  <defs>
+    <linearGradient id="y-base" x1="0" y1="0" x2="0.5" y2="1">
+      <stop offset="0" stop-color="#56677F"/>
+      <stop offset="0.44" stop-color="#2B3950"/>
+      <stop offset="1" stop-color="#172130"/>
+    </linearGradient>
+    <!-- fr/r give the highlight the same soft falloff the CSS gets from
+         its transparent stop; without it SVG holds the colour flat to the
+         edge and the pool becomes a disc. -->
+    <radialGradient id="y-hi" cx="0.26" cy="0.08" r="0.86" fr="0.02">
+      <stop offset="0" stop-color="#D6DEE8" stop-opacity="0.90"/>
+      <stop offset="0.60" stop-color="#D6DEE8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="y-mid" cx="0.88" cy="0.34" r="0.62" fr="0.02">
+      <stop offset="0" stop-color="#96A7BE" stop-opacity="0.42"/>
+      <stop offset="0.66" stop-color="#96A7BE" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="y-deep" cx="0.58" cy="1.12" r="0.98" fr="0.04">
+      <stop offset="0.14" stop-color="#0F1926" stop-opacity="1"/>
+      <stop offset="0.72" stop-color="#0F1926" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <circle cx="32" cy="32" r="32" fill="url(#y-base)"/>
+  <circle cx="32" cy="32" r="32" fill="url(#y-deep)"/>
+  <circle cx="32" cy="32" r="32" fill="url(#y-hi)"/>
+  <circle cx="32" cy="32" r="32" fill="url(#y-mid)"/>
+
+  <text
+    x="32" y="32"
+    text-anchor="middle"
+    dominant-baseline="central"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-style="italic"
+    font-size="16"
+    letter-spacing="-0.15"
+    fill="#FFFFFF"
+  >Yappr</text>
+</svg>

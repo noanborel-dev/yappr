@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { YapprMark } from '../shared/ui/YapprMark'
+import { YapprMark, BRAND_WING, BRAND_CHARCOAL } from '../shared/ui/YapprMark'
 import {
   resolve,
   fromPipelineState,
@@ -605,25 +605,29 @@ export default function NotchIndicator() {
         style={{
           display: 'flex',
           flexDirection: 'column',
-          // HORIZONTAL gradient: true black under the housing, easing to
-          // near-black at the wings.
+          // HORIZONTAL gradient: true black under the housing, lifting to
+          // charcoal blue at the wings.
           //
           // The note this replaces warned off gradients, and it was right
-          // about VERTICAL ones — top-to-top-down shading reads as a
-          // painted panel sitting on the screen. Across the shape is the
+          // about VERTICAL ones — top-down shading reads as a painted
+          // panel sitting on the screen. Across the shape is the
           // opposite: the centre is the part that overlaps the physical
-          // notch, and #0A0B0F against a true-black housing is a visible
-          // seam. Matching it there and lifting only at the wings is what
-          // lets the middle disappear into the hardware while the ends
-          // stay readable — the same reasoning that moved the glow off
-          // centre and onto the wings.
+          // notch, and anything but #000 against a true-black housing is
+          // a visible seam. Matching it there and lifting only at the
+          // wings is what lets the middle disappear into the hardware
+          // while the ends stay readable — the same reasoning that moved
+          // the glow off centre and onto the wings.
+          //
+          // The wings carry the brand's charcoal blue rather than the old
+          // #0A0B0F. That is a bigger lift than before, so the ramp runs
+          // out to 30% instead of 34%, keeping the whole transition clear
+          // of the housing: the colour must already be black BEFORE the
+          // hardware starts, not at its edge.
           //
           // Fully transparent at idle: anything drawn here persists as a
           // visible black slab during Spaces transitions, where the real
           // notch is composited away and ours is left hanging.
-          background: v.isIdle
-            ? 'transparent'
-            : 'linear-gradient(90deg, #0A0B0F 0%, #000 34%, #000 66%, #0A0B0F 100%)',
+          background: v.isIdle ? 'transparent' : BRAND_WING,
           overflow: 'hidden',
           willChange: 'height',
           boxShadow: v.isIdle
@@ -1121,10 +1125,14 @@ function filletStyle(side: 'left' | 'right', opacity: number): React.CSSProperti
     width: 13,
     height: 13,
     pointerEvents: 'none',
+    // BRAND_CHARCOAL, not #000: the fillet fills the corner against the
+    // OUTER edge of a wing, and the wings are charcoal now. Leaving these
+    // black would draw a dark notch either side of the shape — exactly
+    // the seam the fillet exists to remove.
     background:
       side === 'left'
-        ? 'radial-gradient(circle at 0% 100%, transparent 0 13px, #000 13.5px)'
-        : 'radial-gradient(circle at 100% 100%, transparent 0 13px, #000 13.5px)',
+        ? `radial-gradient(circle at 0% 100%, transparent 0 13px, ${BRAND_CHARCOAL} 13.5px)`
+        : `radial-gradient(circle at 100% 100%, transparent 0 13px, ${BRAND_CHARCOAL} 13.5px)`,
     transition: 'opacity 360ms cubic-bezier(.4,0,.2,1)',
     opacity,
   }
