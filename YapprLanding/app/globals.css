@@ -51,11 +51,22 @@
   --charcoal:     #2b3950;  /* live-notch wing tips — NOT the logo plate */
   --abyss:        #172130;  /* live-notch mid stop */
 
-  /* A vertical sheen over the plate. Without it the plate is uniform top
-     to bottom and reads as printed bands rather than an object. Kept to
-     .13 and gone by 46%: enough to imply a surface catching light, not
-     enough to become a glass button. */
-  --plate-sheen:  linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 46%);
+  /* The sheen, on the WINGS ONLY.
+     This was one full-width vertical gradient and it deformed the black
+     centre: the black is a vertical band, and lightening its top left
+     the darkest region as a lens in the lower middle — the housing read
+     as an oval rather than a band. Worst at small sizes, where the 46%
+     falloff covers most of a 38px mark.
+     Two corner pools instead, so the band keeps its full height and
+     square top. Also the truer reading: the black stands for the camera
+     housing, and a housing does not catch a highlight. */
+  --wing-sheen:
+    radial-gradient(58% 96% at 6% 0%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 72%),
+    radial-gradient(58% 96% at 94% 0%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 72%);
+
+  /* The circle keeps a full top sheen: no band to deform, and light from
+     above is what makes a disc read as a disc. */
+  --top-sheen:    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 46%);
 
   /* Symmetric: black at the centre with blue coming up on BOTH sides.
      Light at one edge falling to black at the other was the obvious
@@ -82,7 +93,8 @@
      hits 0 at 50% and is under .05 either side — so the wordmark keeps
      its black ground, it just arrives there gradually. */
   --plate:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 46%),
+    radial-gradient(58% 96% at 6% 0%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 72%),
+    radial-gradient(58% 96% at 94% 0%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 72%),
     linear-gradient(90deg,
       rgba(90, 143, 232, 1) 0%, rgba(88, 138, 226, 0.94) 6%, rgba(80, 126, 208, 0.82) 13%,
       rgba(68, 110, 182, 0.64) 21%, rgba(54, 90, 150, 0.44) 29%, rgba(40, 70, 118, 0.26) 36%,
@@ -5036,10 +5048,68 @@ body {
   display: grid;
   grid-template-columns: 360px 1fr;
   gap: 28px;
-  align-items: start;
+  /* stretch, so the document column is the memory panel's height and can
+     centre against it. With `start` the two tops sat 24px apart; with a
+     fixed min-height they drifted apart again as the document collapsed.
+     Matching the panel is the only version that holds at both ends of
+     the animation. */
+  align-items: stretch;
 }
-.px-right { display: flex; flex-direction: column; justify-content: center; min-height: 360px; }
-.px-mem { display: flex; flex-direction: column; gap: 14px; }
+/* Centred against the memory panel, which the stretched grid makes this
+   column the height of. The arbitrary 360px floor is gone — it was what
+   put the document 24px below the panel at full height and left a void
+   beside it once collapsed. */
+.px-right { display: flex; flex-direction: column; justify-content: center; }
+
+/* ── The memory panel ────────────────────────────────────────────────
+   Colour carries the argument here: this side is YAPPR'S, the document
+   opposite is YOURS. Two white cards on cream said nothing about which
+   was which, and the section read as a form.
+
+   It is one panel, not the two cards it replaced. Yappr holds one
+   memory of you; splitting it into a preferences box and a project box
+   drew it as a settings screen with two fields.
+
+   Deep navy rather than the logo plate. The plate's black centre is
+   correct for a small wide mark and unreadable behind a paragraph — the
+   text would sit on a blue-to-black ramp. Same palette, panel geometry. */
+.px-mem {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  padding: 4px 22px 20px;
+  background:
+    radial-gradient(120% 92% at 0% 0%, rgba(90, 143, 232, 0.30), rgba(90, 143, 232, 0) 62%),
+    radial-gradient(96% 84% at 100% 100%, rgba(46, 86, 151, 0.34), rgba(46, 86, 151, 0) 68%),
+    linear-gradient(158deg, #17304f 0%, #0e1a2e 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 30px 60px -34px rgba(12, 26, 46, 0.62);
+}
+
+/* The light that arrives when a line is absorbed.
+   It enters from the RIGHT — the side the document is on — so the
+   motion reads as the line crossing over rather than the panel simply
+   blinking. Retriggered by remounting on a React key, which is why
+   there is no "off" state to manage. */
+.px-absorb {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(62% 100% at 100% 50%, rgba(90, 143, 232, 0.5), rgba(90, 143, 232, 0) 72%);
+  opacity: 0;
+  animation: px-absorb 760ms cubic-bezier(0.3, 0, 0.2, 1) forwards;
+}
+@keyframes px-absorb {
+  0%   { opacity: 0; }
+  24%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .px-absorb { animation: none; }
+}
 
 .px-doc {
   background: #fff;
@@ -5104,20 +5174,22 @@ body {
 /* What Yappr is holding. Two cards, small then large: how you write, then
    what you're building. Written as notes rather than as a settings panel —
    this is a memory, not a form the user has to fill in. */
+/* Zones inside the panel, not cards on it. The hairline is the only
+   separation they need — boxes inside a box is the look this replaced. */
 .px-card {
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 18px 20px 17px;
-  box-shadow: 0 18px 40px -30px rgba(20, 30, 50, 0.28);
+  position: relative;
+  z-index: 1;
+  padding: 18px 0 0;
 }
-.px-card p { margin: 0 0 6px; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
+.px-card + .px-card { border-top: 1px solid rgba(255, 255, 255, 0.11); margin-top: 18px; }
+.px-card p { margin: 0 0 6px; font-size: 14.5px; line-height: 1.5; color: rgba(255, 255, 255, 0.76); }
 .px-card p:last-of-type { margin-bottom: 0; }
-.px-card em { font-style: italic; color: var(--ink); }
+.px-card em { font-style: italic; color: #fff; }
 .px-card code {
   font-family: var(--font-mono);
   font-size: 12.5px;
-  background: rgba(20, 30, 50, 0.05);
+  color: #b9d0f4;
+  background: rgba(90, 143, 232, 0.16);
   border-radius: 4px;
   padding: 1px 5px;
 }
@@ -5127,15 +5199,16 @@ body {
   font-size: 9.5px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.44);
   margin-bottom: 11px;
 }
 
 .px-proj-name {
   font-family: var(--font-serif);
-  font-size: 26px !important;
+  font-style: italic;
+  font-size: 28px !important;
   line-height: 1.1 !important;
-  color: var(--ink) !important;
+  color: #fff !important;
   margin-bottom: 5px !important;
 }
 .px-proj-desc { margin-bottom: 13px !important; }
@@ -5145,9 +5218,9 @@ body {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.01em;
-  color: var(--ink-2);
-  background: rgba(20, 30, 50, 0.045);
-  border: 1px solid var(--line);
+  color: #b9d0f4;
+  background: rgba(90, 143, 232, 0.14);
+  border: 1px solid rgba(90, 143, 232, 0.28);
   border-radius: 999px;
   padding: 3px 9px;
 }
@@ -5160,17 +5233,20 @@ body {
   gap: 7px;
   margin-top: 15px;
   padding-top: 13px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid rgba(255, 255, 255, 0.11);
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.52);
 }
+/* The dot stays green on the navy. It is a status colour, not a brand
+   one — turning it blue here would make "saved" and "Yappr" the same
+   signal, and the whole point is that this one means something. */
 .px-saved i {
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: #4a9d6e;
+  background: #5cc48c;
   flex: none;
-  box-shadow: 0 0 0 3px rgba(74, 157, 110, 0.16);
+  box-shadow: 0 0 0 3px rgba(92, 196, 140, 0.2);
 }
 
 @media (max-width: 900px) {
@@ -5178,17 +5254,28 @@ body {
 }
 
 
-/* The vocabulary-vs-project line under the context card */
+/* The vocabulary-vs-project line under the context card.
+   Kept, and kept exact: rival tools really do persist a personal
+   dictionary, so the honest claim is that they learn your VOCABULARY
+   while this learns your PROJECT. Never sharpen it into "they have no
+   memory" — see CLAUDE.md.
+   The two nouns now carry the contrast in colour as well as italics,
+   which is what stops the line reading as an orphaned caption. */
 .pc-versus {
   max-width: 860px;
-  margin: 26px auto 0;
+  margin: 30px auto 0;
   text-align: center;
   font-family: var(--font-serif);
   font-size: clamp(19px, 2vw, 24px);
   line-height: 1.35;
-  color: var(--ink-2);
+  color: var(--muted);
 }
 .pc-versus em { font-style: italic; color: var(--ink); }
+.pc-versus .is-ours {
+  color: var(--deep);
+  border-bottom: 2px solid rgba(90, 143, 232, 0.34);
+  padding-bottom: 1px;
+}
 
 /* ============================================================
    Mobile corrections

@@ -37,10 +37,32 @@ function bucketBlurb(key: string): string {
   return 'Added only when you are working on this project.'
 }
 
+// The three scopes looked identical, which hid the one difference that
+// actually matters: "Everywhere" is added to EVERY dictation, while a
+// project's facts are added only when you're in it. A user scanning this
+// list had no way to see that one card has far more reach than the rest.
+//
+// Cobalt is the same #5A8FE8 the landing page's memory panel uses, so
+// "this is what Yappr remembers" is one colour across both surfaces.
+//
+// Unsorted is dashed rather than coloured. It is an ABSENCE — Yappr could
+// not tell which project these belonged to — and a warning colour would
+// claim something went wrong when the refusal to guess is the feature.
 function ScopeChip({ scope }: { scope: string }) {
-  const label = scope === GLOBAL_KEY ? 'global' : scope === UNSORTED_KEY ? 'unsorted' : 'project'
+  const global = scope === GLOBAL_KEY
+  const unsorted = scope === UNSORTED_KEY
+  // 'global', not 'everywhere' — the card's own title already reads
+  // "Everywhere", and a chip repeating it says nothing.
+  const label = global ? 'global' : unsorted ? 'unsorted' : 'project'
+  const tone = global
+    ? 'text-cobalt border-cobalt bg-cobalt-soft'
+    : unsorted
+      ? 'text-ink-45 border-line border-dashed'
+      : 'text-ink-45 border-line'
   return (
-    <span className="shrink-0 text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 border border-line rounded-full px-1.5 py-px">
+    <span
+      className={`shrink-0 text-[9.5px] font-mono uppercase tracking-[0.12em] border rounded-full px-1.5 py-px ${tone}`}
+    >
       {label}
     </span>
   )
@@ -128,7 +150,14 @@ export function ProjectCards() {
   return (
     <div className="flex flex-col gap-3">
       {buckets.map(bucket => (
-        <Card key={bucket.key} className="p-4">
+        // A cobalt rail on the global card only. Same reason as the chip:
+        // this is the bucket that reaches every dictation, and in a list of
+        // otherwise-identical cards that needs to be visible before you
+        // read a word.
+        <Card
+          key={bucket.key}
+          className={`p-4 ${bucket.key === GLOBAL_KEY ? 'border-l-2 border-l-cobalt' : ''}`}
+        >
           <div className="flex items-baseline justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">

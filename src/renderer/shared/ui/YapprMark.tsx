@@ -95,13 +95,30 @@ export const BRAND_AZURE = '#2E5697'
 export const BRAND_DEEP = '#16305C'
 
 /**
- * A vertical sheen, laid over the plate.
+ * The sheen, on the WINGS ONLY.
  *
- * Without it the plate is uniform top to bottom and reads as printed
- * bands rather than an object. Kept to .13 and gone by 46%: enough to
- * imply a surface catching light, not enough to become a glass button.
+ * This was one full-width `linear-gradient(180deg, …)` across the whole
+ * plate, and it deformed the black centre. The black is a vertical band;
+ * lightening its top left the darkest region as a lens in the lower
+ * middle, so the housing read as an oval rather than a band — "more
+ * circular than square". Worse at small sizes, where the sheen's 46%
+ * covers most of a 38px-tall mark.
+ *
+ * Two corner pools instead, one per wing, so the black band keeps its
+ * full height and square top. That also happens to be the truer reading:
+ * the black stands for the camera housing, and a housing does not catch
+ * a highlight.
+ *
+ * The circle keeps a full top sheen (TOP_SHEEN) — it has no band to
+ * deform, and light falling from above is what makes a disc read as a
+ * disc rather than a flat counter.
  */
-const PLATE_SHEEN = 'linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0) 46%)'
+const WING_SHEEN = [
+  'radial-gradient(58% 96% at 6% 0%, rgba(255,255,255,0.18), rgba(255,255,255,0) 72%)',
+  'radial-gradient(58% 96% at 94% 0%, rgba(255,255,255,0.18), rgba(255,255,255,0) 72%)',
+].join(', ')
+
+const TOP_SHEEN = 'linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0) 46%)'
 
 // ─── How the blue meets the black ───────────────────────────────────
 //
@@ -160,7 +177,7 @@ export const BRAND_ABYSS = '#172130'
  * 50% and is under .05 either side of it), so the wordmark keeps a black
  * ground; it just arrives there gradually instead of at a line.
  */
-export const BRAND_PLATE = `${PLATE_SHEEN}, linear-gradient(90deg, ${FALLOFF}), #000`
+export const BRAND_PLATE = `${WING_SHEEN}, linear-gradient(90deg, ${FALLOFF}), #000`
 
 /**
  * The plate for containers with no long axis — circles and squircles.
@@ -171,7 +188,7 @@ export const BRAND_PLATE = `${PLATE_SHEEN}, linear-gradient(90deg, ${FALLOFF}), 
  * is what a favicon needs: it gets masked, rotated and shrunk by
  * platforms that never ask first.
  */
-export const BRAND_PLATE_RADIAL = `${PLATE_SHEEN}, radial-gradient(circle at 50% 50%, ${[
+export const BRAND_PLATE_RADIAL = `${TOP_SHEEN}, radial-gradient(circle at 50% 50%, ${[
   // Same dissolve as FALLOFF, but the stops come in EARLIER. Area on a
   // disc grows with the square of the radius, so the outer ring holds
   // far more pixels than the middle: reusing the linear curve crushed

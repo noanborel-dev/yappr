@@ -76,12 +76,24 @@ export function PersistentContext() {
               Stop re-explaining your <em>project</em>.
             </>
           }
-          lede="Every conversation starts with the same five lines of setup. Yappr already knows them, so you skip to the question."
+          // "Every conversation starts with the same five lines of setup"
+          // came out. The stage below IS those five lines, being struck
+          // out one at a time — saying it first turns the animation into
+          // an illustration of the sentence instead of the argument.
+          lede="It already knows. You skip to the question."
         />
 
         <ScrollExpand from={0.95}>
           <div className="px-stage">
             <div className="px-mem">
+              {/* A pulse of light each time a line is absorbed, entering
+                  from the document side. Keyed on the strike count so
+                  React remounts it and the one-shot animation replays —
+                  the alternative is a boolean plus a timeout to clear it,
+                  which is state that can desync from the thing it is
+                  supposed to be following. */}
+              {struck > 0 && <span key={struck} className="px-absorb" aria-hidden="true" />}
+
               {/* Preferences sits above the project card: it's the smaller,
                   more personal of the two, and it's what makes the output
                   sound like you rather than like a model. */}
@@ -143,9 +155,12 @@ export function PersistentContext() {
         </ScrollExpand>
 
         <Reveal delay={140}>
+          {/* Stays, and stays exact. Rival tools DO persist a personal
+              dictionary, so the honest claim is vocabulary vs project —
+              never "they have no memory". */}
           <p className="pc-versus">
             Other voice tools learn your <em>vocabulary</em>. This one learns
-            your <em>project</em>.
+            your <em className="is-ours">project</em>.
           </p>
         </Reveal>
       </div>

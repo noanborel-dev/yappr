@@ -598,8 +598,8 @@ export default function NotchIndicator() {
           between its side and the menu bar so it appears to grow out of
           the bar rather than sit on it. They cannot be children of the
           shape itself, which clips. */}
-      <span style={filletStyle('left', v.fillet)} />
-      <span style={filletStyle('right', v.fillet)} />
+      <span style={filletStyle('left', v.fillet, v.transition)} />
+      <span style={filletStyle('right', v.fillet, v.transition)} />
 
       <div
         style={{
@@ -1117,7 +1117,30 @@ export default function NotchIndicator() {
   )
 }
 
-function filletStyle(side: 'left' | 'right', opacity: number): React.CSSProperties {
+/**
+ * The concave corner where a wing meets the screen edge.
+ *
+ * The transition is the WING'S, passed in — not a duration of its own.
+ * It used to be a hardcoded `360ms`, and the wings grow over
+ * GROW_TRANSITION's 560ms, so the fillets reached full opacity 200ms
+ * before the shape they are supposed to be filleting had finished
+ * arriving. On screen that is two small triangles appearing beside the
+ * notch, on their own, ahead of the bar — which is what the user
+ * reported seeing at the start and end of every dictation. Same fault on
+ * exit against SHRINK_TRANSITION's 440ms, 80ms early.
+ *
+ * A fillet is part of the shape's silhouette, so it can never have its
+ * own timing: whatever the width does, this does.
+ *
+ * GROW_TRANSITION overshoots (cubic-bezier's 1.08), which would push
+ * opacity past 1. CSS clamps it, and the clamp is doing something useful
+ * here — the corner reads as solid right as the wing hits its peak.
+ */
+function filletStyle(
+  side: 'left' | 'right',
+  opacity: number,
+  transition: string,
+): React.CSSProperties {
   return {
     position: 'absolute',
     top: 0,
@@ -1133,7 +1156,7 @@ function filletStyle(side: 'left' | 'right', opacity: number): React.CSSProperti
       side === 'left'
         ? `radial-gradient(circle at 0% 100%, transparent 0 13px, ${BRAND_CHARCOAL} 13.5px)`
         : `radial-gradient(circle at 100% 100%, transparent 0 13px, ${BRAND_CHARCOAL} 13.5px)`,
-    transition: 'opacity 360ms cubic-bezier(.4,0,.2,1)',
+    transition: `opacity ${transition}`,
     opacity,
   }
 }

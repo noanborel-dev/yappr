@@ -161,6 +161,15 @@ Three things about it are load-bearing:
 - **Symmetric, not directional.** Light at one edge falling to black at the
   other was the obvious first thought, but it stops being the same object when
   mirrored or set against a right-hand margin.
+- **The sheen sits on the WINGS ONLY (`--wing-sheen`), never across the whole
+  plate.** A full-width vertical sheen deforms the black centre: the black is a
+  vertical band, and lightening its top leaves the darkest region as a lens in
+  the lower middle, so the housing reads as an oval rather than a band. Worst at
+  small sizes, where a 46% falloff covers most of a 38px mark. Two corner pools
+  keep the band full-height and square-topped — and the black stands for the
+  camera housing, which should not catch a highlight anyway. `--plate-radial`
+  keeps a full `--top-sheen`: a disc has no band to deform, and light from above
+  is what makes it read as a disc.
 
 > ⚠️ This previously documented a soft four-layer *atmosphere* — pools of cool
 > light drifting over charcoal, built from a reference photograph. **It was
