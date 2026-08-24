@@ -74,13 +74,15 @@ the FAQ, verbatim and not to be reworded.
 --pill-glow:    rgba(232,74,58,0.8);
 --pill-blur:    34px;
 
-/* The atmosphere — the brand plate. Mirrored in the app's YapprMark.tsx
+/* The plate — the brand mark's fill. Mirrored in the app's YapprMark.tsx
    and in app/icon.svg; change all three together. */
---mist:         #D6DEE8;  /* the highlight */
---haze:         #96A7BE;  /* where it falls off */
---slate:        #56677F;  /* plate only — never the live notch wings */
---charcoal:     #2B3950;  /* the body colour, and the wing tips */
---abyss:        #172130;  /* deepest. NOT black — black is the housing */
+--sky:          #5A8FE8;  /* lighter blue, at the edges. SAME as --cobalt */
+--azure:        #2E5697;  /* middle step — without it the ramp is a hard edge */
+--deep:         #16305C;  /* darker blue, last stop before black */
+
+/* Live notch only — never the logo plate. */
+--charcoal:     #2B3950;  /* the wing tips */
+--abyss:        #172130;  /* the wing's mid stop. NOT black — black is the housing */
 ```
 
 Light mode only. No dark mode — the cream IS the brand.
@@ -121,23 +123,40 @@ Headlines drop the period unless the sentence is the punchline. Italic is reserv
 ### 1. Two different objects — do not merge them
 
 **The brand mark** (`PillLogo.tsx`) is the **notch silhouette** — square across
-the top, rounded only at the bottom — carrying the charcoal-blue *atmosphere*
-plate, a red dot and the wordmark in italic serif. Nav (centred, hanging from
-the top edge), footer, final CTA.
+the top, rounded only at the bottom — carrying the **plate**, a red dot and the
+wordmark in italic serif. Nav (centred, hanging from the top edge), footer,
+final CTA.
 
 It is no longer a pill and no longer flat charcoal. The filename survives to
 avoid churn across three call sites; the shape and fill do not.
 
-**The atmosphere** is defined once as `--atmosphere` in `app/globals.css` and
-mirrored in two places that cannot import it — `BRAND_ATMOSPHERE` in the app's
+**The plate** is lighter blue at the edges, darker blue inboard, **black through
+the middle** — which is to say BRAND_WING's structure drawn at logo scale. The
+mark is a portrait of the indicator, so it is built the way the indicator is.
+Defined as `--plate` / `--plate-radial` in `app/globals.css` and mirrored in two
+places that cannot import it: `BRAND_PLATE` / `BRAND_PLATE_RADIAL` in the app's
 `src/renderer/shared/ui/YapprMark.tsx`, and `app/icon.svg`. **Change all three
 together.**
 
-Its highlight is deliberately taller than it is wide and sits off to one side.
-A highlight as wide as the plate reaches both edges at the same height, and the
-eye reads any edge-to-edge change as a ramp however soft it is. Narrow, running
-off the top and bottom, gives light falling *across* the plate instead. Three
-earlier attempts were all ramps; this is the fix, not a preference.
+Three things about it are load-bearing:
+
+- **`--sky` is the same value as `--cobalt`.** The logo's lighter blue and the
+  product's accent are one colour, not two blues that nearly match — two would
+  drift, because nobody can tell them apart well enough to keep them in sync.
+- **Black is held flat from 34% to 66%**, not passed through at a midpoint. A
+  gradient that merely crosses black never reads as black, and the wordmark
+  ends up on a slightly-blue ground that shifts with the plate's size. 34/66 is
+  BRAND_WING's own geometry: same object, same proportions. A narrower band was
+  tried and failed at nav size — ~14px of black under a ~45px word.
+- **Symmetric, not directional.** Light at one edge falling to black at the
+  other was the obvious first thought, but it stops being the same object when
+  mirrored or set against a right-hand margin.
+
+> ⚠️ This previously documented a soft four-layer *atmosphere* — pools of cool
+> light drifting over charcoal, built from a reference photograph. **It was
+> removed for looking like the reference.** The soft-blob treatment is that
+> brand's signature, and wearing it made Yappr look like a follower. If you
+> find `--atmosphere` or `BRAND_ATMOSPHERE` anywhere, it is a leftover.
 
 **Where the notch cannot go:** favicons, avatars, and any social profile slot.
 Those are free-floating squares masked to a circle, and a notch detached from a

@@ -1,10 +1,10 @@
-<title>Yappr Atmosphere</title>
+<title>Yappr Blue</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 
 <style>
-  /* Single-theme on purpose. Every specimen is a charcoal-blue plate
-     judged against a ground; letting the ground flip would change the
-     answer, so it is fixed and painted explicitly. */
+  /* Single-theme on purpose. Every specimen is a dark plate judged
+     against a ground; letting the ground flip would change the answer,
+     so it is fixed and painted explicitly. */
   :root {
     --ground:  #0C0D11;
     --surface: #141520;
@@ -12,7 +12,7 @@
     --text-60: rgba(242,241,238,0.62);
     --text-40: rgba(242,241,238,0.40);
     --rule:    rgba(242,241,238,0.10);
-    --pick:    #8FB4F2;
+    --pick:    #5A8FE8;
     --no:      #E8776A;
     --yes:     #7FD6A8;
 
@@ -20,16 +20,18 @@
     --sans:  "IBM Plex Sans", -apple-system, system-ui, sans-serif;
     --mono:  "IBM Plex Mono", ui-monospace, Menlo, monospace;
 
-    /* THE ATMOSPHERE — mirrors --atmosphere in YapprLanding/app/globals.css,
-       BRAND_ATMOSPHERE in src/renderer/shared/ui/YapprMark.tsx, and
-       YapprLanding/app/icon.svg. */
-    --atmosphere:
-      radial-gradient(58% 120% at 26% 8%, rgba(214,222,232,0.90), rgba(214,222,232,0) 60%),
-      radial-gradient(46% 80% at 88% 34%, rgba(150,167,190,0.42), rgba(150,167,190,0) 66%),
-      radial-gradient(120% 120% at 58% 112%, #0F1926 14%, rgba(15,25,38,0) 72%),
-      linear-gradient(148deg, #56677F 0%, #2B3950 44%, #172130 100%);
+    --sheen: linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0) 46%);
 
-    /* THE WING — the live notch. Centre is #000 and must stay #000. */
+    /* THE PLATE — mirrors --plate in YapprLanding/app/globals.css and
+       BRAND_PLATE in src/renderer/shared/ui/YapprMark.tsx. */
+    --plate: var(--sheen),
+      linear-gradient(90deg, #5A8FE8 0%, #2E5697 11%, #16305C 23%,
+        #000 34%, #000 66%, #16305C 77%, #2E5697 89%, #5A8FE8 100%);
+
+    --plate-radial: var(--sheen),
+      radial-gradient(circle at 50% 50%, #000 0%, #000 24%, #16305C 58%, #2E5697 78%, #5A8FE8 100%);
+
+    /* THE WING — the live notch. Unchanged, and staying that way. */
     --wing: linear-gradient(90deg, #2B3950 0%, #172130 14%, #000 32%, #000 68%, #172130 86%, #2B3950 100%);
   }
 
@@ -40,7 +42,7 @@
     font-family: var(--sans); font-size: 15px; line-height: 1.6;
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 56px 32px 110px; }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 56px 32px 110px; }
 
   header { border-bottom: 1px solid var(--rule); padding-bottom: 34px; }
   h1 {
@@ -55,21 +57,22 @@
     font-family: var(--serif); font-weight: 400; font-size: 27px;
     letter-spacing: -0.01em; margin: 54px 0 4px;
   }
-  .sub { color: var(--text-40); margin: 0 0 22px; font-size: 14px; max-width: 64ch; }
+  .sub { color: var(--text-40); margin: 0 0 22px; font-size: 14px; max-width: 66ch; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 18px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
   .grid--wide { grid-template-columns: 1fr; }
 
-  .plate { background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; }
-  .stage { display: flex; align-items: center; justify-content: center; padding: 36px 22px; min-height: 190px; }
+  .plate-card { background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; }
+  .stage { display: flex; align-items: center; justify-content: center; padding: 34px 22px; min-height: 186px; gap: 24px; }
   .stage--hangs { align-items: flex-start; padding-top: 0; }
   .cap { padding: 15px 18px 18px; border-top: 1px solid var(--rule); }
   .cap h3 { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
   .cap p  { margin: 0; font-size: 12.5px; color: var(--text-40); }
-  .cap code { font-family: var(--mono); font-size: 11.5px; color: var(--text-60); }
+  code { font-family: var(--mono); font-size: 11.5px; color: var(--text-60); }
 
   /* ── The mark ─────────────────────────────────────────────────── */
-  .atmo { background: var(--atmosphere); }
+  .fill      { background: var(--plate); }
+  .fill--rad { background: var(--plate-radial); }
   .word {
     font-family: var(--serif); font-style: italic; line-height: 1;
     letter-spacing: -0.005em; white-space: nowrap; color: #FFFFFF;
@@ -77,22 +80,22 @@
   .dot { border-radius: 999px; flex: none; background: #E84A3A; }
 
   .notch {
-    border-radius: 0 0 24px 24px; padding: 16px 32px 18px;
-    display: inline-flex; align-items: center; gap: 12px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 8px 24px rgba(16,22,31,.34);
+    border-radius: 0 0 24px 24px; padding: 16px 34px 18px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 12px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 8px 24px rgba(12,20,38,.40);
   }
   .notch .word { font-size: 32px; }
   .notch .dot  { width: 10px; height: 10px; }
-  .notch--sm { border-radius: 0 0 13px 13px; padding: 9px 17px 11px; gap: 7px; }
+  .notch--sm { border-radius: 0 0 13px 13px; padding: 9px 18px 11px; gap: 7px; }
   .notch--sm .word { font-size: 18px; }
   .notch--sm .dot  { width: 6px; height: 6px; }
 
   .circle {
-    width: 128px; height: 128px; border-radius: 999px; flex: none;
+    width: 126px; height: 126px; border-radius: 999px; flex: none;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 8px 24px rgba(16,22,31,.34);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 8px 24px rgba(12,20,38,.40);
   }
-  .circle .word { font-size: 27px; }
+  .circle .word { font-size: 26px; }
   .circle--sm { width: 44px; height: 44px; }
   .circle--sm .word { font-size: 9.5px; }
 
@@ -103,12 +106,12 @@
     box-shadow: 0 10px 28px rgba(0,0,0,.5), inset 0 -1px 0 rgba(255,255,255,.08);
     overflow: hidden;
   }
-  .bar .housing { width: 132px; flex: none; }
+  .bar .housing { width: 130px; flex: none; }
   .bar .side { display: flex; align-items: center; gap: 7px; padding: 0 13px; flex: none; }
-  .lvl { display: flex; align-items: center; gap: 2.5px; height: 13px; }
-  .lvl i { width: 2px; border-radius: 1px; background: #5A8FE8; display: block; }
   .bar .word { font-size: 15px; }
   .bar .dot { width: 6px; height: 6px; }
+  .lvl { display: flex; align-items: center; gap: 2.5px; height: 13px; }
+  .lvl i { width: 2px; border-radius: 1px; background: #5A8FE8; display: block; }
   .menubar {
     background: rgba(255,255,255,.10); border-bottom: 1px solid rgba(255,255,255,.16);
     height: 34px; position: relative; backdrop-filter: blur(8px);
@@ -117,9 +120,9 @@
   .desk { background: linear-gradient(160deg, #4C5B77 0%, #2A3550 60%, #1A2230 100%); }
 
   /* ── Swatches ─────────────────────────────────────────────────── */
-  .swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 12px; }
   .sw { border: 1px solid var(--rule); border-radius: 11px; overflow: hidden; }
-  .sw i { display: block; height: 64px; }
+  .sw i { display: block; height: 62px; }
   .sw div { padding: 9px 12px 11px; font-family: var(--mono); font-size: 11.5px; }
   .sw b { display: block; font-family: var(--sans); font-size: 12.5px; font-weight: 600; margin-bottom: 2px; }
   .sw span { color: var(--text-40); }
@@ -128,9 +131,12 @@
   .v-no  { color: var(--no); }
   .v-yes { color: var(--yes); }
 
-  .rule { border-left: 2px solid var(--pick); background: rgba(143,180,242,0.06);
-          padding: 15px 18px; margin: 24px 0 0; font-size: 14px; color: var(--text-60); max-width: 74ch; }
-  .rule strong { color: var(--text); font-weight: 600; }
+  .rule-note {
+    border-left: 2px solid var(--pick); background: rgba(90,143,232,0.07);
+    padding: 15px 18px; margin: 24px 0 0; font-size: 14px;
+    color: var(--text-60); max-width: 76ch;
+  }
+  .rule-note strong { color: var(--text); font-weight: 600; }
 
   footer { margin-top: 66px; padding-top: 26px; border-top: 1px solid var(--rule);
            font-family: var(--mono); font-size: 12px; color: var(--text-40); }
@@ -142,86 +148,142 @@
 
   <header>
     <div style="margin-bottom:30px">
-      <span class="notch notch--sm atmo"><span class="dot"></span><span class="word">Yappr</span></span>
+      <span class="notch notch--sm fill"><span class="dot"></span><span class="word">Yappr</span></span>
     </div>
-    <h1>The charcoal-blue<br><em>atmosphere</em>.</h1>
+    <h1>Lighter blue, darker blue,<br><em>black in the middle</em>.</h1>
     <p class="lede">
-      What shipped. The notch is now the container rather than a picture of
-      hardware, so it renders the same on a notchless MacBook, a PC and a
-      phone. Live on branch <code style="font-family:var(--mono);font-size:14px">worktree-settings-polish</code>.
+      The mark is now built the way the indicator is: lit at the edges, black
+      through the centre. Same structure, logo scale. The live notch itself is
+      untouched — it was already right.
     </p>
   </header>
 
-  <h2>The palette</h2>
-  <p class="sub">Five values. Black is not one of them — black belongs to the camera housing.</p>
-  <div class="swatches">
-    <div class="sw"><i style="background:#D6DEE8"></i><div><b>Mist</b><span>#D6DEE8 · the highlight</span></div></div>
-    <div class="sw"><i style="background:#96A7BE"></i><div><b>Haze</b><span>#96A7BE · falloff</span></div></div>
-    <div class="sw"><i style="background:#56677F"></i><div><b>Slate</b><span>#56677F · plate only</span></div></div>
-    <div class="sw"><i style="background:#2B3950"></i><div><b>Charcoal</b><span>#2B3950 · body, wing tips</span></div></div>
-    <div class="sw"><i style="background:#172130"></i><div><b>Abyss</b><span>#172130 · deepest</span></div></div>
+  <h2>Why the last one had to go</h2>
+  <p class="sub">Worth recording, because it looked fine in isolation.</p>
+  <div class="grid">
+    <div class="plate-card">
+      <div class="stage stage--hangs" style="background:#0A0B0F">
+        <span class="notch" style="background:
+          radial-gradient(58% 120% at 26% 8%, rgba(214,222,232,.90), rgba(214,222,232,0) 60%),
+          radial-gradient(46% 80% at 88% 34%, rgba(150,167,190,.42), rgba(150,167,190,0) 66%),
+          linear-gradient(148deg,#56677F 0%,#2B3950 44%,#172130 100%)">
+          <span class="dot"></span><span class="word">Yappr</span>
+        </span>
+      </div>
+      <div class="cap"><h3>The atmosphere <span class="verdict v-no">removed</span></h3>
+        <p>Soft pools of cool light over charcoal, built from a reference photograph. The soft-blob treatment <em>is</em> that brand's signature — wearing it made Yappr look like a follower. Borrow a structure, not a surface.</p></div>
+    </div>
+    <div class="plate-card">
+      <div class="stage stage--hangs" style="background:#0A0B0F">
+        <span class="notch fill"><span class="dot"></span><span class="word">Yappr</span></span>
+      </div>
+      <div class="cap"><h3>The plate <span class="verdict v-yes">shipped</span></h3>
+        <p>Borrowed from the product instead. The wordmark also gains a ground of its own: on the mesh it sat on whatever the light happened to be doing, and its contrast changed with the size of the plate.</p></div>
+    </div>
   </div>
 
-  <p class="rule">
-    <strong>Slate never touches the live notch.</strong> The logo plate can
-    afford it — it is an object on a page. The indicator sits in the menu bar
-    over whatever you are doing, and a lift that bright at the ends turns a
-    piece of hardware into a floating widget.
+  <h2>The palette</h2>
+  <p class="sub">Three blues and black. Black is a stop here, not a background.</p>
+  <div class="swatches">
+    <div class="sw"><i style="background:#5A8FE8"></i><div><b>Sky</b><span>#5A8FE8 · the edges</span></div></div>
+    <div class="sw"><i style="background:#2E5697"></i><div><b>Azure</b><span>#2E5697 · middle step</span></div></div>
+    <div class="sw"><i style="background:#16305C"></i><div><b>Deep</b><span>#16305C · before black</span></div></div>
+    <div class="sw"><i style="background:#000000"></i><div><b>Black</b><span>#000 · 34–66%</span></div></div>
+  </div>
+
+  <p class="rule-note">
+    <strong>Sky is the same value as the product's accent.</strong> <code>#5A8FE8</code>
+    is already the waveform bars, the spinner and the done-check. Picking a
+    second, nearly-identical blue for the logo is how a palette starts drifting —
+    nobody can tell them apart, so nobody keeps them in sync.
   </p>
+
+  <h2>Three decisions worth keeping</h2>
+  <p class="sub">Each of these was the second thing tried, not the first.</p>
+  <div class="grid">
+    <div class="plate-card">
+      <div class="stage" style="background:#0A0B0F">
+        <span class="notch notch--sm" style="background:var(--sheen),linear-gradient(90deg,#5A8FE8 0%,#16305C 40%,#000 100%)">
+          <span class="dot"></span><span class="word">Yappr</span>
+        </span>
+      </div>
+      <div class="cap"><h3>Not directional <span class="verdict v-no">rejected</span></h3>
+        <p>Light at one edge falling to black at the other was the obvious first thought. It stops being the same object when mirrored or set against a right-hand margin.</p></div>
+    </div>
+
+    <div class="plate-card">
+      <div class="stage" style="background:#0A0B0F">
+        <span class="notch notch--sm" style="background:var(--sheen),linear-gradient(90deg,#5A8FE8 0%,#16305C 44%,#000 50%,#16305C 56%,#5A8FE8 100%)">
+          <span class="dot"></span><span class="word">Yappr</span>
+        </span>
+      </div>
+      <div class="cap"><h3>Black held flat, not crossed <span class="verdict v-no">rejected</span></h3>
+        <p>A gradient that merely passes <em>through</em> black never reads as black. The word ends up on a slightly-blue ground that shifts as the plate is resized.</p></div>
+    </div>
+
+    <div class="plate-card">
+      <div class="stage" style="background:#0A0B0F">
+        <span class="notch notch--sm" style="background:var(--sheen),linear-gradient(90deg,#5A8FE8 0%,#2E5697 13%,#16305C 29%,#000 42%,#000 58%,#16305C 71%,#2E5697 87%,#5A8FE8 100%)">
+          <span class="dot"></span><span class="word">Yappr</span>
+        </span>
+      </div>
+      <div class="cap"><h3>34/66, not 42/58 <span class="verdict v-no">rejected</span></h3>
+        <p>Shown here at the narrower band: ~14px of black under a ~45px word at nav size, so the word straddles all three colours. 34/66 is the live notch's own geometry — same object, same proportions.</p></div>
+    </div>
+  </div>
 
   <h2>Website — the notch, centred</h2>
   <p class="sub">Hangs from the top edge of the page, where the notch is on the machine.</p>
   <div class="grid">
-    <div class="plate">
+    <div class="plate-card">
       <div class="stage stage--hangs" style="background:#F4F5F8">
-        <span class="notch atmo"><span class="dot"></span><span class="word">Yappr</span></span>
+        <span class="notch fill"><span class="dot"></span><span class="word">Yappr</span></span>
       </div>
       <div class="cap"><h3>On the cream page</h3>
-        <p>The plate carries its own contrast, so the mark needs nothing from the page behind it.</p></div>
+        <p>Carries its own contrast, so it needs nothing from the page behind it.</p></div>
     </div>
-    <div class="plate">
+    <div class="plate-card">
       <div class="stage stage--hangs" style="background:#0A0B0F">
-        <span class="notch atmo"><span class="dot"></span><span class="word">Yappr</span></span>
+        <span class="notch notch--sm fill"><span class="dot"></span><span class="word">Yappr</span></span>
       </div>
-      <div class="cap"><h3>On dark</h3>
-        <p>Still separates, because the highlight is lighter than any ground it sits on.</p></div>
+      <div class="cap"><h3>At real nav size</h3>
+        <p>86&times;38 in the browser. The word sits fully on black at this size, which is what the wider band bought.</p></div>
     </div>
   </div>
 
   <h2>Favicon and social — the circle</h2>
   <p class="sub">
-    The one place the notch cannot go. These slots are free-floating squares
-    masked to a circle, and a notch detached from a top edge is just a rounded
-    rectangle — the pill this system replaced.
+    Radial, not the horizontal plate: a left-to-right ramp inside a circle reads
+    as a sphere lit from one side.
   </p>
   <div class="grid">
-    <div class="plate">
+    <div class="plate-card">
       <div class="stage" style="background:#0A0B0F">
-        <span class="circle atmo"><span class="word">Yappr</span></span>
+        <span class="circle fill--rad"><span class="word">Yappr</span></span>
       </div>
       <div class="cap"><h3>Avatar <span class="verdict v-yes">holds</span></h3>
-        <p>64px and up. What a social profile actually shows.</p></div>
+        <p>64px and up. Rotationally symmetric, because platforms mask, crop and shrink it without asking.</p></div>
     </div>
-    <div class="plate">
-      <div class="stage" style="background:#0A0B0F;gap:22px">
-        <span class="circle circle--sm atmo"><span class="word">Yappr</span></span>
-        <span class="notch notch--sm atmo" style="border-radius:6px 6px 11px 11px;transform:scale(.62);transform-origin:left center">
+    <div class="plate-card">
+      <div class="stage" style="background:#0A0B0F">
+        <span class="circle circle--sm fill--rad"><span class="word">Yappr</span></span>
+        <span class="notch notch--sm fill" style="border-radius:5px 5px 10px 10px;transform:scale(.55);transform-origin:center">
           <span class="dot"></span><span class="word">Yappr</span>
         </span>
       </div>
       <div class="cap"><h3>Favicon size <span class="verdict v-no">the floor</span></h3>
-        <p>At 16&ndash;32px the word goes to mush in both. The circle at least keeps a recognisable silhouette; the notch does not. Worth revisiting with a dot-only fallback.</p></div>
+        <p>At 16&ndash;32px the word goes to mush in both. The circle keeps a recognisable silhouette; the notch does not. Still worth a dot-only fallback.</p></div>
     </div>
   </div>
 
-  <h2>The live notch</h2>
+  <h2>The live notch — unchanged</h2>
   <p class="sub">
-    Centre stays <code>#000</code>. Not a preference — it is the illusion the
-    whole indicator rests on.
+    Centre stays <code>#000</code>, wings stay charcoal. This is what the plate
+    was rebuilt to echo, not the other way round.
   </p>
   <div class="grid grid--wide">
-    <div class="plate">
-      <div class="desk" style="padding-bottom:44px">
+    <div class="plate-card">
+      <div class="desk" style="padding-bottom:42px">
         <div class="menubar">
           <span class="bar">
             <span class="side"><span class="dot"></span><span class="lvl">
@@ -235,39 +297,12 @@
       </div>
       <div class="cap"><h3>Black under the housing, charcoal at the wings</h3>
         <p>
-          The ramp finishes by 32%, so the colour is already black <em>before</em>
-          the hardware starts rather than at its edge. The eye finds a seam far
-          more easily than a ramp — and the middle of this shape overlaps the
-          physical camera housing, so anything but true black there gives the
-          trick away.
+          The middle overlaps the physical camera housing, so anything but true
+          black there is a visible seam. The ramp finishes by 32%, so the colour
+          is already black <em>before</em> the hardware starts rather than at its
+          edge. Its wings stay charcoal, not <code>#5A8FE8</code> — that lift is
+          fine on a logo, but in a menu bar it turns hardware into a widget.
         </p></div>
-    </div>
-  </div>
-
-  <p class="rule">
-    <strong>The fillets moved too.</strong> They fill the corner against a
-    wing&rsquo;s <em>outer</em> edge, so leaving them black would have drawn a
-    dark notch either side of the shape — the exact seam they exist to remove.
-  </p>
-
-  <h2>Two things tried and reverted</h2>
-  <p class="sub">Recorded so they are not tried again.</p>
-  <div class="grid">
-    <div class="plate">
-      <div class="stage" style="background:#15161A">
-        <span class="notch notch--sm atmo" style="opacity:.5"><span class="dot"></span><span class="word">Yappr</span></span>
-      </div>
-      <div class="cap"><h3>Footer mark hanging from the border <span class="verdict v-no">reverted</span></h3>
-        <p>Doctrinally right, visually dead: the section above the footer is also dark, so a 64px mark landed on a dark-on-dark seam and vanished. It went back in the column — being visible beats being correct.</p></div>
-    </div>
-    <div class="plate">
-      <div class="stage stage--hangs" style="background:#0A0B0F">
-        <span class="notch" style="background:linear-gradient(180deg,#C7D0DC 0%,#1E2836 55%,#10161F 100%)">
-          <span class="dot"></span><span class="word">Yappr</span>
-        </span>
-      </div>
-      <div class="cap"><h3>A wide top-edge highlight <span class="verdict v-no">reverted &times;3</span></h3>
-        <p>A highlight as wide as the plate reaches both edges at the same height, and the eye reads any edge-to-edge change as a ramp however soft it is. The fix is a highlight taller than it is wide, running off the top and bottom.</p></div>
     </div>
   </div>
 

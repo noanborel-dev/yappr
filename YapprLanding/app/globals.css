@@ -29,34 +29,56 @@
   --pill-dot:     #e84a3a;
   --pill-glow:    rgba(232, 74, 58, 0.8);
 
-  /* ── The atmosphere ─────────────────────────────────────────────
-     The brand plate: charcoal blue with a cool highlight drifting
-     across it. Mirrors BRAND_ATMOSPHERE in
-     src/renderer/shared/ui/YapprMark.tsx, which is the source of
-     truth — this is a separate Next project and cannot import it, so
-     any change to these values has to be made in both places.
+  /* ── The plate ──────────────────────────────────────────────────
+     The brand mark's fill: lighter blue at the edges, darker blue
+     inboard, BLACK through the middle — the same structure as the live
+     notch, drawn at logo scale. Mirrors BRAND_PLATE in
+     src/renderer/shared/ui/YapprMark.tsx, which is the source of truth;
+     this is a separate Next project and cannot import it, so any change
+     has to be made in both places (and in app/icon.svg).
 
-     Four layers, not one gradient: a single ramp reads as a ramp
-     however you set the stops. The drift comes from soft radials at
-     different positions fading to full transparency, so no two points
-     on the plate resolve the same way. */
-  --mist:         #d6dee8;
-  --haze:         #96a7be;
-  --slate:        #56677f;
-  --charcoal:     #2b3950;
-  --abyss:        #172130;
+     This replaced a soft four-layer mesh of cool light over charcoal,
+     built from a reference photograph. It was killed for looking like
+     the reference — the soft-blob treatment is that brand's signature,
+     and wearing it made Yappr look like a follower. */
+  /* --sky is the SAME value as --cobalt above, deliberately: the logo's
+     lighter blue and the product's accent are one colour, not two blues
+     that nearly match. Two would drift, because nobody can tell them
+     apart well enough to keep them in sync. */
+  --sky:          #5a8fe8;  /* lighter blue, at the outer edges */
+  --azure:        #2e5697;  /* middle step — without it the ramp is a hard edge */
+  --deep:         #16305c;  /* darker blue, last stop before black */
+  --charcoal:     #2b3950;  /* live-notch wing tips — NOT the logo plate */
+  --abyss:        #172130;  /* live-notch mid stop */
 
-  /* The highlight is TALLER than it is wide (58% × 120%) and sits off to
-     one side. That is what makes it a pool of light rather than a band:
-     a highlight as wide as the plate reaches both edges at the same
-     height, and the eye reads any edge-to-edge change as a ramp no
-     matter how soft it is. Keeping it narrow and letting it run off the
-     top and bottom instead gives light falling ACROSS the plate. */
-  --atmosphere:
-    radial-gradient(58% 120% at 26% 8%, rgba(214, 222, 232, 0.90), rgba(214, 222, 232, 0) 60%),
-    radial-gradient(46% 80% at 88% 34%, rgba(150, 167, 190, 0.42), rgba(150, 167, 190, 0) 66%),
-    radial-gradient(120% 120% at 58% 112%, #0f1926 14%, rgba(15, 25, 38, 0) 72%),
-    linear-gradient(148deg, #56677f 0%, #2b3950 44%, #172130 100%);
+  /* A vertical sheen over the plate. Without it the plate is uniform top
+     to bottom and reads as printed bands rather than an object. Kept to
+     .13 and gone by 46%: enough to imply a surface catching light, not
+     enough to become a glass button. */
+  --plate-sheen:  linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 46%);
+
+  /* Symmetric: black at the centre with blue coming up on BOTH sides.
+     Light at one edge falling to black at the other was the obvious
+     first thought, but it makes the mark directional — it stops being
+     the same object when mirrored or set against a right-hand margin.
+
+     Black is held FLAT from 40% to 60% rather than being a single
+     midpoint. A gradient that merely passes through black on its way
+     between two blues never reads as black, and the wordmark ends up on
+     a slightly-blue ground that shifts as the plate is resized. */
+  --plate:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 46%),
+    linear-gradient(90deg,
+      #5a8fe8 0%, #2e5697 11%, #16305c 23%,
+      #000 34%, #000 66%,
+      #16305c 77%, #2e5697 89%, #5a8fe8 100%);
+
+  /* For containers with no long axis — circles, squircles. Same three
+     steps, rotationally symmetric, because a favicon gets masked and
+     shrunk by platforms that never ask first. */
+  --plate-radial:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 46%),
+    radial-gradient(circle at 50% 50%, #000 0%, #000 24%, #16305c 58%, #2e5697 78%, #5a8fe8 100%);
 }
 
 /* Tailwind 4 theme bridge — exposes tokens as utility classes */
@@ -117,7 +139,7 @@ body {
 /* ============================================================
    Brand mark dot — the only survivor of the old pill CSS.
    PillLogo (nav / footer / final CTA) is the BRAND mark: the notch
-   silhouette carrying the charcoal-blue --atmosphere plate and the
+   silhouette carrying the blue --plate fill and the
    wordmark. Not a pill, and not flat charcoal — the filename survives
    only to avoid churn across its three call sites.
 
@@ -3920,13 +3942,13 @@ body {
   display: inline-flex;
   align-items: center;
   user-select: none;
-  /* The charcoal-blue atmosphere. This used to be the indicator's flat
-     #0a0b0f, on the reasoning that the mark and the app must not be two
-     different blacks. That still holds — but the live indicator is no
-     longer flat black either: its centre is #000 to merge with the
-     housing and its wings lift to charcoal. This plate is the wing
-     colour, so the mark and the app still agree. */
-  background: var(--atmosphere);
+  /* The blue plate. This used to be the indicator's flat #0a0b0f, on the
+     reasoning that the mark and the app must not be two different
+     blacks. That reasoning still holds and this still satisfies it: the
+     indicator is black at the centre with lit wings, and so is this. The
+     mark is now a portrait of the indicator rather than a swatch
+     matching it. */
+  background: var(--plate);
   color: #fff;
   font-family: var(--font-serif);
   font-style: italic;

@@ -55,49 +55,84 @@ export const BRAND_DOT = '#E84A3A'
 
 export const BRAND_SERIF = '"Instrument Serif", "Cormorant Garamond", Georgia, serif'
 
-// ─── The atmosphere ─────────────────────────────────────────────────
+// ─── The plate ──────────────────────────────────────────────────────
 //
-// A charcoal-blue field with a cool highlight drifting across it, rather
-// than a flat plate. Reference was a soft-focus navy photograph — the
-// quality wanted is that it MOVES: light pooling in one corner and
-// falling away, not a ramp from A to B.
+// Lighter blue at the edges, darker blue inboard, BLACK through the
+// middle. Which is to say: the same structure as BRAND_WING below, drawn
+// at logo scale. The mark is a portrait of the indicator, so it should
+// be built the same way the indicator is.
 //
-// Which is why this is four overlapping layers and not one gradient. A
-// single linear-gradient reads as a ramp no matter which stops it gets;
-// the drift comes from soft radials at different positions and radii
-// fading to full transparency, so no two points on the plate resolve the
-// same way. The reference's highlight is warm taupe — this one is cooled
-// to blue-grey, because a warm highlight over charcoal blue turns muddy
-// where they meet.
+// This replaces a soft four-layer mesh — pools of cool light drifting
+// over charcoal — built from a reference photograph. It was killed for
+// looking like the reference: the soft-blob treatment IS that brand's
+// signature, and wearing it made Yappr look like a follower. Borrow a
+// structure, not a surface.
+//
+// The practical gain is that the black centre gives the wordmark a
+// ground of its own. On the old mesh the type sat on whatever the light
+// happened to be doing behind it and its contrast changed with the size
+// of the plate.
 
-/** The lighter white. Cool, so it stays in the blue family. */
-export const BRAND_MIST = '#D6DEE8'
-/** Mid tone, where the highlight falls off. */
-export const BRAND_HAZE = '#96A7BE'
-/** The transition into the body colour. */
-export const BRAND_SLATE = '#56677F'
+/**
+ * The lighter blue, at the outer edges.
+ *
+ * This is ACCENT from notch-states.ts, deliberately — the same blue the
+ * waveform bars, the spinner and the done-check already use. Picking a
+ * second, nearly-identical blue for the logo is how a palette starts
+ * drifting: nobody can tell them apart, so nobody keeps them in sync.
+ */
+export const BRAND_SKY = '#5A8FE8'
+/** The middle step. Without it the ramp into black is a hard edge. */
+export const BRAND_AZURE = '#2E5697'
+/** The darker blue, last stop before black. */
+export const BRAND_DEEP = '#16305C'
+
+/**
+ * A vertical sheen, laid over the plate.
+ *
+ * Without it the plate is uniform top to bottom and reads as printed
+ * bands rather than an object. Kept to .13 and gone by 46%: enough to
+ * imply a surface catching light, not enough to become a glass button.
+ */
+const PLATE_SHEEN = 'linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0) 46%)'
 /** The charcoal blue the whole system is named for. */
 export const BRAND_CHARCOAL = '#2B3950'
 /** Deepest corner. Not black — black is reserved for the housing. */
 export const BRAND_ABYSS = '#172130'
 
 /**
- * The plate. Logo containers only — never the live notch (see BRAND_WING).
+ * The plate, for logo containers. The live notch uses BRAND_WING instead.
  *
- * The highlight is TALLER than it is wide (58% × 120%) and sits off to
- * one side. That is what makes it a pool of light rather than a band: a
- * highlight as wide as the plate reaches both edges at the same height,
- * and the eye reads any edge-to-edge change as a ramp however soft it
- * is. Keeping it narrow and letting it run off the top and bottom
- * instead gives light falling ACROSS the plate, which is the quality the
- * reference had and the first three attempts did not.
+ * Symmetric on purpose: black sits at the centre and the blue comes up
+ * on BOTH sides. An asymmetric version was the obvious first thought —
+ * light at one edge falling to black at the other — but it makes the
+ * mark directional, so it stops being the same object when mirrored or
+ * placed against a right-hand margin.
+ *
+ * The black is held flat from 34% to 66% rather than being a single
+ * midpoint. A gradient that merely passes through black on its way
+ * between two blues never actually reads as black; the wordmark then
+ * sits on a slightly-blue ground that shifts as the plate is resized.
+ *
+ * 34/66 is not a taste call — it is BRAND_WING's own geometry. The mark
+ * and the indicator are the same object, so they get the same
+ * proportions. A narrower band was tried first and failed at nav size:
+ * the black was ~14px against a ~45px wordmark, so the word straddled
+ * all three colours and the black ground it was supposed to have simply
+ * was not there.
  */
-export const BRAND_ATMOSPHERE = [
-  `radial-gradient(58% 120% at 26% 8%, rgba(214,222,232,0.90), rgba(214,222,232,0) 60%)`,
-  `radial-gradient(46% 80% at 88% 34%, rgba(150,167,190,0.42), rgba(150,167,190,0) 66%)`,
-  `radial-gradient(120% 120% at 58% 112%, #0F1926 14%, rgba(15,25,38,0) 72%)`,
-  `linear-gradient(148deg, ${BRAND_SLATE} 0%, ${BRAND_CHARCOAL} 44%, ${BRAND_ABYSS} 100%)`,
-].join(', ')
+export const BRAND_PLATE = `${PLATE_SHEEN}, linear-gradient(90deg, ${BRAND_SKY} 0%, ${BRAND_AZURE} 11%, ${BRAND_DEEP} 23%, #000 34%, #000 66%, ${BRAND_DEEP} 77%, ${BRAND_AZURE} 89%, ${BRAND_SKY} 100%)`
+
+/**
+ * The plate for containers with no long axis — circles and squircles.
+ *
+ * A left-to-right ramp inside a circle reads as a sphere lit from the
+ * side. Radial keeps the same three steps (black centre, darker blue,
+ * lighter blue at the rim) while staying rotationally symmetric, which
+ * is what a favicon needs: it gets masked, rotated and shrunk by
+ * platforms that never ask first.
+ */
+export const BRAND_PLATE_RADIAL = `${PLATE_SHEEN}, radial-gradient(circle at 50% 50%, #000 0%, #000 24%, ${BRAND_DEEP} 58%, ${BRAND_AZURE} 78%, ${BRAND_SKY} 100%)`
 
 /**
  * The live notch shell — and the one rule that cannot bend.
@@ -121,7 +156,7 @@ export const BRAND_ATMOSPHERE = [
 export const BRAND_WING = `linear-gradient(90deg, ${BRAND_CHARCOAL} 0%, ${BRAND_ABYSS} 14%, #000 32%, #000 68%, ${BRAND_ABYSS} 86%, ${BRAND_CHARCOAL} 100%)`
 
 export type MarkLockup = 'pill' | 'bare' | 'icon' | 'stacked' | 'notch' | 'circle'
-export type MarkTone = 'dark' | 'light' | 'ink' | 'white' | 'atmosphere'
+export type MarkTone = 'dark' | 'light' | 'ink' | 'white' | 'plate'
 export type MarkSize = 'hero' | 'button' | 'inline' | 'favicon'
 
 // Sizes are a scale, not four unrelated numbers: each step is roughly
@@ -173,15 +208,18 @@ const TONES: Record<MarkTone, ToneSpec> = {
     dot: '#FFFFFF',
     shadow: null,
   },
-  // The charcoal-blue plate. The primary mark on the site and the app
-  // icon. Text is full #FFFFFF here, not BRAND_ON_DARK: .92 exists to
-  // stop the serif blooming against flat near-black, and this plate is
-  // lighter and textured enough that .92 reads as grey instead.
-  atmosphere: {
-    surface: BRAND_ATMOSPHERE,
+  // The blue plate. The primary mark on the site and the app icon.
+  //
+  // Text is full #FFFFFF, not BRAND_ON_DARK. The .92 exists to stop the
+  // serif blooming on flat near-black — but here the word sits on the
+  // TRUE black centre with lit blue either side of it, and against that
+  // much surrounding brightness .92 reads as dirty grey rather than as
+  // restraint.
+  plate: {
+    surface: BRAND_PLATE,
     text: '#FFFFFF',
     dot: BRAND_DOT,
-    shadow: 'inset 0 1px 0 rgba(255,255,255,0.16), 0 8px 24px rgba(16,22,31,0.34)',
+    shadow: 'inset 0 1px 0 rgba(255,255,255,0.16), 0 8px 24px rgba(12,20,38,0.40)',
   },
 }
 
@@ -297,7 +335,9 @@ export function YapprMark({
           width: box,
           height: box,
           borderRadius: 999,
-          background: t.surface ?? BRAND_BLACK,
+          // Radial, not the horizontal plate: a left-to-right ramp inside
+          // a circle reads as a sphere lit from one side.
+          background: tone === 'plate' ? BRAND_PLATE_RADIAL : (t.surface ?? BRAND_BLACK),
           boxShadow: t.shadow ?? undefined,
           ...style,
         }}
