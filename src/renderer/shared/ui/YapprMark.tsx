@@ -82,9 +82,16 @@ export const BRAND_SERIF = '"Instrument Serif", "Cormorant Garamond", Georgia, s
  * drifting: nobody can tell them apart, so nobody keeps them in sync.
  */
 export const BRAND_SKY = '#5A8FE8'
-/** The middle step. Without it the ramp into black is a hard edge. */
+/**
+ * The middle and deep blues.
+ *
+ * The plate no longer steps through these as opaque stops — that is what
+ * produced the hard line, and FALLOFF below replaced it. They remain the
+ * reference values the falloff's rgba stops are sampled from, and they
+ * are what to reach for anywhere the blue is needed flat: a chart
+ * series, a filled state, a print asset that cannot carry alpha.
+ */
 export const BRAND_AZURE = '#2E5697'
-/** The darker blue, last stop before black. */
 export const BRAND_DEEP = '#16305C'
 
 /**
@@ -95,6 +102,45 @@ export const BRAND_DEEP = '#16305C'
  * imply a surface catching light, not enough to become a glass button.
  */
 const PLATE_SHEEN = 'linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0) 46%)'
+
+// ─── How the blue meets the black ───────────────────────────────────
+//
+// By FADING OUT, over a black base — not by ramping through
+// progressively darker blues to #000.
+//
+// The first version did the latter: SKY → AZURE → DEEP → #000, with the
+// last leg covering 11% of the width. It read as a hard line. Two things
+// were wrong with it. Chroma falls off much faster than lightness, so a
+// saturated dark blue lands right next to black while still looking
+// blue, and the last step is a visible boundary rather than an arrival.
+// And CSS interpolates in sRGB, which bunches that change into the dark
+// end where the eye is most sensitive to it.
+//
+// Fading the blue's ALPHA over black instead makes the change a dissolve:
+// every stop is the same hue getting quieter, so there is no point where
+// one colour hands over to another. It is also what "less and less
+// opacity as it gets closer" literally describes.
+//
+// The stops are mirrored around 50% because the plate is symmetric.
+const FALLOFF = [
+  'rgba(90,143,232,1) 0%',
+  'rgba(88,138,226,0.94) 6%',
+  'rgba(80,126,208,0.82) 13%',
+  'rgba(68,110,182,0.64) 21%',
+  'rgba(54,90,150,0.44) 29%',
+  'rgba(40,70,118,0.26) 36%',
+  'rgba(28,54,96,0.12) 42%',
+  'rgba(22,46,86,0.03) 47%',
+  'rgba(22,46,86,0) 50%',
+  'rgba(22,46,86,0.03) 53%',
+  'rgba(28,54,96,0.12) 58%',
+  'rgba(40,70,118,0.26) 64%',
+  'rgba(54,90,150,0.44) 71%',
+  'rgba(68,110,182,0.64) 79%',
+  'rgba(80,126,208,0.82) 87%',
+  'rgba(88,138,226,0.94) 94%',
+  'rgba(90,143,232,1) 100%',
+].join(', ')
 /** The charcoal blue the whole system is named for. */
 export const BRAND_CHARCOAL = '#2B3950'
 /** Deepest corner. Not black — black is reserved for the housing. */
@@ -109,19 +155,12 @@ export const BRAND_ABYSS = '#172130'
  * mark directional, so it stops being the same object when mirrored or
  * placed against a right-hand margin.
  *
- * The black is held flat from 34% to 66% rather than being a single
- * midpoint. A gradient that merely passes through black on its way
- * between two blues never actually reads as black; the wordmark then
- * sits on a slightly-blue ground that shifts as the plate is resized.
- *
- * 34/66 is not a taste call — it is BRAND_WING's own geometry. The mark
- * and the indicator are the same object, so they get the same
- * proportions. A narrower band was tried first and failed at nav size:
- * the black was ~14px against a ~45px wordmark, so the word straddled
- * all three colours and the black ground it was supposed to have simply
- * was not there.
+ * Black is the BASE layer, with the blue fading out over it — see
+ * FALLOFF. The centre still resolves to true black (alpha reaches 0 at
+ * 50% and is under .05 either side of it), so the wordmark keeps a black
+ * ground; it just arrives there gradually instead of at a line.
  */
-export const BRAND_PLATE = `${PLATE_SHEEN}, linear-gradient(90deg, ${BRAND_SKY} 0%, ${BRAND_AZURE} 11%, ${BRAND_DEEP} 23%, #000 34%, #000 66%, ${BRAND_DEEP} 77%, ${BRAND_AZURE} 89%, ${BRAND_SKY} 100%)`
+export const BRAND_PLATE = `${PLATE_SHEEN}, linear-gradient(90deg, ${FALLOFF}), #000`
 
 /**
  * The plate for containers with no long axis — circles and squircles.
@@ -132,7 +171,21 @@ export const BRAND_PLATE = `${PLATE_SHEEN}, linear-gradient(90deg, ${BRAND_SKY} 
  * is what a favicon needs: it gets masked, rotated and shrunk by
  * platforms that never ask first.
  */
-export const BRAND_PLATE_RADIAL = `${PLATE_SHEEN}, radial-gradient(circle at 50% 50%, #000 0%, #000 24%, ${BRAND_DEEP} 58%, ${BRAND_AZURE} 78%, ${BRAND_SKY} 100%)`
+export const BRAND_PLATE_RADIAL = `${PLATE_SHEEN}, radial-gradient(circle at 50% 50%, ${[
+  // Same dissolve as FALLOFF, but the stops come in EARLIER. Area on a
+  // disc grows with the square of the radius, so the outer ring holds
+  // far more pixels than the middle: reusing the linear curve crushed
+  // the blue into a thin rim and the icon read as a black dot at favicon
+  // size. Redistributed for a circle, not re-coloured.
+  'rgba(22,46,86,0) 0%',
+  'rgba(22,46,86,0) 12%',
+  'rgba(28,54,96,0.16) 24%',
+  'rgba(40,70,118,0.34) 38%',
+  'rgba(54,90,150,0.54) 52%',
+  'rgba(68,110,182,0.72) 66%',
+  'rgba(80,126,208,0.88) 82%',
+  'rgba(90,143,232,1) 100%',
+].join(', ')}), #000`
 
 /**
  * The live notch shell — and the one rule that cannot bend.

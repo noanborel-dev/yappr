@@ -24,12 +24,29 @@
     share them; change all three together.
   -->
   <defs>
+    <!--
+      The blue FADES OUT over a black circle rather than ramping through
+      darker blues into #000. Ramping read as a hard ring: chroma falls
+      off faster than lightness, so a saturated dark blue sits right next
+      to black while still looking blue, and the last step becomes a
+      visible boundary instead of an arrival. Every stop here is the same
+      hue getting quieter, so nothing hands over.
+
+      The stops come in EARLIER than the linear plate's. Area on a disc
+      grows with the square of the radius, so the outer ring holds far
+      more pixels than the middle: reusing the linear curve here crushed
+      the blue into a thin rim and the icon read as a black dot at
+      favicon size. Same dissolve, redistributed for a circle.
+    -->
     <radialGradient id="y-plate" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0" stop-color="#000000"/>
-      <stop offset="0.24" stop-color="#000000"/>
-      <stop offset="0.58" stop-color="#16305C"/>
-      <stop offset="0.78" stop-color="#2E5697"/>
-      <stop offset="1" stop-color="#5A8FE8"/>
+      <stop offset="0"    stop-color="#16305C" stop-opacity="0"/>
+      <stop offset="0.12" stop-color="#16305C" stop-opacity="0"/>
+      <stop offset="0.24" stop-color="#1C3660" stop-opacity="0.16"/>
+      <stop offset="0.38" stop-color="#284676" stop-opacity="0.34"/>
+      <stop offset="0.52" stop-color="#365A96" stop-opacity="0.54"/>
+      <stop offset="0.66" stop-color="#446EB6" stop-opacity="0.72"/>
+      <stop offset="0.82" stop-color="#507ED0" stop-opacity="0.88"/>
+      <stop offset="1"    stop-color="#5A8FE8" stop-opacity="1"/>
     </radialGradient>
     <linearGradient id="y-sheen" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.13"/>
@@ -37,6 +54,9 @@
     </linearGradient>
   </defs>
 
+  <!-- Black base FIRST: y-plate is an alpha falloff and composites onto
+       whatever is beneath it. Without this the centre is transparent. -->
+  <circle cx="32" cy="32" r="32" fill="#000000"/>
   <circle cx="32" cy="32" r="32" fill="url(#y-plate)"/>
   <circle cx="32" cy="32" r="32" fill="url(#y-sheen)"/>
 

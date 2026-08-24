@@ -23,13 +23,32 @@
     --sheen: linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0) 46%);
 
     /* THE PLATE — mirrors --plate in YapprLanding/app/globals.css and
-       BRAND_PLATE in src/renderer/shared/ui/YapprMark.tsx. */
+       BRAND_PLATE in src/renderer/shared/ui/YapprMark.tsx.
+       Black is the BASE; the blue is an alpha falloff over it. */
     --plate: var(--sheen),
+      linear-gradient(90deg,
+        rgba(90,143,232,1) 0%, rgba(88,138,226,.94) 6%, rgba(80,126,208,.82) 13%,
+        rgba(68,110,182,.64) 21%, rgba(54,90,150,.44) 29%, rgba(40,70,118,.26) 36%,
+        rgba(28,54,96,.12) 42%, rgba(22,46,86,.03) 47%, rgba(22,46,86,0) 50%,
+        rgba(22,46,86,.03) 53%, rgba(28,54,96,.12) 58%, rgba(40,70,118,.26) 64%,
+        rgba(54,90,150,.44) 71%, rgba(68,110,182,.64) 79%, rgba(80,126,208,.82) 87%,
+        rgba(88,138,226,.94) 94%, rgba(90,143,232,1) 100%),
+      #000;
+
+    /* Stops come in earlier — a disc's area grows with r², so the linear
+       curve crushes the blue into a thin rim. */
+    --plate-radial: var(--sheen),
+      radial-gradient(circle at 50% 50%,
+        rgba(22,46,86,0) 0%, rgba(22,46,86,0) 12%,
+        rgba(28,54,96,.16) 24%, rgba(40,70,118,.34) 38%,
+        rgba(54,90,150,.54) 52%, rgba(68,110,182,.72) 66%,
+        rgba(80,126,208,.88) 82%, rgba(90,143,232,1) 100%),
+      #000;
+
+    /* Kept only to show what it replaced. */
+    --plate-hard: var(--sheen),
       linear-gradient(90deg, #5A8FE8 0%, #2E5697 11%, #16305C 23%,
         #000 34%, #000 66%, #16305C 77%, #2E5697 89%, #5A8FE8 100%);
-
-    --plate-radial: var(--sheen),
-      radial-gradient(circle at 50% 50%, #000 0%, #000 24%, #16305C 58%, #2E5697 78%, #5A8FE8 100%);
 
     /* THE WING — the live notch. Unchanged, and staying that way. */
     --wing: linear-gradient(90deg, #2B3950 0%, #172130 14%, #000 32%, #000 68%, #172130 86%, #2B3950 100%);
@@ -153,8 +172,10 @@
     <h1>Lighter blue, darker blue,<br><em>black in the middle</em>.</h1>
     <p class="lede">
       The mark is now built the way the indicator is: lit at the edges, black
-      through the centre. Same structure, logo scale. The live notch itself is
-      untouched — it was already right.
+      through the centre. Same structure, logo scale. The blue reaches the black
+      by <em>fading out over it</em> rather than ramping into it — which is the
+      difference between a dissolve and a line. The live notch itself is
+      untouched; it was already right.
     </p>
   </header>
 
@@ -188,7 +209,7 @@
     <div class="sw"><i style="background:#5A8FE8"></i><div><b>Sky</b><span>#5A8FE8 · the edges</span></div></div>
     <div class="sw"><i style="background:#2E5697"></i><div><b>Azure</b><span>#2E5697 · middle step</span></div></div>
     <div class="sw"><i style="background:#16305C"></i><div><b>Deep</b><span>#16305C · before black</span></div></div>
-    <div class="sw"><i style="background:#000000"></i><div><b>Black</b><span>#000 · 34–66%</span></div></div>
+    <div class="sw"><i style="background:#000000"></i><div><b>Black</b><span>#000 · the base layer</span></div></div>
   </div>
 
   <p class="rule-note">
@@ -213,22 +234,23 @@
 
     <div class="plate-card">
       <div class="stage" style="background:#0A0B0F">
-        <span class="notch notch--sm" style="background:var(--sheen),linear-gradient(90deg,#5A8FE8 0%,#16305C 44%,#000 50%,#16305C 56%,#5A8FE8 100%)">
+        <span class="notch notch--sm" style="background:var(--plate-hard)">
           <span class="dot"></span><span class="word">Yappr</span>
         </span>
       </div>
-      <div class="cap"><h3>Black held flat, not crossed <span class="verdict v-no">rejected</span></h3>
-        <p>A gradient that merely passes <em>through</em> black never reads as black. The word ends up on a slightly-blue ground that shifts as the plate is resized.</p></div>
+      <div class="cap"><h3>Ramping into black <span class="verdict v-no">rejected</span></h3>
+        <p>SKY &rarr; AZURE &rarr; DEEP &rarr; <code>#000</code>, the last leg over 11% of the width. It reads as a hard line — compare it with the specimen above.</p></div>
     </div>
 
     <div class="plate-card">
-      <div class="stage" style="background:#0A0B0F">
-        <span class="notch notch--sm" style="background:var(--sheen),linear-gradient(90deg,#5A8FE8 0%,#2E5697 13%,#16305C 29%,#000 42%,#000 58%,#16305C 71%,#2E5697 87%,#5A8FE8 100%)">
-          <span class="dot"></span><span class="word">Yappr</span>
+      <div class="stage" style="background:#0A0B0F;gap:20px">
+        <span class="circle circle--sm" style="background:var(--sheen),radial-gradient(circle at 50% 50%,rgba(22,46,86,0) 0%,rgba(22,46,86,0) 22%,rgba(28,54,96,.12) 32%,rgba(40,70,118,.26) 44%,rgba(54,90,150,.44) 56%,rgba(68,110,182,.64) 70%,rgba(80,126,208,.82) 84%,rgba(90,143,232,1) 100%),#000">
+          <span class="word">Yappr</span>
         </span>
+        <span class="circle circle--sm fill--rad"><span class="word">Yappr</span></span>
       </div>
-      <div class="cap"><h3>34/66, not 42/58 <span class="verdict v-no">rejected</span></h3>
-        <p>Shown here at the narrower band: ~14px of black under a ~45px word at nav size, so the word straddles all three colours. 34/66 is the live notch's own geometry — same object, same proportions.</p></div>
+      <div class="cap"><h3>The linear curve, reused on a disc <span class="verdict v-no">rejected</span></h3>
+        <p>Left: the falloff copied straight across. Area grows with r², so the outer ring holds most of the pixels and the blue is crushed into a rim — a black dot at favicon size. Right: redistributed.</p></div>
     </div>
   </div>
 

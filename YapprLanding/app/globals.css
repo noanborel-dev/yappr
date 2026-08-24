@@ -66,19 +66,48 @@
      midpoint. A gradient that merely passes through black on its way
      between two blues never reads as black, and the wordmark ends up on
      a slightly-blue ground that shifts as the plate is resized. */
+  /* The blue meets the black by FADING OUT over it, not by ramping
+     through progressively darker blues to #000.
+
+     The first version did the latter and read as a hard line. Chroma
+     falls off much faster than lightness, so a saturated dark blue lands
+     right next to black while still looking blue — the last step becomes
+     a visible boundary rather than an arrival. CSS interpolating in sRGB
+     bunches that change into the dark end, where the eye is most
+     sensitive to it.
+
+     Fading the blue's ALPHA over black makes it a dissolve: every stop
+     is the same hue getting quieter, so no point hands over from one
+     colour to another. The centre still resolves to true black — alpha
+     hits 0 at 50% and is under .05 either side — so the wordmark keeps
+     its black ground, it just arrives there gradually. */
   --plate:
     linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 46%),
     linear-gradient(90deg,
-      #5a8fe8 0%, #2e5697 11%, #16305c 23%,
-      #000 34%, #000 66%,
-      #16305c 77%, #2e5697 89%, #5a8fe8 100%);
+      rgba(90, 143, 232, 1) 0%, rgba(88, 138, 226, 0.94) 6%, rgba(80, 126, 208, 0.82) 13%,
+      rgba(68, 110, 182, 0.64) 21%, rgba(54, 90, 150, 0.44) 29%, rgba(40, 70, 118, 0.26) 36%,
+      rgba(28, 54, 96, 0.12) 42%, rgba(22, 46, 86, 0.03) 47%, rgba(22, 46, 86, 0) 50%,
+      rgba(22, 46, 86, 0.03) 53%, rgba(28, 54, 96, 0.12) 58%, rgba(40, 70, 118, 0.26) 64%,
+      rgba(54, 90, 150, 0.44) 71%, rgba(68, 110, 182, 0.64) 79%, rgba(80, 126, 208, 0.82) 87%,
+      rgba(88, 138, 226, 0.94) 94%, rgba(90, 143, 232, 1) 100%),
+    #000;
 
   /* For containers with no long axis — circles, squircles. Same three
      steps, rotationally symmetric, because a favicon gets masked and
      shrunk by platforms that never ask first. */
+  /* Same dissolve as --plate, but the stops come in EARLIER. Area on a
+     disc grows with the square of the radius, so the outer ring holds
+     far more pixels than the middle: reusing the linear curve crushed
+     the blue into a thin rim and the icon read as a black dot at favicon
+     size. Redistributed for a circle, not re-coloured. */
   --plate-radial:
     linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 46%),
-    radial-gradient(circle at 50% 50%, #000 0%, #000 24%, #16305c 58%, #2e5697 78%, #5a8fe8 100%);
+    radial-gradient(circle at 50% 50%,
+      rgba(22, 46, 86, 0) 0%, rgba(22, 46, 86, 0) 12%,
+      rgba(28, 54, 96, 0.16) 24%, rgba(40, 70, 118, 0.34) 38%,
+      rgba(54, 90, 150, 0.54) 52%, rgba(68, 110, 182, 0.72) 66%,
+      rgba(80, 126, 208, 0.88) 82%, rgba(90, 143, 232, 1) 100%),
+    #000;
 }
 
 /* Tailwind 4 theme bridge — exposes tokens as utility classes */

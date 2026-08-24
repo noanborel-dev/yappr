@@ -143,11 +143,21 @@ Three things about it are load-bearing:
 - **`--sky` is the same value as `--cobalt`.** The logo's lighter blue and the
   product's accent are one colour, not two blues that nearly match — two would
   drift, because nobody can tell them apart well enough to keep them in sync.
-- **Black is held flat from 34% to 66%**, not passed through at a midpoint. A
-  gradient that merely crosses black never reads as black, and the wordmark
-  ends up on a slightly-blue ground that shifts with the plate's size. 34/66 is
-  BRAND_WING's own geometry: same object, same proportions. A narrower band was
-  tried and failed at nav size — ~14px of black under a ~45px word.
+- **The blue meets the black by fading out over it**, not by ramping through
+  progressively darker blues into `#000`. Black is the *base layer*; the blue
+  is an alpha falloff on top. Ramping was tried first and read as a hard line:
+  chroma falls off much faster than lightness, so a saturated dark blue lands
+  right beside black while still looking blue, and the final step becomes a
+  visible boundary rather than an arrival — worsened by CSS interpolating in
+  sRGB, which bunches the change into the dark end where the eye is most
+  sensitive. Every stop in the falloff is the same hue getting quieter, so
+  nothing hands over. The centre still resolves to true black (alpha hits 0 at
+  50%), so the wordmark keeps its ground; it just arrives there gradually.
+- **`--plate-radial` uses its own curve, coming in earlier than the linear
+  one's.** Area on a disc grows with the square of the radius, so the outer
+  ring holds far more pixels than the middle. Reusing the linear stops crushed
+  the blue into a thin rim and the icon read as a black dot at favicon size.
+  Same dissolve, redistributed — not re-coloured.
 - **Symmetric, not directional.** Light at one edge falling to black at the
   other was the obvious first thought, but it stops being the same object when
   mirrored or set against a right-hand margin.
