@@ -263,7 +263,36 @@ export function extractProjectKey(src: ProjectKeySource): string | null {
   }
 }
 
+/**
+ * Aliases: folder names that mean the same project as something else.
+ *
+ * A project key comes from a window title, which comes from a directory
+ * name, which is whatever the folder happened to be called when it was
+ * cloned. A user working in ~/OpenFlow on an app called Yappr gets a
+ * bucket named "openflow" — correct about the folder and useless as a
+ * name for what they are building.
+ *
+ * The map is from the FOLDER name to the real one, so renaming the
+ * directory later is harmless: the alias simply stops matching, and the
+ * key it produced is the one it was already producing.
+ */
+const PROJECT_ALIASES: Record<string, string> = {
+  openflow: 'yappr',
+}
+
+/**
+ * Resolve a raw key to its canonical project.
+ *
+ * Exported so the same rule applies wherever a key is derived — a fact
+ * mined under "openflow" and one mined under "yappr" must not end up in
+ * two buckets that the user then has to merge by hand.
+ */
+export function canonicalProjectKey(key: string | null): string | null {
+  if (!key) return null
+  return PROJECT_ALIASES[key] ?? key
+}
+
 /** The bucket a fact should be filed under, never null. */
 export function projectBucket(src: ProjectKeySource): string {
-  return extractProjectKey(src) ?? UNSORTED_BUCKET
+  return canonicalProjectKey(extractProjectKey(src)) ?? UNSORTED_BUCKET
 }

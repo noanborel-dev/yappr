@@ -11,7 +11,7 @@ import {
 } from '../shared/rewrite-prompt'
 import { buildContextBlock } from './context/prompt-injector'
 import { getUserOverview } from './context/store'
-import { extractProjectKey } from './context/project-key'
+import { extractProjectKey, canonicalProjectKey } from './context/project-key'
 import { extractStandingPreferences } from './context/fact-scope'
 import { addFact } from './context/facts'
 import { applyUltrathink, isUltrathinkSurface } from './ultrathink'
@@ -331,7 +331,12 @@ function senderFirstName(): string | null {
 }
 
 function dictationProjectKey(focused: FocusedApp): string | null {
-  return extractProjectKey({
+  // canonicalProjectKey, not the raw one: the key comes from a folder
+  // name, and a folder is called whatever it was called at clone time.
+  // Working in ~/OpenFlow on an app named Yappr produced a bucket called
+  // "openflow" — accurate about the directory, useless as the name of
+  // the thing being built.
+  return canonicalProjectKey(extractProjectKey({
     surface: focused.surface,
     windowTitle: focused.windowTitle,
     appName: focused.name,
@@ -339,7 +344,7 @@ function dictationProjectKey(focused: FocusedApp): string | null {
     // Only the app-builders own a project. A Claude or ChatGPT tab is a
     // conversation, and its title was being filed as a codebase name.
     appOwnsProject: AGENTIC_AI_APP_NAMES.has(focused.name),
-  })
+  }))
 }
 
 // Spec §3: remember durable rules the user states in passing ("we always

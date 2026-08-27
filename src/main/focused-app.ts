@@ -66,6 +66,30 @@ tell application "System Events"
   try
     set windowTitle to name of front window of frontApp
   end try
+  -- Electron apps expose NO windows to the scripting bridge, so the line
+  -- above returns "" for VS Code, Cursor, Claude Desktop and every other
+  -- Chromium shell. It does not error — it just comes back empty, which
+  -- is why this went unnoticed: every dictation from the user's actual
+  -- editor landed in the "unsorted" bucket and no project was ever
+  -- created for the thing they work on all day.
+  --
+  -- The ACCESSIBILITY tree does have it. Measured on VS Code:
+  --   name of front window            ->  ""
+  --   AXTitle of AXFocusedWindow      ->  "◑ fixing model — OpenFlow"
+  --
+  -- Second, not first: the front-window call is cheaper and is correct
+  -- for every native app, so the AX walk only runs where it came back
+  -- with nothing. (No backticks in here: this script is a JS template
+  -- literal, and one would end the string.)
+  if windowTitle is "" then
+    try
+      set axWindow to value of attribute "AXFocusedWindow" of frontApp
+      if axWindow is not missing value then
+        set axTitle to value of attribute "AXTitle" of axWindow
+        if axTitle is not missing value then set windowTitle to axTitle
+      end if
+    end try
+  end if
   return bundleId & "|" & appName & "|" & windowTitle & "|" & frontPid
 end tell
 `

@@ -3,6 +3,7 @@ import {
   extractProjectKey,
   normalizeProjectKey,
   projectBucket,
+  canonicalProjectKey,
   UNSORTED_BUCKET,
   type ProjectKeySource,
 } from './project-key'
@@ -74,6 +75,43 @@ describe('editor titles', () => {
   it('returns null when the title names only the editor', () => {
     expect(extractProjectKey(editor('Visual Studio Code'))).toBeNull()
     expect(extractProjectKey(editor('Cursor'))).toBeNull()
+  })
+})
+
+describe('the real VS Code title', () => {
+  // Read off the user's machine with:
+  //   AXTitle of (AXFocusedWindow of the VS Code process)
+  // The scripting bridge returns "" here — Electron exposes no windows to
+  // it — which is why every dictation from their editor went unsorted and
+  // no project was ever created for the app they work on daily.
+  it('reads the project out of a live VS Code window title', () => {
+    expect(extractProjectKey(editor('◑ fixing model — OpenFlow'))).toBe('openflow')
+  })
+
+  // The status glyph VS Code prefixes while a task is running.
+  it('is not confused by a leading status glyph', () => {
+    expect(extractProjectKey(editor('◑ index.tsx — yappr'))).toBe('yappr')
+  })
+})
+
+describe('canonicalProjectKey', () => {
+  // A key is a folder name, and a folder is called whatever it was called
+  // at clone time. This user's app is Yappr; the directory is ~/OpenFlow.
+  it('maps a stale folder name onto the real project', () => {
+    expect(canonicalProjectKey('openflow')).toBe('yappr')
+  })
+
+  it('leaves everything else alone', () => {
+    expect(canonicalProjectKey('yappr')).toBe('yappr')
+    expect(canonicalProjectKey('claude-code-sdk')).toBe('claude-code-sdk')
+    expect(canonicalProjectKey(null)).toBeNull()
+  })
+
+  // The whole point: both spellings must land in ONE bucket, or the user
+  // ends up merging two piles of the same project by hand.
+  it('files both spellings under the same bucket', () => {
+    expect(projectBucket(editor('index.tsx — OpenFlow'))).toBe('yappr')
+    expect(projectBucket(editor('index.tsx — Yappr'))).toBe('yappr')
   })
 })
 
