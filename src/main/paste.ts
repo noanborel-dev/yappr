@@ -2,6 +2,7 @@ import { clipboard } from 'electron'
 import { spawn, execFile, type ChildProcess } from 'child_process'
 import { promisify } from 'util'
 import { logInfo } from './log'
+import { axText } from './ax-value'
 import { getFocusedApp } from './focused-app'
 import { BROWSER_BUNDLE_IDS, AX_OPAQUE_APPS } from '../shared/constants'
 
@@ -75,7 +76,15 @@ tell application "System Events"
     set frontApp to first application process whose frontmost is true
     try
       set focusedEl to value of attribute "AXFocusedUIElement" of frontApp
-      return value of attribute "AXRole" of focusedEl
+      -- nil is not an error here. Without these the caller gets the
+      -- string "missing value" as the AX role, which matches no role it
+      -- tests for, so every branch falls through to its else. Same trap
+      -- that made the rewrite gesture paste "missing value"; see
+      -- ax-value.ts.
+      if focusedEl is missing value then return "no-focus"
+      set r to value of attribute "AXRole" of focusedEl
+      if r is missing value then return "no-focus"
+      return r
     on error
       return "no-focus"
     end try
@@ -89,7 +98,9 @@ export async function probeFocusedAXRole(): Promise<string> {
   if (process.platform !== 'darwin') return 'script-error'
   try {
     const { stdout } = await exec('osascript', ['-e', FOCUSED_ROLE_SCRIPT])
-    return stdout.trim() || 'script-error'
+    // axText collapses a nil that survived the script to '', which then
+    // reads as 'script-error' rather than as a role nothing matches.
+    return axText(stdout) || 'script-error'
   } catch {
     return 'script-error'
   }

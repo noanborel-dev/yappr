@@ -3,6 +3,7 @@ import { promisify } from 'util'
 import { clipboard } from 'electron'
 import { getFocusedApp } from './focused-app'
 import { BROWSER_BUNDLE_IDS, AX_OPAQUE_APPS } from '../shared/constants'
+import { axText } from './ax-value'
 import { logInfo } from './log'
 
 const exec = promisify(execFile)
@@ -18,12 +19,27 @@ const exec = promisify(execFile)
 // destination can change while the user is talking.
 let cachedSelection: string = ''
 
+// The `is missing value` checks are load-bearing, not defensive noise.
+//
+// Reading AXSelectedText with nothing selected does NOT error — it
+// returns AppleScript's nil, which osascript prints as the literal
+// string "missing value". The `on error` branch never runs, so without
+// these the caller receives 13 characters that look like a selection.
+// That shipped: a user pressed the rewrite gesture with nothing
+// highlighted and Yappr rewrote and pasted the words "missing value".
+//
+// AXFocusedUIElement is checked too — an app with no focused element
+// returns nil there, and asking for an attribute OF nil is what would
+// have thrown into `on error` by luck rather than by design.
 const SELECTED_TEXT_SCRIPT = `
 tell application "System Events"
   try
     set frontApp to first application process whose frontmost is true
     set focusedEl to value of attribute "AXFocusedUIElement" of frontApp
-    return value of attribute "AXSelectedText" of focusedEl
+    if focusedEl is missing value then return ""
+    set sel to value of attribute "AXSelectedText" of focusedEl
+    if sel is missing value then return ""
+    return sel
   on error
     return ""
   end try
@@ -44,7 +60,9 @@ export async function captureSelectedText(): Promise<void> {
   // macOS apps (Mail, Notes, Pages, TextEdit, Safari address bar).
   try {
     const { stdout } = await exec('osascript', ['-e', SELECTED_TEXT_SCRIPT])
-    const axSelection = stdout.trim()
+    // axText, not stdout.trim(): the script above guards nil, and this
+    // guards the script being edited later. See ax-value.ts.
+    const axSelection = axText(stdout)
     if (axSelection.length > 0) {
       cachedSelection = axSelection
       logInfo('Selection captured (AX)', { chars: axSelection.length })
