@@ -4,34 +4,15 @@ import type { NotchState } from '../../indicator/notch-states'
 import { SectionHead } from '../../shared/ui/SectionHead'
 import { MenuBar, NotchMark } from '../../shared/ui/NotchMark'
 
-// Map a browser KeyboardEvent to a single canonical key name.
-function eventToSingleKey(e: KeyboardEvent): string | null {
-  const code = e.code
-  if (code === 'ControlLeft' || code === 'ControlRight') return 'CTRL'
-  if (code === 'AltLeft' || code === 'AltRight') return 'ALT'
-  if (code === 'ShiftLeft' || code === 'ShiftRight') return 'SHIFT'
-  if (code === 'MetaLeft' || code === 'MetaRight') return 'META'
-  if (e.key.length === 1) return e.key.toUpperCase()
-  if (/^F\d{1,2}$/.test(e.key)) return e.key.toUpperCase()
-  return null
-}
-
-// Render a key as the glyph(s) shown inside the keycap.
-function keyDisplay(name: string): string {
-  if (name === 'CTRL') return '⌃'
-  if (name === 'ALT') return '⌥'
-  if (name === 'SHIFT') return '⇧'
-  if (name === 'META') return '⌘'
-  if (name === 'SPACE' || name === ' ') return 'space'
-  return name.toLowerCase()
-}
-
-const KEY_NAME: Record<string, string> = {
-  '⌃': 'Control',
-  '⌥': 'Option',
-  '⇧': 'Shift',
-  '⌘': 'Command',
-}
+// Naming and glyphs now live in src/shared/hotkey-names.ts, shared with
+// the main process so the recorder and the matcher cannot disagree.
+//
+// This file used to map a browser KeyboardEvent itself, and that could
+// not see two whole families of key: macOS consumes F1-F12 as media keys
+// before any window gets them, and punctuation arrives under a different
+// name than the global listener uses ("'" here, QUOTE there), so an
+// apostrophe recorded in Settings never matched one pressed for real.
+import { hotkeyDisplay, hotkeyLabel } from '../../../shared/hotkey-names'
 
 export default function HotkeysTab() {
   const [hotkeys, setHotkeys] = useState<Settings['hotkeys'] | null>(null)
@@ -41,11 +22,18 @@ export default function HotkeysTab() {
     window.yappr.getSettings().then(s => setHotkeys(s.hotkeys))
   }, [])
 
+  // The key comes from the GLOBAL listener, not from this window. That is
+  // what lets a function key be bound at all — macOS never delivers one
+  // here — and it means the name stored is the same name matched later.
   useEffect(() => {
     if (!listening) return
-    function onKeyDown(e: KeyboardEvent) {
-      e.preventDefault()
-      const next = eventToSingleKey(e)
+    let cancelled = false
+
+    window.yappr.captureHotkey().then(next => {
+      if (cancelled) return
+      setListening(false)
+      // null is a timeout or a cancel. Keep the existing binding rather
+      // than storing an empty key, which would leave no way to dictate.
       if (!next) return
       setHotkeys(prev => {
         if (!prev) return prev
@@ -55,25 +43,29 @@ export default function HotkeysTab() {
         })
         return updated
       })
-      setListening(false)
+    })
+
+    return () => {
+      cancelled = true
+      window.yappr.cancelHotkeyCapture()
     }
-    window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown, true)
   }, [listening])
 
   if (!hotkeys) return <div className="text-ink-45 text-sm">Loading…</div>
 
-  const glyph = keyDisplay(hotkeys.pushToTalk)
+  const glyph = hotkeyDisplay(hotkeys.pushToTalk)
+  const label = hotkeyLabel(hotkeys.pushToTalk)
 
   return (
     <div className="max-w-[720px]">
       <SectionHead
-        headline={<>Hold <em className="italic">{KEY_NAME[glyph] ?? glyph}</em>. Say anything.</>}
+        headline={<>Hold <em className="italic">{label || glyph}</em>. Say anything.</>}
       />
 
       <div className="flex items-center gap-5 mb-6">
         <Keycap
           glyph={glyph}
+          label={label}
           listening={listening}
           onClick={() => setListening(l => !l)}
         />
@@ -101,7 +93,7 @@ export default function HotkeysTab() {
         </div>
       </div>
 
-      <Gestures glyph={glyph} />
+      <Gestures glyph={glyph} label={label} />
     </div>
   )
 }
@@ -173,7 +165,7 @@ const CAPTION: Partial<Record<NotchState, string>> = {
   pasting: 'your last dictation, again',
 }
 
-function Gestures({ glyph }: { glyph: string }) {
+function Gestures({ glyph, label }: { glyph: string; label: string }) {
   const [frame, setFrame] = useState(0)
   const [active, setActive] = useState<Mode>('tap')
 
@@ -203,7 +195,7 @@ function Gestures({ glyph }: { glyph: string }) {
           <NotchMark state={state} notchWidth={92} />
         </MenuBar>
         <div className="flex flex-col items-center justify-center gap-5 py-12">
-          <MiniKeycap glyph={glyph} pressed={keyDown} />
+          <MiniKeycap glyph={glyph} label={label} pressed={keyDown} />
           {/* Caption track, as under the site's live demo — it names what
               you're watching, so the loop teaches instead of just moving. */}
           <div className="h-5 text-[11.5px] font-mono text-white/70 tracking-wide">
@@ -246,7 +238,7 @@ function Gestures({ glyph }: { glyph: string }) {
 }
 
 // A physical keycap — cream plastic, a real travel distance when pressed.
-function MiniKeycap({ glyph, pressed }: { glyph: string; pressed: boolean }) {
+function MiniKeycap({ glyph, label, pressed }: { glyph: string; label: string; pressed: boolean }) {
   return (
     <div
       style={{
@@ -273,9 +265,9 @@ function MiniKeycap({ glyph, pressed }: { glyph: string; pressed: boolean }) {
       >
         {glyph}
       </span>
-      {KEY_NAME[glyph] && (
+      {label && (
         <span className="font-mono text-ink-45 uppercase" style={{ fontSize: 7, letterSpacing: '0.1em' }}>
-          {KEY_NAME[glyph]}
+          {label}
         </span>
       )}
     </div>
@@ -286,10 +278,12 @@ function MiniKeycap({ glyph, pressed }: { glyph: string; pressed: boolean }) {
 // one on the stage, scaled up, with the rebind affordance on it.
 function Keycap({
   glyph,
+  label,
   listening,
   onClick,
 }: {
   glyph: string
+  label: string
   listening: boolean
   onClick: () => void
 }) {
@@ -321,9 +315,9 @@ function Keycap({
       >
         {glyph}
       </span>
-      {KEY_NAME[glyph] && (
+      {label && (
         <span className="font-mono text-ink-45 uppercase" style={{ fontSize: 8, letterSpacing: '0.1em' }}>
-          {KEY_NAME[glyph]}
+          {label}
         </span>
       )}
     </button>

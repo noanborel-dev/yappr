@@ -79,6 +79,9 @@ declare global {
       getAppInfo: () => Promise<AppInfo>
       getNotchGeometry: () => Promise<NotchGeometry>
       reloadHotkeys: () => void
+      /** Resolves with the next key the user presses, or null on timeout. */
+      captureHotkey: () => Promise<string | null>
+      cancelHotkeyCapture: () => void
       openOnboarding: () => void
       getLaunchAtLogin: () => Promise<boolean>
       setLaunchAtLogin: (enabled: boolean) => Promise<void>

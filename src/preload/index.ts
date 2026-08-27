@@ -71,6 +71,8 @@ contextBridge.exposeInMainWorld('yappr', {
     displayWidth: number
   }> => ipcRenderer.invoke(IPC.INDICATOR_NOTCH_GEOMETRY),
   reloadHotkeys: () => ipcRenderer.send(IPC.HOTKEYS_RELOAD),
+  captureHotkey: (): Promise<string | null> => ipcRenderer.invoke(IPC.HOTKEYS_CAPTURE),
+  cancelHotkeyCapture: () => ipcRenderer.send(IPC.HOTKEYS_CAPTURE_CANCEL),
   openOnboarding: () => ipcRenderer.send(IPC.OPEN_ONBOARDING),
   getLaunchAtLogin: (): Promise<boolean> => ipcRenderer.invoke(IPC.LAUNCH_AT_LOGIN_GET),
   setLaunchAtLogin: (enabled: boolean): Promise<void> =>

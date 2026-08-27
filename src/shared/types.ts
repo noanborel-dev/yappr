@@ -239,6 +239,10 @@ export const IPC = {
   ACCESSIBILITY_OPEN: 'accessibility:open',
   ACCESSIBILITY_CHECK: 'accessibility:check',
   HOTKEYS_RELOAD: 'hotkeys:reload',
+  // invoke, not send: the recorder awaits the next real key press, which
+  // is read from the global listener rather than a browser event.
+  HOTKEYS_CAPTURE: 'hotkeys:capture',
+  HOTKEYS_CAPTURE_CANCEL: 'hotkeys:capture-cancel',
   REVEAL_LOG: 'reveal:log',
   LAUNCH_AT_LOGIN_GET: 'app:launch-at-login:get',
   LAUNCH_AT_LOGIN_SET: 'app:launch-at-login:set',

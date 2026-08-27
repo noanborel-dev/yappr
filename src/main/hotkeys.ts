@@ -91,6 +91,59 @@ function flushStartDelay(): void {
   }
 }
 
+// Resolver for an in-flight captureNextKey(), or null when not recording.
+let capturePending: ((name: string) => void) | null = null
+
+/** Abandoned if the user walks away mid-recording. */
+const CAPTURE_TIMEOUT_MS = 15000
+
+/**
+ * Wait for the next key the user presses, as the LISTENER names it.
+ *
+ * The recorder used to read a browser KeyboardEvent, which could not see
+ * two whole families of key. macOS eats F1-F12 as media keys before any
+ * window receives them, so function keys produced no event to record.
+ * And punctuation arrives under different names on the two sides — the
+ * browser says "'", the listener says QUOTE — so an apostrophe recorded
+ * in Settings never matched an apostrophe pressed for real.
+ *
+ * Reading the key from the listener fixes both at once and, more
+ * usefully, means the recorder and the matcher share one vocabulary.
+ * There is no translation table to keep in sync with the library.
+ *
+ * Returns null on timeout, or when no listener is running — the caller
+ * shows the current binding unchanged rather than storing an empty key.
+ */
+export function captureNextKey(): Promise<string | null> {
+  if (!listener) return Promise.resolve(null)
+  // A second call supersedes the first; the earlier one resolves null so
+  // its await does not hang forever.
+  if (capturePending) {
+    const stale = capturePending
+    capturePending = null
+    stale('')
+  }
+  return new Promise<string | null>(resolve => {
+    const settle = (name: string) => resolve(name || null)
+    capturePending = settle
+    setTimeout(() => {
+      if (capturePending === settle) {
+        capturePending = null
+        resolve(null)
+      }
+    }, CAPTURE_TIMEOUT_MS)
+  })
+}
+
+/** Stop waiting for a key — the user closed the recorder. */
+export function cancelKeyCapture(): void {
+  if (capturePending) {
+    const pending = capturePending
+    capturePending = null
+    pending('')
+  }
+}
+
 export function registerHotkey(key: string, cbs: Callbacks): void {
   if (listener) {
     listener.kill()
@@ -108,6 +161,19 @@ export function registerHotkey(key: string, cbs: Callbacks): void {
   listener = new GlobalKeyboardListener()
 
   listener.addListener((e) => {
+    // Recording a new hotkey. Handled here rather than in a second
+    // listener because node-global-key-listener spawns a helper process
+    // per instance, and two of them race for the same event tap.
+    //
+    // This also has to come BEFORE the keyMatches guard: the whole point
+    // is to capture keys that are not the current hotkey.
+    if (capturePending && e.state === 'DOWN') {
+      const resolve = capturePending
+      capturePending = null
+      resolve(e.name ?? '')
+      return
+    }
+
     if (!currentKey || !callbacks) return
     if (!keyMatches(currentKey, e.name ?? '')) return
 

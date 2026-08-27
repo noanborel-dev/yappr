@@ -26,7 +26,8 @@ import { join } from 'path'
 import { registerIpcHandlers, addToHistory, getHistory } from './ipc'
 import { notifyDictationCompleted, markDictationActive, startCompactionRetries, bootstrapFactsIfEmpty } from './context/compactor'
 import { closeContextStore } from './context/store'
-import { registerHotkey, unregisterAll } from './hotkeys'
+import { registerHotkey, unregisterAll, captureNextKey, cancelKeyCapture } from './hotkeys'
+import { canonicalHotkeyName } from '../shared/hotkey-names'
 import { getSettings, setSettings } from './store'
 import { runCommandPipeline, runDictationPipeline } from './pipeline'
 import { captureFocusedApp, getFocusedApp } from './focused-app'
@@ -881,6 +882,11 @@ function setupIpcListeners(): void {
   ipcMain.on(IPC.OPEN_SETTINGS, () => createSettingsWindow())
   ipcMain.on(IPC.OPEN_ONBOARDING, () => createOnboardingWindow())
   ipcMain.on(IPC.HOTKEYS_RELOAD, () => setupHotkeys())
+  // Canonicalised in main so the renderer never has to know the
+  // listener's naming, and so the value stored is exactly the value
+  // matched later. See src/shared/hotkey-names.ts.
+  ipcMain.handle(IPC.HOTKEYS_CAPTURE, async () => canonicalHotkeyName(await captureNextKey()))
+  ipcMain.on(IPC.HOTKEYS_CAPTURE_CANCEL, () => cancelKeyCapture())
   ipcMain.handle(IPC.REVEAL_LOG, () => {
     shell.showItemInFolder(getLogPath())
   })
