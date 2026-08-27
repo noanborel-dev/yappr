@@ -28,14 +28,24 @@ export default function Home() {
       <Nav />
       <main id="top">
         <Hero />
-        {/* One real-world frame between the hero mockup and the dark identity
-            section — the page is otherwise all CSS-drawn app chrome. */}
+
+        {/* Prompt shaping now follows the hero directly. The hero ends on a
+            rambled sentence landing as a structured prompt; this section is
+            that same move, slowed down and explained. Anything between them
+            was making the reader wait for the payoff of what they had just
+            watched.
+
+            The pinned "You have four terminals open" sequence used to sit
+            here. It is gone — see BuiltForBuilders.tsx. */}
+        <PromptShaping />
+
+        {/* What the app actually is, after the feature that sells it */}
+        <TheNotch />
+
+        {/* One real-world frame among the CSS-drawn app chrome. Moved down
+            with the section it used to introduce. */}
         <PhotoBand photo={PHOTOS.buildBench} expand priority />
         <BuiltForBuilders />
-        {/* What the app actually is, before the feature deep-dives */}
-        <TheNotch />
-        {/* The three features, in order of what actually sells the product */}
-        <PromptShaping />
         <SelectRewrite />
         <PersistentContext />
         {/* Proof, not pitch */}
