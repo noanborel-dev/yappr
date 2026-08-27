@@ -176,13 +176,21 @@ const FALLOFF = [
  */
 export const BRAND_PLATE_FLOOR = '#151B26'
 /**
- * The wing tips. Graphite, following the mark and the panels off navy.
- * Was #2B3950, which was blue enough to look like a lit surface hanging
- * beside the housing rather than an extension of it.
+ * The wing tips, and the stop before black.
+ *
+ * BLUE, asked for directly: the same family as the mark's plate rather
+ * than the graphite these were. I had argued the other way — that a lit
+ * blue beside the housing reads as a floating widget rather than as part
+ * of the machine — and picked graphite on that basis. Overruled, and the
+ * compromise is which blue: AZURE and DEEP, the plate's dark end, not
+ * SKY. The mark can afford SKY because it is an object on a page; this
+ * sits in the menu bar over whatever you are doing.
+ *
+ * The centre is still #000 and is not up for negotiation — that is what
+ * makes the middle disappear into the camera housing.
  */
-export const BRAND_CHARCOAL = '#2E3745'
-/** Deepest wing stop. Not black — black is reserved for the housing. */
-export const BRAND_ABYSS = '#1A1F28'
+export const BRAND_CHARCOAL = '#2E5697'
+export const BRAND_ABYSS = '#16305C'
 
 /**
  * The plate, for logo containers. The live notch uses BRAND_WING instead.

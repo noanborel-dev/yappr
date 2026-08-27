@@ -24,9 +24,11 @@ import { PillLogo } from "./PillLogo";
 // Ordered so the builder tools sit together and the places you send
 // things sit together — the ring is read as an arc, not a list, so
 // neighbours matter more than sequence.
-const APPS: Array<{ name: string; logo: string }> = [
+const APPS: Array<{ name: string; logo: string; invert?: boolean; wide?: boolean }> = [
   { name: "Claude Code", logo: "/logos/claudecode.png" },
+  { name: "Codex", logo: "/logos/codex.png", invert: true, wide: true },
   { name: "Cursor", logo: "/logos/cursor.png" },
+  { name: "Replit", logo: "/logos/replit.webp" },
   { name: "Lovable", logo: "/logos/lovable.webp" },
   { name: "Claude", logo: "/logos/claude.png" },
   { name: "ChatGPT", logo: "/logos/chatgpt.webp" },
@@ -155,8 +157,23 @@ export function LogoOrbit() {
                     className="orb-counter"
                     style={{ animationPlayState: p > 0.6 ? "running" : "paused" }}
                   >
-                    <div className="orb-logo">
-                      <Image src={app.logo} alt={app.name} width={96} height={96} />
+                    {/* `invert` is for marks supplied as WHITE artwork —
+                        Codex ships as a white wordmark, which is
+                        invisible on cream. Inverting a white-on-
+                        transparent PNG gives black on transparent, alpha
+                        intact, which is the mark as it would be drawn for
+                        a light background.
+                        `wide` is for wordmarks rather than icons: forcing
+                        one into a square box scales it down until it is
+                        unreadable, so it gets width instead. */}
+                    <div className={`orb-logo ${app.wide ? "is-wide" : ""}`}>
+                      <Image
+                        src={app.logo}
+                        alt={app.name}
+                        width={app.wide ? 150 : 96}
+                        height={96}
+                        style={app.invert ? { filter: "invert(1)" } : undefined}
+                      />
                     </div>
                   </div>
                 </div>

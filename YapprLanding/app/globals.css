@@ -4166,11 +4166,11 @@ body {
 .ni-fillet.off { opacity: 0; }
 .ni-fillet--l {
   left: -11px;
-  background: radial-gradient(circle at 0% 100%, transparent 0 11px, #2e3745 11.5px);
+  background: radial-gradient(circle at 0% 100%, transparent 0 11px, #2e5697 11.5px);
 }
 .ni-fillet--r {
   right: -11px;
-  background: radial-gradient(circle at 100% 100%, transparent 0 11px, #2e3745 11.5px);
+  background: radial-gradient(circle at 100% 100%, transparent 0 11px, #2e5697 11.5px);
 }
 
 /* True black under the centre, lifting to charcoal at the wings — the
@@ -4186,12 +4186,12 @@ body {
 .ni-shell {
   background: linear-gradient(
     90deg,
-    #2e3745 0%,
-    #1a1f28 14%,
+    #2e5697 0%,
+    #16305c 14%,
     #000 32%,
     #000 68%,
-    #1a1f28 86%,
-    #2e3745 100%
+    #16305c 86%,
+    #2e5697 100%
   );
   overflow: hidden;
   border-bottom-left-radius: 11px;
@@ -5519,6 +5519,11 @@ body {
   width: 96px;
   height: 96px;
 }
+/* A wordmark is wider than it is tall; squeezing it into the icon box
+   shrinks it until it cannot be read. */
+.orb-logo.is-wide { width: 150px; }
+.orb-logo.is-wide img { width: 150px; height: auto; }
+
 .orb-logo img {
   width: 96px;
   height: 96px;
