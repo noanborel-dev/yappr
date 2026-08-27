@@ -130,12 +130,34 @@ export function SelectRewrite() {
 
             <div className="gm-foot">
               <span className="gm-send">Send</span>
-              <span className={`gm-said ${beat === "speak" ? "in" : ""}`}>
-                &ldquo;{SAID}&rdquo;
-              </span>
             </div>
           </div>
         </ScrollExpand>
+
+        {/* The spoken instruction, and the one line that explains the
+            gesture the section is named after.
+
+            It used to sit beside the Send button, inside the mockup, at
+            15.5px in Gmail's own grey — chrome-sized type in chrome
+            colours, which made the most important sentence in the
+            section the least readable thing in it. It is not part of the
+            window; it is the caption for the whole demo, so it belongs
+            under the module in the page's voice, not Gmail's.
+
+            It also used to show only during the `speak` beat and vanish
+            the moment the text swapped — under two seconds, gone before
+            the result it explains had even landed. Now it holds through
+            `done`, so the instruction and its outcome are on screen at
+            the same time, which is the entire comparison being made. */}
+        <div className={`sr-said ${beat === "speak" || done ? "in" : ""}`}>
+          <span className="sr-said-label">
+            {/* The app's own record dot, not a new one — it says
+                "this is being said out loud" without a word of copy. */}
+            <i className="pill-dot" aria-hidden="true" />
+            What you&rsquo;re saying
+          </span>
+          <p className="sr-said-quote">&ldquo;{SAID}&rdquo;</p>
+        </div>
 
         <Reveal delay={120}>
           <p className="sec-foot">

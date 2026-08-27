@@ -5177,22 +5177,51 @@ body {
   border-radius: 999px;
   flex: none;
 }
-.gm-said {
+/* The spoken instruction, under the compose window rather than inside
+   it. See the note in SelectRewrite.tsx for why it moved.
+
+   Always in flow, only its opacity animates — so the space it needs is
+   reserved from the start and .sec-foot below never jumps when the loop
+   comes round. */
+.sr-said {
+  max-width: 780px;
+  margin: 30px auto 0;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.sr-said.in { opacity: 1; transform: none; }
+.sr-said-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  /* The dark section's own accent, the same one its eyebrows use, so
+     this reads as a label in the page rather than a third colour. */
+  color: #f3a08f;
+}
+.sr-said-quote {
+  margin: 13px 0 0;
   font-family: var(--font-serif);
   font-style: italic;
-  font-size: 15.5px;
-  color: #5f6368;
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  font-size: clamp(23px, 2.5vw, 33px);
+  line-height: 1.34;
+  /* Cream, not Gmail's grey: it is the page speaking now, and on this
+     ground grey is what the section uses for what does NOT matter. */
+  color: var(--cream);
+  text-wrap: balance;
 }
-.gm-said.in { opacity: 1; transform: none; }
 
 @media (max-width: 780px) {
   .gm .gm-body { font-size: 15px; line-height: 1.6; }
   .gm-body { padding: 16px 14px 20px; }
-  .gm-said { font-size: 14.5px; }
   .gm-foot { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .sr-said { margin-top: 24px; }
+  .sr-said-quote { font-size: 21px; }
 }
 
 /* --- 03: the preamble tax, shrinking --- */
@@ -5608,12 +5637,15 @@ body {
      box below where layout thinks it does, times the growth. Adding that
      back keeps the gap under the mark at a constant 22px however big it
      gets. */
-  margin: calc(var(--mark-box) / 2 * (var(--mark-scale) - 1) + 22px) 0 0;
+  margin: calc(var(--mark-box) / 2 * (var(--mark-scale) - 1) + 26px) 0 0;
   transform: translateX(-50%);
   white-space: nowrap;
   font-family: var(--font-serif);
   font-style: italic;
-  font-size: clamp(19px, 2vw, 26px);
+  /* It is the last thing left on screen with a mark at nearly 3x beside
+     it — at 26px it read as a footnote to the logo rather than as the
+     line the whole section was building to. */
+  font-size: clamp(25px, 2.7vw, 36px);
   color: var(--ink-2);
 }
 /* Sits on the baseline where the next character will land. Solid, not

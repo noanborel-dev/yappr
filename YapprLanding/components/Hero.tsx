@@ -114,11 +114,15 @@ export function Hero() {
             Talk however you talk. It lands as Goal, Context, Tasks, Done when.
           </p>
 
+          {/* No "free, no card" line under the button. Pricing says it
+              twice already, and in the hero it answered a question
+              nobody has yet — the reader has not been told there is a
+              paid tier, so a reassurance about billing is the first
+              mention of billing. */}
           <a href="#download" className="btn-primary">
             Start yapping
             <span className="btn-chip">macOS</span>
           </a>
-          <p className="text-[13.5px] text-muted mt-3.5 m-0">free, no card</p>
         </div>
 
         <div className="hero-right">

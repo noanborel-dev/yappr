@@ -110,11 +110,18 @@ const EXODUS_END = TRAVEL_DEG + (APPS.length - 1) * SPACING_DEG;
 // alone at full size before the first character appears.
 const ORBIT_SPAN = 0.84;
 
-// Scale of the centre mark, as a multiple of its rendered size. It stays
-// above 1 throughout: the mark reads as the thing being orbited, and at
-// its natural size it was smaller than the logos going round it.
-const MARK_BASE = 1.3;
-const MARK_MAX = 2.4;
+// Scale of the centre mark, as a multiple of its rendered size (68px).
+//
+// BASE is well above 1 throughout: the mark is the thing being orbited,
+// and at its natural size it was smaller than the logos going round it,
+// which inverts the hierarchy the whole section depends on. At 1.75 it
+// is ~119px against 96px logos — clearly the centre, before any growth.
+//
+// MAX rose with it. The growth has to stay legible as growth, and a
+// ratio that shrank as BASE went up would have quietly turned the
+// takeover into a nudge.
+const MARK_BASE = 1.75;
+const MARK_MAX = 2.85;
 
 // Typed one character at a time by the scroll itself — no timer. The
 // line is the section's conclusion, so it should not be sitting there
