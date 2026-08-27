@@ -146,7 +146,7 @@ export function LogoOrbit() {
                     style={{ animationPlayState: p > 0.6 ? "running" : "paused" }}
                   >
                     <div className="orb-logo" style={{ transform: `rotate(${-p * 200}deg)` }}>
-                      <Image src={app.logo} alt={app.name} width={34} height={34} />
+                      <Image src={app.logo} alt={app.name} width={74} height={74} />
                     </div>
                   </div>
                 </div>

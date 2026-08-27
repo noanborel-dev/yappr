@@ -5507,18 +5507,26 @@ body {
 .orb-ring { position: absolute; left: 0; top: 0; width: 0; height: 0; }
 .orb-slot { position: absolute; left: 0; top: 0; will-change: transform; }
 .orb-counter { animation: orb-spin-rev 48s linear infinite; }
+/* No chip behind the logo. The tile was doing nothing except making
+   every app look like it had been re-drawn as a Yappr icon, and at this
+   size the marks carry themselves — they are designed to be recognised
+   on their own. Dropping it also lets them grow: the chip was the
+   constraint, not the ring. */
 .orb-logo {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 62px;
-  height: 62px;
-  border-radius: 16px;
-  background: var(--paper);
-  border: 1px solid var(--line);
-  box-shadow: 0 10px 24px -12px rgba(20, 30, 50, 0.3);
+  width: 74px;
+  height: 74px;
 }
-.orb-logo img { width: 34px; height: 34px; object-fit: contain; }
+.orb-logo img {
+  width: 74px;
+  height: 74px;
+  object-fit: contain;
+  /* A soft drop shadow instead of a plate — it separates a dark mark
+     from the cream without drawing a box around it. */
+  filter: drop-shadow(0 8px 18px rgba(20, 30, 50, 0.22));
+}
 
 @keyframes orb-spin     { to { transform: rotate(360deg); } }
 @keyframes orb-spin-rev { to { transform: rotate(-360deg); } }
@@ -5545,8 +5553,8 @@ body {
 /* On a phone the ring would collide with itself; the logos shrink and the
    radius follows the short side, which is the width here. */
 @media (max-width: 640px) {
-  .orb-logo { width: 48px; height: 48px; border-radius: 13px; }
-  .orb-logo img { width: 26px; height: 26px; }
+  .orb-logo { width: 52px; height: 52px; }
+  .orb-logo img { width: 52px; height: 52px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
