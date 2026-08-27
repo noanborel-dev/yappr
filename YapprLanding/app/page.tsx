@@ -1,6 +1,6 @@
 import { Nav } from "@/components/Nav";
 import { Hero } from "@/components/Hero";
-import { BuiltForBuilders } from "@/components/BuiltForBuilders";
+import { LogoOrbit } from "@/components/LogoOrbit";
 import { PromptShaping } from "@/components/PromptShaping";
 import { SelectRewrite } from "@/components/SelectRewrite";
 import { PersistentContext } from "@/components/PersistentContext";
@@ -33,7 +33,7 @@ export default function Home() {
             CSS-drawn app chrome, and it lands better as the thing you scroll
             into than buried four sections down. */}
         <PhotoBand photo={PHOTOS.buildBench} expand priority />
-        <BuiltForBuilders />
+        <LogoOrbit />
 
         {/* The three features, in the order that sells them.
 

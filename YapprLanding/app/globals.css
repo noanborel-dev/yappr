@@ -5473,3 +5473,82 @@ body {
     animation: none !important;
   }
 }
+
+/* ============================================================
+   Logo orbit — the apps ring around the mark
+   ============================================================ */
+
+/* A tall track with a sticky stage: the section holds still while the
+   scroll drives the formation. Its parent must never get overflow:hidden
+   — that silently kills position:sticky, which is the note that already
+   cost this page once. */
+.orb { height: 230vh; position: relative; background: var(--cream); }
+.orb-pin { position: sticky; top: 0; height: 100vh; overflow: clip; }
+.orb-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Both the ring and the logos inside it run the SAME animation at the
+   same duration in opposite directions, so the marks stay upright while
+   the ring turns. Linear, because an eased orbit reads as a stutter. */
+.orb-spin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  animation: orb-spin 48s linear infinite;
+}
+.orb-ring { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.orb-slot { position: absolute; left: 0; top: 0; will-change: transform; }
+.orb-counter { animation: orb-spin-rev 48s linear infinite; }
+.orb-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 24px -12px rgba(20, 30, 50, 0.3);
+}
+.orb-logo img { width: 34px; height: 34px; object-fit: contain; }
+
+@keyframes orb-spin     { to { transform: rotate(360deg); } }
+@keyframes orb-spin-rev { to { transform: rotate(-360deg); } }
+
+/* The mark sits at the centre of the ring, not on it. */
+.orb-core {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  transition: opacity 0.4s ease;
+}
+.orb-core-line {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: clamp(19px, 2vw, 26px);
+  color: var(--ink-2);
+}
+
+/* On a phone the ring would collide with itself; the logos shrink and the
+   radius follows the short side, which is the width here. */
+@media (max-width: 640px) {
+  .orb-logo { width: 48px; height: 48px; border-radius: 13px; }
+  .orb-logo img { width: 26px; height: 26px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb-spin, .orb-counter { animation: none !important; }
+}
