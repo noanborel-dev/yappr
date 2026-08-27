@@ -28,15 +28,15 @@
     <radialGradient id="a-plate" cx="0.5" cy="0.5" r="0.62">
       <stop offset="0"    stop-color="#16305C" stop-opacity="0"/>
       <stop offset="0.12" stop-color="#16305C" stop-opacity="0"/>
-      <stop offset="0.24" stop-color="#1C3660" stop-opacity="0.16"/>
-      <stop offset="0.38" stop-color="#284676" stop-opacity="0.34"/>
-      <stop offset="0.52" stop-color="#365A96" stop-opacity="0.54"/>
-      <stop offset="0.66" stop-color="#446EB6" stop-opacity="0.72"/>
-      <stop offset="0.82" stop-color="#507ED0" stop-opacity="0.88"/>
-      <stop offset="1"    stop-color="#5A8FE8" stop-opacity="1"/>
+      <stop offset="0.24" stop-color="#1C3660" stop-opacity="0.14"/>
+      <stop offset="0.38" stop-color="#284676" stop-opacity="0.29"/>
+      <stop offset="0.52" stop-color="#365A96" stop-opacity="0.46"/>
+      <stop offset="0.66" stop-color="#446EB6" stop-opacity="0.62"/>
+      <stop offset="0.82" stop-color="#507ED0" stop-opacity="0.76"/>
+      <stop offset="1"    stop-color="#5A8FE8" stop-opacity="0.88"/>
     </radialGradient>
     <linearGradient id="a-sheen" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"    stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="0"    stop-color="#FFFFFF" stop-opacity="0.14"/>
       <stop offset="0.46" stop-color="#FFFFFF" stop-opacity="0"/>
     </linearGradient>
     <clipPath id="a-clip">
@@ -45,7 +45,7 @@
   </defs>
 
   <g clip-path="url(#a-clip)">
-    <rect x="100" y="100" width="824" height="824" fill="#000000"/>
+    <rect x="100" y="100" width="824" height="824" fill="#151B26"/>
     <rect x="100" y="100" width="824" height="824" fill="url(#a-plate)"/>
     <rect x="100" y="100" width="824" height="824" fill="url(#a-sheen)"/>
   </g>

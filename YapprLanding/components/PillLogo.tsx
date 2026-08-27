@@ -18,16 +18,50 @@ interface PillLogoProps {
    * from the page edge, the way the indicator hangs from the menu bar.
    */
   hanging?: boolean;
+  /**
+   * "notch" needs a top edge to hang from. Where there isn't one, use
+   * "square": detached, the notch silhouette is just a rounded rectangle
+   * — which is the pill this whole system replaced. The footer is that
+   * case, and so is any avatar or icon slot.
+   */
+  shape?: "notch" | "square";
 }
 
 const SIZES = {
-  sm: { font: 13, padH: 12, padTop: 7, padBot: 8, dot: 5, gap: 7, radius: 9 },
-  md: { font: 18, padH: 16, padTop: 9, padBot: 11, dot: 6, gap: 10, radius: 12 },
-  lg: { font: 30, padH: 26, padTop: 15, padBot: 18, dot: 10, gap: 14, radius: 18 },
+  sm: { font: 13, padH: 12, padTop: 7, padBot: 8, dot: 5, gap: 7, radius: 9, box: 34 },
+  md: { font: 18, padH: 16, padTop: 9, padBot: 11, dot: 6, gap: 10, radius: 12, box: 44 },
+  lg: { font: 30, padH: 26, padTop: 15, padBot: 18, dot: 10, gap: 14, radius: 18, box: 68 },
 };
 
-export function PillLogo({ size = "md", hanging }: PillLogoProps) {
+export function PillLogo({ size = "md", hanging, shape = "notch" }: PillLogoProps) {
   const s = SIZES[size];
+
+  // SQUARE — a rounded square carrying a single letterform.
+  //
+  // "Yappr" does not fit a square at this scale, and shrinking it to fit
+  // is how the favicon became unreadable. One letter at a legible size
+  // beats five at an illegible one.
+  //
+  // Radius is 22% of the side, the macOS squircle proportion, so the
+  // footer mark and the Dock icon are recognisably the same object.
+  if (shape === "square") {
+    return (
+      <span
+        className="square-logo"
+        style={{
+          width: s.box,
+          height: s.box,
+          borderRadius: Math.round(s.box * 0.22),
+          fontSize: Math.round(s.box * 0.52),
+        }}
+        aria-label="Yappr"
+        role="img"
+      >
+        Y
+      </span>
+    );
+  }
+
   return (
     <span
       className={`notch-logo ${hanging ? "notch-logo--hanging" : ""}`}

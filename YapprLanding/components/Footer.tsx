@@ -43,14 +43,18 @@ export function Footer() {
     >
       <div className="max-w-[1240px] mx-auto px-8 grid gap-10 grid-cols-1 md:grid-cols-[1.4fr_repeat(3,1fr)]">
         <div>
-          {/* Stays in the column rather than hanging from the footer's top
-              border. Hanging it there was tried and looked worse: the
-              section above the footer is dark too, so the mark landed on
-              a dark-on-dark seam at 64px wide and simply disappeared.
-              The "a notch needs an edge" rule earns its keep on the
-              primary mark; down here it is a small brand tag, and being
-              visible beats being doctrinally correct. */}
-          <PillLogo size="sm" />
+          {/* Square, not the notch. It sits mid-column with nothing above
+              it, and a notch with no top edge to hang from is just a
+              rounded rectangle — which read as a lozenge here rather than
+              as the Yappr shape.
+
+              Hanging it from the footer's top border was tried first and
+              was worse: the section above the footer is also dark, so a
+              64px mark landed on a dark-on-dark seam and vanished. The
+              square keeps it in the column AND keeps it a real shape.
+
+              The name is not lost — "© Yappr Labs" sits directly below. */}
+          <PillLogo size="sm" shape="square" />
           <p
             className="m-0 mt-4 text-[13.5px] leading-[1.55] max-w-[280px]"
             style={{ color: "#9a9789" }}

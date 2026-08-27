@@ -1,73 +1,64 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Yappr">
   <!--
-    The circular mark, for the favicon and any social avatar.
+    The favicon: one letterform, not the wordmark.
 
-    Circle rather than the notch on purpose: a notch is defined by the top
-    edge it hangs from, and every one of these slots is a free-floating
-    square that gets masked to a circle. Detached, the notch silhouette is
-    just a rounded rectangle, so it would lose the one thing that makes it
-    the Yappr shape.
+    The previous version set "Yappr" inside the circle. It was legible at
+    64px and mush at the sizes a favicon is actually drawn — 16px in a
+    tab, 32px on a retina tab. Five letters across 16 pixels gives about
+    three pixels per letter. One letter at a legible size beats five at
+    an illegible one, and the tab strip is the one place the mark has to
+    survive being tiny.
 
-    RADIAL, not the horizontal plate the notch mark uses: a left-to-right
-    ramp inside a circle reads as a sphere lit from one side. Same three
-    steps either way — black centre, darker blue, lighter blue at the rim.
+    SQUARE, matching the footer mark and the Dock icon at 22 percent
+    corner radius, so the three read as one object. The circle it
+    replaced was chosen when the wordmark was still inside: a circle
+    wastes its corners, which is affordable for five letters set small
+    and wasteful for one set large.
 
     Georgia italic, not Instrument Serif: favicons render before any
     webfont is available and cannot load one, so naming Instrument Serif
-    here would silently fall back to whatever the OS picks. Georgia is on
-    effectively every machine and is the closest widely-installed match.
+    would silently fall back to whatever the OS picks. Georgia is on
+    effectively every machine and is the closest widely installed match.
 
     Mirrors the "plate-radial" custom property in globals.css (written
     without its leading dashes: XML forbids a double hyphen inside a
-    comment, and the browser refuses to render the whole file) and
-    BRAND_PLATE_RADIAL in the app's YapprMark.tsx. Three places, no way to
-    share them; change all three together.
+    comment, and the browser refuses to render the whole file).
   -->
   <defs>
-    <!--
-      The blue FADES OUT over a black circle rather than ramping through
-      darker blues into #000. Ramping read as a hard ring: chroma falls
-      off faster than lightness, so a saturated dark blue sits right next
-      to black while still looking blue, and the last step becomes a
-      visible boundary instead of an arrival. Every stop here is the same
-      hue getting quieter, so nothing hands over.
-
-      The stops come in EARLIER than the linear plate's. Area on a disc
-      grows with the square of the radius, so the outer ring holds far
-      more pixels than the middle: reusing the linear curve here crushed
-      the blue into a thin rim and the icon read as a black dot at
-      favicon size. Same dissolve, redistributed for a circle.
-    -->
-    <radialGradient id="y-plate" cx="0.5" cy="0.5" r="0.5">
+    <radialGradient id="y-plate" cx="0.5" cy="0.5" r="0.62">
       <stop offset="0"    stop-color="#16305C" stop-opacity="0"/>
       <stop offset="0.12" stop-color="#16305C" stop-opacity="0"/>
-      <stop offset="0.24" stop-color="#1C3660" stop-opacity="0.16"/>
-      <stop offset="0.38" stop-color="#284676" stop-opacity="0.34"/>
-      <stop offset="0.52" stop-color="#365A96" stop-opacity="0.54"/>
-      <stop offset="0.66" stop-color="#446EB6" stop-opacity="0.72"/>
-      <stop offset="0.82" stop-color="#507ED0" stop-opacity="0.88"/>
-      <stop offset="1"    stop-color="#5A8FE8" stop-opacity="1"/>
+      <stop offset="0.24" stop-color="#1C3660" stop-opacity="0.14"/>
+      <stop offset="0.38" stop-color="#284676" stop-opacity="0.29"/>
+      <stop offset="0.52" stop-color="#365A96" stop-opacity="0.46"/>
+      <stop offset="0.66" stop-color="#446EB6" stop-opacity="0.62"/>
+      <stop offset="0.82" stop-color="#507ED0" stop-opacity="0.76"/>
+      <stop offset="1"    stop-color="#5A8FE8" stop-opacity="0.88"/>
     </radialGradient>
     <linearGradient id="y-sheen" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.13"/>
+      <stop offset="0"    stop-color="#FFFFFF" stop-opacity="0.14"/>
       <stop offset="0.46" stop-color="#FFFFFF" stop-opacity="0"/>
     </linearGradient>
   </defs>
 
-  <!-- Black base FIRST: y-plate is an alpha falloff and composites onto
-       whatever is beneath it. Without this the centre is transparent. -->
-  <circle cx="32" cy="32" r="32" fill="#000000"/>
-  <circle cx="32" cy="32" r="32" fill="url(#y-plate)"/>
-  <circle cx="32" cy="32" r="32" fill="url(#y-sheen)"/>
+  <!-- Graphite ink, not black: the same easing-off that cut the mark's
+       contrast on the page. -->
+  <rect width="64" height="64" rx="14" ry="14" fill="#151B26"/>
+  <rect width="64" height="64" rx="14" ry="14" fill="url(#y-plate)"/>
+  <rect width="64" height="64" rx="14" ry="14" fill="url(#y-sheen)"/>
 
-  <text
-    x="32" y="32"
-    text-anchor="middle"
-    dominant-baseline="central"
-    font-family="Georgia, 'Times New Roman', serif"
-    font-style="italic"
-    font-size="16"
-    letter-spacing="-0.15"
-    fill="#FFFFFF"
-  >Yappr</text>
+  <!-- Skewed rather than font-style="italic": sips ignores font-style and
+       rasterises roman, and this file is the source for favicon.ico. The
+       translate cancels the skew's drift, which at y=32 with a=-11 is
+       32*tan(11) = 6.2. -->
+  <g transform="translate(6.2,0) skewX(-11)">
+    <text
+      x="32" y="33"
+      text-anchor="middle"
+      dominant-baseline="central"
+      font-family="Georgia, 'Times New Roman', serif"
+      font-size="47"
+      fill="#FFFFFF"
+    >Y</text>
+  </g>
 </svg>

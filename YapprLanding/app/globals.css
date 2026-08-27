@@ -61,12 +61,42 @@
      square top. Also the truer reading: the black stands for the camera
      housing, and a housing does not catch a highlight. */
   --wing-sheen:
-    radial-gradient(58% 96% at 6% 0%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 72%),
-    radial-gradient(58% 96% at 94% 0%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 72%);
+    radial-gradient(58% 96% at 6% 0%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 72%),
+    radial-gradient(58% 96% at 94% 0%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 72%);
 
   /* The circle keeps a full top sheen: no band to deform, and light from
      above is what makes a disc read as a disc. */
   --top-sheen:    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 46%);
+
+  /* ── The panel ──────────────────────────────────────────────────
+     Yappr's own surfaces, at panel scale: the persistent-context memory
+     card, the Pro tier, the closing CTA.
+
+     DARK BLUE TO BLACK, the logo's colours at panel scale.
+
+     It went through neutral graphite first, on the reasoning that a blue
+     panel would compete with the blue mark. That was wrong about which
+     problem mattered: a graphite panel behind a blue mark reads as two
+     different systems, and the page has one. Blue-to-black everywhere
+     reads as one material catching light differently.
+
+     The whitish top-left lift stays — that is what keeps a dark blue
+     panel from going flat and muddy, and it is the "slightly whitish"
+     half of the brief. #24344F is a lit blue, #0B111C is near black, so
+     the range is still wide.
+
+     NOT the logo plate's GEOMETRY. That one is symmetric, blue at both
+     edges and black through the middle, which is right for a small wide
+     mark and unreadable behind a paragraph — the text would sit on a
+     ramp. Same colours, corner-lit panel geometry.
+
+     Defined once because three surfaces use it: the memory card, Pro,
+     and the closing CTA. The radial stops are percentages, so the recipe
+     scales from a 360px card to a full-screen panel without retuning. */
+  --panel-ink:
+    radial-gradient(120% 92% at 0% 0%, rgba(214, 226, 244, 0.20), rgba(214, 226, 244, 0) 60%),
+    radial-gradient(96% 84% at 100% 100%, rgba(90, 143, 232, 0.22), rgba(90, 143, 232, 0) 66%),
+    linear-gradient(158deg, #24344f 0%, #0b111c 100%);
 
   /* Symmetric: black at the centre with blue coming up on BOTH sides.
      Light at one edge falling to black at the other was the obvious
@@ -93,16 +123,22 @@
      hits 0 at 50% and is under .05 either side — so the wordmark keeps
      its black ground, it just arrives there gradually. */
   --plate:
-    radial-gradient(58% 96% at 6% 0%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 72%),
-    radial-gradient(58% 96% at 94% 0%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 72%),
+    var(--wing-sheen),
     linear-gradient(90deg,
-      rgba(90, 143, 232, 1) 0%, rgba(88, 138, 226, 0.94) 6%, rgba(80, 126, 208, 0.82) 13%,
-      rgba(68, 110, 182, 0.64) 21%, rgba(54, 90, 150, 0.44) 29%, rgba(40, 70, 118, 0.26) 36%,
-      rgba(28, 54, 96, 0.12) 42%, rgba(22, 46, 86, 0.03) 47%, rgba(22, 46, 86, 0) 50%,
-      rgba(22, 46, 86, 0.03) 53%, rgba(28, 54, 96, 0.12) 58%, rgba(40, 70, 118, 0.26) 64%,
-      rgba(54, 90, 150, 0.44) 71%, rgba(68, 110, 182, 0.64) 79%, rgba(80, 126, 208, 0.82) 87%,
-      rgba(88, 138, 226, 0.94) 94%, rgba(90, 143, 232, 1) 100%),
-    #000;
+      rgba(90, 143, 232, 0.88) 0%, rgba(88, 138, 226, 0.82) 6%, rgba(80, 126, 208, 0.70) 13%,
+      rgba(68, 110, 182, 0.54) 21%, rgba(54, 90, 150, 0.37) 29%, rgba(40, 70, 118, 0.21) 36%,
+      rgba(28, 54, 96, 0.10) 42%, rgba(22, 46, 86, 0.03) 47%, rgba(22, 46, 86, 0) 50%,
+      rgba(22, 46, 86, 0.03) 53%, rgba(28, 54, 96, 0.10) 58%, rgba(40, 70, 118, 0.21) 64%,
+      rgba(54, 90, 150, 0.37) 71%, rgba(68, 110, 182, 0.54) 79%, rgba(80, 126, 208, 0.70) 87%,
+      rgba(88, 138, 226, 0.82) 94%, rgba(90, 143, 232, 0.88) 100%),
+    /* Graphite ink, not #000. Both ends of the mark moved toward each
+       other: the dark end lifts into the --panel-ink family, and the blue
+       peaks at .88 rather than full strength. --sky is untouched, so the
+       mark and the product accent are still one colour — it simply never
+       renders at full alpha.
+       The LIVE NOTCH does not follow this. Its centre stays #000 so it
+       disappears into the physical camera housing. */
+    #151b26;
 
   /* For containers with no long axis — circles, squircles. Same three
      steps, rotationally symmetric, because a favicon gets masked and
@@ -113,13 +149,15 @@
      the blue into a thin rim and the icon read as a black dot at favicon
      size. Redistributed for a circle, not re-coloured. */
   --plate-radial:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 46%),
+    var(--top-sheen),
     radial-gradient(circle at 50% 50%,
       rgba(22, 46, 86, 0) 0%, rgba(22, 46, 86, 0) 12%,
-      rgba(28, 54, 96, 0.16) 24%, rgba(40, 70, 118, 0.34) 38%,
-      rgba(54, 90, 150, 0.54) 52%, rgba(68, 110, 182, 0.72) 66%,
-      rgba(80, 126, 208, 0.88) 82%, rgba(90, 143, 232, 1) 100%),
-    #000;
+      rgba(28, 54, 96, 0.14) 24%, rgba(40, 70, 118, 0.29) 38%,
+      rgba(54, 90, 150, 0.46) 52%, rgba(68, 110, 182, 0.62) 66%,
+      rgba(80, 126, 208, 0.76) 82%, rgba(90, 143, 232, 0.88) 100%),
+    /* Same easing back as --plate: graphite ink instead of black, blue
+       peaking at .88. */
+    #151b26;
 }
 
 /* Tailwind 4 theme bridge — exposes tokens as utility classes */
@@ -3263,17 +3301,24 @@ body {
   border: 1px solid var(--line);
   box-shadow: 0 22px 48px -34px rgba(20, 30, 50, 0.2);
 }
+/* Pro is a Yappr surface, so it takes the panel navy — the same fill as
+   the memory card and the closing CTA.
+   It was neutral #23252c with a terracotta glow at rgba(200,85,61,.22),
+   which read as a red card. Terracotta is the page's accent for eyebrows
+   and active marks; at 22% across a whole card it stopped being an
+   accent and became the tier's colour, and it is not a colour the brand
+   owns. The glow is now cobalt, which is. */
 .price-card--pro {
-  background: linear-gradient(168deg, #23252c 0%, #131519 100%);
+  background: var(--panel-ink);
   color: var(--cream);
-  box-shadow: 0 34px 66px -30px rgba(20, 30, 50, 0.5);
+  box-shadow: 0 34px 66px -30px rgba(12, 26, 46, 0.55);
 }
 .price-card--pro::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(90% 55% at 85% 0%, rgba(200, 85, 61, 0.22), transparent 65%);
+  background: radial-gradient(90% 55% at 85% 0%, rgba(90, 143, 232, 0.26), transparent 65%);
 }
 .price-card > * { position: relative; z-index: 1; }
 
@@ -4001,6 +4046,31 @@ body {
     0 6px 18px rgba(0, 0, 0, 0.18);
 }
 
+/* The square mark, for slots with no top edge to hang from.
+   Takes --plate-radial rather than --plate for the same reason the
+   circle does: a left-to-right ramp inside a square reads as a panel lit
+   from one side, where a radial keeps the letterform centred in its own
+   pool of dark. */
+.square-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  flex: none;
+  background: var(--plate-radial);
+  color: #fff;
+  font-family: var(--font-serif);
+  font-style: italic;
+  line-height: 1;
+  /* The Y's diagonal makes it sit optically left and high in its box. */
+  text-indent: 0.04em;
+  padding-bottom: 0.04em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 6px 18px rgba(12, 20, 38, 0.28);
+}
+
 /* In the nav, the mark hangs from the very top edge of the page — the same
    gesture the indicator makes against the menu bar. */
 .notch-logo--hanging {
@@ -4046,11 +4116,11 @@ body {
 .ni-fillet.off { opacity: 0; }
 .ni-fillet--l {
   left: -11px;
-  background: radial-gradient(circle at 0% 100%, transparent 0 11px, #2b3950 11.5px);
+  background: radial-gradient(circle at 0% 100%, transparent 0 11px, #2e3745 11.5px);
 }
 .ni-fillet--r {
   right: -11px;
-  background: radial-gradient(circle at 100% 100%, transparent 0 11px, #2b3950 11.5px);
+  background: radial-gradient(circle at 100% 100%, transparent 0 11px, #2e3745 11.5px);
 }
 
 /* True black under the centre, lifting to charcoal at the wings — the
@@ -4066,12 +4136,12 @@ body {
 .ni-shell {
   background: linear-gradient(
     90deg,
-    #2b3950 0%,
-    #172130 14%,
+    #2e3745 0%,
+    #1a1f28 14%,
     #000 32%,
     #000 68%,
-    #172130 86%,
-    #2b3950 100%
+    #1a1f28 86%,
+    #2e3745 100%
   );
   overflow: hidden;
   border-bottom-left-radius: 11px;
@@ -4568,10 +4638,11 @@ body {
   text-align: center;
   padding: 32px;
   color: var(--cream);
-  background:
-    radial-gradient(85% 60% at 50% 12%, rgba(200, 85, 61, 0.22), transparent 62%),
-    radial-gradient(70% 55% at 50% 100%, rgba(90, 143, 232, 0.16), transparent 60%),
-    linear-gradient(170deg, #1c1e25 0%, #121419 100%);
+  /* Was terracotta at the top fading to cobalt at the bottom — a literal
+     red-to-blue gradient, and the two ends belonged to different
+     palettes. Now the same panel navy as the memory card and Pro, so the
+     page closes on the colour it has been teaching you means Yappr. */
+  background: var(--panel-ink);
 }
 .cta-title { color: var(--cream); }
 .cta-sub { color: #bcb8a8; }
@@ -4597,11 +4668,9 @@ body {
   margin: 0 auto 34px;
 }
 .cta-fine { font-size: 13.5px; margin: 16px 0 0; }
-.cta-mark { margin-top: 44px; }
 
 @media (max-width: 900px) {
   .cta-track { height: 170vh; }
-  .cta-mark { margin-top: 30px; }
 }
 
 /* ============================================================
@@ -5080,10 +5149,7 @@ body {
   flex-direction: column;
   border-radius: 16px;
   padding: 4px 22px 20px;
-  background:
-    radial-gradient(120% 92% at 0% 0%, rgba(90, 143, 232, 0.30), rgba(90, 143, 232, 0) 62%),
-    radial-gradient(96% 84% at 100% 100%, rgba(46, 86, 151, 0.34), rgba(46, 86, 151, 0) 68%),
-    linear-gradient(158deg, #17304f 0%, #0e1a2e 100%);
+  background: var(--panel-ink);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.10),
     0 30px 60px -34px rgba(12, 26, 46, 0.62);

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PillLogo } from "./PillLogo";
 
 // The last thing on the page, so it gets the biggest gesture: the panel
 // PINS — scrolling stops — and opens from an inset card to full screen
@@ -75,9 +74,12 @@ export function FinalCTA() {
               <span className="btn-chip">macOS</span>
             </a>
             <p className="cta-fine">No card required.</p>
-            <div className="cta-mark">
-              <PillLogo size="md" />
-            </div>
+            {/* The mark used to sit here, below the button. It was the one
+                placement on the page where the notch floated with nothing
+                above it — and a notch with no top edge to hang from is
+                just a rounded rectangle, which is the pill this system
+                replaced. It was also the third Yappr mark in a single
+                scroll, after the nav and before the footer. */}
           </div>
         </div>
       </div>

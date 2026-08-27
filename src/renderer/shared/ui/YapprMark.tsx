@@ -140,28 +140,49 @@ const TOP_SHEEN = 'linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,
 //
 // The stops are mirrored around 50% because the plate is symmetric.
 const FALLOFF = [
-  'rgba(90,143,232,1) 0%',
-  'rgba(88,138,226,0.94) 6%',
-  'rgba(80,126,208,0.82) 13%',
-  'rgba(68,110,182,0.64) 21%',
-  'rgba(54,90,150,0.44) 29%',
-  'rgba(40,70,118,0.26) 36%',
-  'rgba(28,54,96,0.12) 42%',
+  'rgba(90,143,232,0.88) 0%',
+  'rgba(88,138,226,0.82) 6%',
+  'rgba(80,126,208,0.70) 13%',
+  'rgba(68,110,182,0.54) 21%',
+  'rgba(54,90,150,0.37) 29%',
+  'rgba(40,70,118,0.21) 36%',
+  'rgba(28,54,96,0.10) 42%',
   'rgba(22,46,86,0.03) 47%',
   'rgba(22,46,86,0) 50%',
   'rgba(22,46,86,0.03) 53%',
-  'rgba(28,54,96,0.12) 58%',
-  'rgba(40,70,118,0.26) 64%',
-  'rgba(54,90,150,0.44) 71%',
-  'rgba(68,110,182,0.64) 79%',
-  'rgba(80,126,208,0.82) 87%',
-  'rgba(88,138,226,0.94) 94%',
-  'rgba(90,143,232,1) 100%',
+  'rgba(28,54,96,0.10) 58%',
+  'rgba(40,70,118,0.21) 64%',
+  'rgba(54,90,150,0.37) 71%',
+  'rgba(68,110,182,0.54) 79%',
+  'rgba(80,126,208,0.70) 87%',
+  'rgba(88,138,226,0.82) 94%',
+  'rgba(90,143,232,0.88) 100%',
 ].join(', ')
-/** The charcoal blue the whole system is named for. */
-export const BRAND_CHARCOAL = '#2B3950'
-/** Deepest corner. Not black — black is reserved for the housing. */
-export const BRAND_ABYSS = '#172130'
+
+/**
+ * The mark's dark end. Graphite ink, NOT black.
+ *
+ * The plate used to run #5A8FE8 at full strength to pure #000 — the
+ * whole visible range of the palette inside one 86px mark, which read as
+ * harsh beside everything around it. Both ends moved toward each other:
+ * this lifts the floor, and FALLOFF above peaks at .88 rather than 1.
+ *
+ * BRAND_SKY is untouched by that, so the mark and the product's accent
+ * are still one colour — the plate simply never renders it at full
+ * alpha. Reducing contrast by editing the token would have desynced the
+ * logo from the waveform bars that use the same value.
+ *
+ * BRAND_WING deliberately does NOT use this. See below.
+ */
+export const BRAND_PLATE_FLOOR = '#151B26'
+/**
+ * The wing tips. Graphite, following the mark and the panels off navy.
+ * Was #2B3950, which was blue enough to look like a lit surface hanging
+ * beside the housing rather than an extension of it.
+ */
+export const BRAND_CHARCOAL = '#2E3745'
+/** Deepest wing stop. Not black — black is reserved for the housing. */
+export const BRAND_ABYSS = '#1A1F28'
 
 /**
  * The plate, for logo containers. The live notch uses BRAND_WING instead.
@@ -177,7 +198,7 @@ export const BRAND_ABYSS = '#172130'
  * 50% and is under .05 either side of it), so the wordmark keeps a black
  * ground; it just arrives there gradually instead of at a line.
  */
-export const BRAND_PLATE = `${WING_SHEEN}, linear-gradient(90deg, ${FALLOFF}), #000`
+export const BRAND_PLATE = `${WING_SHEEN}, linear-gradient(90deg, ${FALLOFF}), ${BRAND_PLATE_FLOOR}`
 
 /**
  * The plate for containers with no long axis — circles and squircles.
@@ -196,13 +217,13 @@ export const BRAND_PLATE_RADIAL = `${TOP_SHEEN}, radial-gradient(circle at 50% 5
   // size. Redistributed for a circle, not re-coloured.
   'rgba(22,46,86,0) 0%',
   'rgba(22,46,86,0) 12%',
-  'rgba(28,54,96,0.16) 24%',
-  'rgba(40,70,118,0.34) 38%',
-  'rgba(54,90,150,0.54) 52%',
-  'rgba(68,110,182,0.72) 66%',
-  'rgba(80,126,208,0.88) 82%',
-  'rgba(90,143,232,1) 100%',
-].join(', ')}), #000`
+  'rgba(28,54,96,0.14) 24%',
+  'rgba(40,70,118,0.29) 38%',
+  'rgba(54,90,150,0.46) 52%',
+  'rgba(68,110,182,0.62) 66%',
+  'rgba(80,126,208,0.76) 82%',
+  'rgba(90,143,232,0.88) 100%',
+].join(', ')}), ${BRAND_PLATE_FLOOR}`
 
 /**
  * The live notch shell — and the one rule that cannot bend.
@@ -216,6 +237,14 @@ export const BRAND_PLATE_RADIAL = `${TOP_SHEEN}, radial-gradient(circle at 50% 5
  * 32% / 68% rather than a hard edge: the eye finds a seam far more easily
  * than a ramp, so the transition happens across the part of the shape
  * already clear of the housing.
+ *
+ * The centre is the one value in this file that did NOT ease off black
+ * when everything else did. The logo plate lifted to BRAND_PLATE_FLOOR to
+ * cut its contrast, and that was right for a mark on a page — but this
+ * shape overlaps the physical camera housing, and #000 is what makes the
+ * middle disappear into it. Lifting it would trade a working illusion
+ * for a consistency nobody can see. The wings followed the palette; the
+ * centre cannot.
  *
  * Note this uses CHARCOAL → ABYSS → black, and never touches SLATE. The
  * logo plate can afford SLATE because it is an object on a page; this

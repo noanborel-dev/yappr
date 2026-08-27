@@ -20,7 +20,7 @@
 
 set -euo pipefail
 
-SRC="brand/svg/yappr-tile.svg"
+SRC="YapprLanding/app/icon.svg"
 DEST="YapprLanding/app/favicon.ico"
 TMP="$(mktemp -d)"
 
