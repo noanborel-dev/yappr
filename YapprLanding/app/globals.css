@@ -1731,7 +1731,7 @@ body {
 }
 .h-slack .who { font-size: 14.5px; font-weight: 900; color: #1d1c1d; display: flex; align-items: baseline; gap: 6px; }
 .h-slack .who .ts { font-weight: 400; color: #616061; font-size: 12px; }
-.h-slack .text { font-size: 14.5px; line-height: 1.5; color: #1d1c1d; }
+.h-slack .text { font-size: 15.5px; line-height: 1.5; color: #1d1c1d; }
 .h-slack .text .mention { background: #f0e9fa; color: #5d4ca3; padding: 0 3px; border-radius: 3px; }
 .h-slack .composer {
   margin: 6px 18px 18px;
@@ -1747,7 +1747,7 @@ body {
 .h-slack .fb { width: 24px; height: 24px; border-radius: 4px; background: #f4f4f5; }
 .h-slack .body-text {
   padding: 10px 14px;
-  font-size: 14.5px;
+  font-size: 15.5px;
   line-height: 1.5;
   color: #1d1c1d;
   min-height: 38px;
@@ -1873,8 +1873,8 @@ body {
 .h-slack--ext .feed--rich .av--david {
   background: linear-gradient(135deg, #34d399, #059669);
 }
-.h-slack--ext .feed--rich .who { font-size: 15px; }
-.h-slack--ext .feed--rich .text { font-size: 15px; }
+.h-slack--ext .feed--rich .who { font-size: 15.5px; }
+.h-slack--ext .feed--rich .text { font-size: 16px; }
 .h-slack--ext .feed--rich .text em {
   color: #1264a3;
   font-style: normal;
@@ -1971,7 +1971,13 @@ body {
 .h-imsg .panel .head .name { font-size: 11px; color: #1d1d1f; font-weight: 500; }
 .h-imsg .feed { padding: 12px 16px; display: flex; flex-direction: column; gap: 5px; overflow: hidden; min-height: 0; justify-content: flex-end; }
 .h-imsg .ts { text-align: center; font-size: 10.5px; color: #86868b; font-weight: 500; margin-bottom: 6px; }
-.h-imsg .bubble { max-width: 78%; padding: 7px 13px; border-radius: 18px; font-size: 14px; line-height: 1.35; }
+/* These shells render at roughly half the size of the real app on a
+   1440px page, so message text set at its true 14px lands well under the
+   threshold where it can be read rather than merely recognised. Up 1.5px
+   across the three shells. Their feeds are overflow:hidden and bottom-
+   aligned, so the extra height clips the oldest message rather than
+   growing the frame. */
+.h-imsg .bubble { max-width: 78%; padding: 8px 13px; border-radius: 18px; font-size: 15.5px; line-height: 1.4; }
 .h-imsg .bubble.in { background: #e9e9eb; color: #1d1d1f; align-self: flex-start; border-bottom-left-radius: 5px; }
 .h-imsg .bubble.out {
   background: #1cb84a;
@@ -2008,7 +2014,7 @@ body {
   border-radius: 18px;
   padding: 6px 12px;
   min-height: 30px;
-  font-size: 14px;
+  font-size: 15.5px;
   color: #1d1d1f;
   background: #fff;
   transition: box-shadow 0.3s;
@@ -2383,7 +2389,7 @@ body {
   height: 78%;
   right: 22px;
 }
-.demo-stage-bare .h-gmail .cc-body { font-size: 14.5px; padding: 16px 18px; min-height: 80px; }
+.demo-stage-bare .h-gmail .cc-body { font-size: 16px; line-height: 1.55; padding: 16px 18px; min-height: 80px; }
 /* Empty-body placeholder so the white area doesn't read as broken when idle */
 .demo-stage-bare .h-gmail .cc-body:empty::before {
   content: "";
@@ -3075,9 +3081,14 @@ body {
 .pap-bubble {
   position: relative;
   display: inline-block;
-  font-size: 13.5px;
-  line-height: 1.4;
-  padding: 9px 14px;
+  /* These three cards ARE the proof — the whole section rests on the
+     reader comparing the polish across them, so the message text has to
+     be readable at a glance rather than merely suggested. Sized up from
+     13.5px, which was true to a real chat bubble at 1:1 and too small
+     once the card is a third of the measure. */
+  font-size: 15.5px;
+  line-height: 1.45;
+  padding: 10px 15px;
   border-radius: 16px;
   max-width: 100%;
 }
@@ -3101,7 +3112,7 @@ body {
 }
 .pap-emoji-badge {
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: 9.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #fff;
@@ -3112,8 +3123,11 @@ body {
 }
 .pap-gmail-prose {
   font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
-  font-size: 12.5px;
-  line-height: 1.5;
+  /* Kept a shade under .pap-bubble: this is a paragraph where the other
+     two are one line, so it needs the smaller size to hold the same card
+     height — but 12.5px was below the point where it read as prose. */
+  font-size: 14.5px;
+  line-height: 1.55;
   color: var(--ink);
   margin: 0;
   white-space: pre-wrap;
@@ -3967,8 +3981,11 @@ body {
   padding: 30px 30px 28px;
   box-shadow: 0 22px 48px -34px rgba(20, 30, 50, 0.22);
   /* Fixed, not min — the transcript types in, and a growing box makes the
-     whole section jitter as it fills. Reserve the final size up front. */
-  height: 430px;
+     whole section jitter as it fills. Reserve the final size up front.
+     470, not 430: the shaped prompt opposite is 16 lines and went up a
+     size for legibility, and the two panels are a matched row — the one
+     that needs the height sets it for both. */
+  height: 470px;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -4045,7 +4062,7 @@ body {
 }
 .ps-link.on { opacity: 1; background: linear-gradient(180deg, transparent, var(--cobalt), transparent); }
 @media (min-width: 1000px) {
-  .ps-mid { padding: 0; height: 430px; }
+  .ps-mid { padding: 0; height: 470px; }
 }
 
 /* Reserved row so the pill appearing can't shift anything above it */
@@ -4060,15 +4077,22 @@ body {
 /* --- What landed --- */
 /* Wrapper only — the real Claude Code shell renders inside it, same as the
    hero. Fixed height so the typing sequence can't grow the layout. */
-.ps-out { height: 430px; display: flex; }
+.ps-out { height: 470px; display: flex; }
 .ps-out .cc-window { flex: 1; min-width: 0; }
 .ps-out .cc-content { padding: 16px 18px 0; }
 .ps-out .cc-box { padding: 12px 16px; gap: 14px; }
 .ps-out .cc-mascot { width: 42px; height: 32px; }
-.ps-out .cc-meta { font-size: 11.5px; }
-.ps-out .cc-meta .welcome { font-size: 12.5px; }
+.ps-out .cc-meta { font-size: 12.5px; }
+.ps-out .cc-meta .welcome { font-size: 13.5px; }
 .ps-out .cc-input { margin: auto 18px 16px; min-height: 190px; }
-.ps-out .cc-md { font-size: 12px; line-height: 1.62; }
+/* The shaped prompt is the payoff of the whole section and it was set at
+   12px — faithful to a real terminal, but unreadable at the size this
+   window renders on the page. 16 lines at 13.5px need more room than the
+   old 430px box had, which is why .ps-out and its matching panels went
+   to 470px rather than the text going back down. Leading stays tight for
+   the same reason: this box is fixed on purpose, because the sequence
+   types into it and a growing box jitters the whole section. */
+.ps-out .cc-md { font-size: 13.5px; line-height: 1.5; }
 
 /* ============================================================
    Brand mark — the notch silhouette with the wordmark in it
@@ -5075,7 +5099,7 @@ body {
   gap: 12px;
   padding: 9px 16px;
   border-bottom: 1px solid #f1f3f4;
-  font-size: 13.5px;
+  font-size: 14.5px;
 }
 .gm-label { color: #5f6368; width: 52px; flex: none; }
 .gm-chip {
@@ -5085,15 +5109,15 @@ body {
   background: #e8eaed;
   border-radius: 999px;
   padding: 3px 11px 3px 3px;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 .gm-avatar {
-  width: 20px;
-  height: 20px;
+  width: 21px;
+  height: 21px;
   border-radius: 999px;
   background: #7b61ff;
   color: #fff;
-  font-size: 10.5px;
+  font-size: 11.5px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5105,6 +5129,16 @@ body {
   font-size: 14.5px;
   line-height: 1.62;
   min-height: 190px;
+}
+/* Scoped to the compose window, NOT to .gm-body at large: the hero's
+   Gmail inbox reuses that class name under .h-gmail, and its own rule
+   only sets the grid — it inherits size and padding from above. Bumping
+   the bare class would grow the inbox rows too, inside a shell with
+   fixed dimensions. The email here is read as prose, so it gets the
+   larger size; the inbox is chrome and stays where it was. */
+.gm .gm-body {
+  font-size: 16.5px;
+  line-height: 1.6;
 }
 .gm-body p { margin: 0 0 15px; }
 .gm-sign { white-space: pre-line; color: #202124; }
@@ -5137,7 +5171,7 @@ body {
 .gm-send {
   background: #0b57d0;
   color: #fff;
-  font-size: 13.5px;
+  font-size: 14.5px;
   font-weight: 500;
   padding: 9px 22px;
   border-radius: 999px;
@@ -5155,8 +5189,9 @@ body {
 .gm-said.in { opacity: 1; transform: none; }
 
 @media (max-width: 780px) {
-  .gm-body { font-size: 13.5px; padding: 16px 14px 20px; }
-  .gm-said { font-size: 13.5px; }
+  .gm .gm-body { font-size: 15px; line-height: 1.6; }
+  .gm-body { padding: 16px 14px 20px; }
+  .gm-said { font-size: 14.5px; }
   .gm-foot { flex-direction: column; align-items: flex-start; gap: 10px; }
 }
 
@@ -5298,12 +5333,16 @@ body {
   padding: 18px 0 0;
 }
 .px-card + .px-card { border-top: 1px solid rgba(255, 255, 255, 0.11); margin-top: 18px; }
-.px-card p { margin: 0 0 6px; font-size: 14.5px; line-height: 1.5; color: rgba(255, 255, 255, 0.76); }
+/* What Yappr remembered — the substance of the section, and it was set
+   two steps under the document it is being compared against on the left.
+   White at 76% on navy also reads smaller than the same size in ink on
+   white, so it needed the size more than the light copy did. */
+.px-card p { margin: 0 0 7px; font-size: 16px; line-height: 1.55; color: rgba(255, 255, 255, 0.76); }
 .px-card p:last-of-type { margin-bottom: 0; }
 .px-card em { font-style: italic; color: #fff; }
 .px-card code {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: #b9d0f4;
   background: rgba(90, 143, 232, 0.16);
   border-radius: 4px;
@@ -5312,7 +5351,7 @@ body {
 .px-card-label {
   display: block;
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 10.5px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.44);
@@ -5332,7 +5371,7 @@ body {
 .px-stack { display: flex; flex-wrap: wrap; gap: 6px; }
 .px-chip {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.01em;
   color: #b9d0f4;
   background: rgba(90, 143, 232, 0.14);
@@ -5350,7 +5389,7 @@ body {
   margin-top: 15px;
   padding-top: 13px;
   border-top: 1px solid rgba(255, 255, 255, 0.11);
-  font-size: 12px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.52);
 }
 /* The dot stays green on the navy. It is a status colour, not a brand
@@ -5486,8 +5525,10 @@ body {
    round, and out through the top — and 15 of them have to make it inside
    this one track. At 230vh (the length when the ring was a formation
    that parked) they streamed past fast enough to read as a spinner.
-   Scaled with TRAVEL_DEG: 900° of sweep at the pace 340vh gave 720°. */
-.orb { height: 420vh; position: relative; background: var(--cream); }
+   Scaled with TRAVEL_DEG: 900° of sweep at the pace 340vh gave 720°.
+   The last 16% is ORBIT_SPAN's tail, where the ring is empty and the
+   caption types — that costs ~80vh on top of the orbit's 420vh. */
+.orb { height: 500vh; position: relative; background: var(--cream); }
 .orb-pin { position: sticky; top: 0; height: 100vh; overflow: clip; }
 .orb-stage {
   position: relative;
@@ -5541,23 +5582,64 @@ body {
   filter: drop-shadow(0 8px 18px rgba(20, 30, 50, 0.22));
 }
 
-/* The mark sits at the centre of the ring, not on it. */
+/* The mark sits at the centre of the ring, not on it.
+
+   .orb-core holds ONLY the mark, so the flex centring of .orb-stage puts
+   the mark itself dead on the ring's centre. The caption is taken out of
+   flow below it — in flow, it would drag the mark off centre by half its
+   own height, and by more as the mark grew. */
 .orb-core {
   position: relative;
   z-index: 2;
+  --mark-box: 68px;   /* PillLogo SIZES.lg.box — the mark's layout size */
+  --mark-scale: 1;
+}
+.orb-mark {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  text-align: center;
-  transition: opacity 0.4s ease;
+  transform: scale(var(--mark-scale));
+  transform-origin: 50% 50%;
+  will-change: transform;
 }
 .orb-core-line {
-  margin: 0;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  /* Scaling is about the centre, so the mark's bottom edge sits half its
+     box below where layout thinks it does, times the growth. Adding that
+     back keeps the gap under the mark at a constant 22px however big it
+     gets. */
+  margin: calc(var(--mark-box) / 2 * (var(--mark-scale) - 1) + 22px) 0 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
   font-family: var(--font-serif);
   font-style: italic;
   font-size: clamp(19px, 2vw, 26px);
   color: var(--ink-2);
+}
+/* Sits on the baseline where the next character will land. Solid, not
+   blinking: it is only on screen while the scroll is actively typing,
+   and a blink on top of that reads as two things happening at once. */
+.orb-caret {
+  display: inline-block;
+  width: 2px;
+  height: 0.95em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  background: var(--cobalt);
+}
+
+/* Visible to screen readers only — the caption's full text, so assistive
+   tech never announces a half-typed word. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* On a phone the ring would collide with itself; the logos shrink and the
@@ -5568,8 +5650,8 @@ body {
   .orb-logo.is-wide { width: 92px; }
   .orb-logo.is-wide img { width: 92px; height: auto; }
   /* A shorter track: on a phone it is measured against a much taller
-     viewport, so 420vh of thumb-scrolling is a very long way to go. */
-  .orb { height: 320vh; }
+     viewport, so 500vh of thumb-scrolling is a very long way to go. */
+  .orb { height: 380vh; }
 }
 
 /* Reduced motion is handled in the component, which places every logo on

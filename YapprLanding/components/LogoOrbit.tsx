@@ -95,6 +95,32 @@ const SWEEP_DEG = TRAVEL_DEG + APPS.length * SPACING_DEG;
 // is caught mid-fade.
 const STILL_AT = (TRAVEL_DEG + (APPS.length - 1) * SPACING_DEG) / 2;
 
+// The exodus: the first logo leaves the moment it completes its travel,
+// the last one a full set of gaps later. The mark grows across exactly
+// this window, so it takes over the frame at the rate the ring vacates
+// it rather than on a timer of its own.
+const EXODUS_START = TRAVEL_DEG;
+const EXODUS_END = TRAVEL_DEG + (APPS.length - 1) * SPACING_DEG;
+
+// How much of the track the orbit gets. The remainder is the tail, where
+// the ring is already empty and the caption types.
+//
+// The last logo leaves at EXODUS_END / SWEEP_DEG = 0.973 of the orbit,
+// which lands just inside this — so there is a short beat with the mark
+// alone at full size before the first character appears.
+const ORBIT_SPAN = 0.84;
+
+// Scale of the centre mark, as a multiple of its rendered size. It stays
+// above 1 throughout: the mark reads as the thing being orbited, and at
+// its natural size it was smaller than the logos going round it.
+const MARK_BASE = 1.3;
+const MARK_MAX = 2.4;
+
+// Typed one character at a time by the scroll itself — no timer. The
+// line is the section's conclusion, so it should not be sitting there
+// during the part that is still making the argument.
+const CAPTION = "wherever you type";
+
 // The ring should fill the frame, so it is sized off BOTH axes and takes
 // whichever is tighter. Off the short side alone it came out at about a
 // third of the screen — a small cluster near the middle with the section
@@ -164,6 +190,31 @@ export function LogoOrbit() {
     };
   }, []);
 
+  // Two phases off one scroll: the orbit, then a tail with the ring
+  // already empty. Splitting here rather than stretching one progress
+  // value keeps the orbit's pacing independent of how long the caption
+  // takes to type.
+  const orbit = still ? 1 : clamp01(p / ORBIT_SPAN);
+  const tail = still ? 1 : clamp01((p - ORBIT_SPAN) / (1 - ORBIT_SPAN));
+
+  const swept = still ? STILL_AT : orbit * SWEEP_DEG;
+
+  // Grows as the ring vacates. Smoothstep, not ease-out: an ease-out put
+  // the mark within a few percent of full size while six logos were
+  // still on the path, so the growth had visibly finished before the
+  // thing it is supposed to be tracking had. Easing at BOTH ends keeps
+  // it in step with the exodus — gentle as the first logo leaves, gentle
+  // as the last one does.
+  const exodus = still
+    ? 0
+    : clamp01((swept - EXODUS_START) / (EXODUS_END - EXODUS_START));
+  const markScale =
+    MARK_BASE + (MARK_MAX - MARK_BASE) * (exodus * exodus * (3 - 2 * exodus));
+
+  // Linear, unlike everything else here: typing has a cadence, and an
+  // eased one reads as a stutter rather than as someone writing.
+  const typed = still ? CAPTION.length : Math.round(tail * CAPTION.length);
+
   return (
     <section id="builders" className="orb" ref={trackRef}>
       <div className="orb-pin">
@@ -173,8 +224,7 @@ export function LogoOrbit() {
               // Degrees this logo has travelled. Below 0 it has not risen
               // in at the bottom yet; past TRAVEL_DEG it has already
               // climbed out through the top.
-              const travelled =
-                (still ? STILL_AT : p * SWEEP_DEG) - i * SPACING_DEG;
+              const travelled = swept - i * SPACING_DEG;
               const onPath = travelled >= 0 && travelled <= TRAVEL_DEG;
 
               const rad = ((ENTRY_ANGLE - travelled) * Math.PI) / 180;
@@ -232,9 +282,27 @@ export function LogoOrbit() {
             })}
           </div>
 
-          <div className="orb-core">
-            <PillLogo size="lg" shape="square" />
-            <p className="orb-core-line">wherever you type</p>
+          {/* --mark-scale drives BOTH the mark's transform and the
+              caption's offset, so the gap under the mark stays constant
+              as it grows. A transform does not change layout, so without
+              that the growing mark would simply swallow the line. */}
+          <div
+            className="orb-core"
+            style={{ ["--mark-scale" as string]: markScale }}
+          >
+            <div className="orb-mark">
+              <PillLogo size="lg" shape="square" />
+            </div>
+            {/* The full line is always in the accessibility tree — a
+                screen reader should not get a half-typed word, and it
+                has no scroll position to complete it with. */}
+            <p className="orb-core-line">
+              <span className="sr-only">{CAPTION}</span>
+              <span aria-hidden="true">{CAPTION.slice(0, typed)}</span>
+              {tail > 0 && typed < CAPTION.length && (
+                <i className="orb-caret" aria-hidden="true" />
+              )}
+            </p>
           </div>
         </div>
       </div>
