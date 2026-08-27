@@ -21,11 +21,15 @@ import { PillLogo } from "./PillLogo";
 // the continuous spin is a CSS animation that only runs once the ring has
 // formed.
 
+// Ordered so the builder tools sit together and the places you send
+// things sit together — the ring is read as an arc, not a list, so
+// neighbours matter more than sequence.
 const APPS: Array<{ name: string; logo: string }> = [
   { name: "Claude Code", logo: "/logos/claudecode.png" },
   { name: "Cursor", logo: "/logos/cursor.png" },
+  { name: "Lovable", logo: "/logos/lovable.webp" },
   { name: "Claude", logo: "/logos/claude.png" },
-  { name: "ChatGPT", logo: "/logos/chatgpt.png" },
+  { name: "ChatGPT", logo: "/logos/chatgpt.webp" },
   { name: "Slack", logo: "/logos/slack.png" },
   { name: "Gmail", logo: "/logos/gmail.webp" },
   { name: "Notion", logo: "/logos/notion.png" },

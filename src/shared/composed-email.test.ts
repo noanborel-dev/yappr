@@ -10,6 +10,47 @@ import {
 // These are enforced in CODE as well as in the prompt because the live
 // model produced both failures WITH the prohibitions already written into
 // the prompt. A prompt rule is a request; this is the guarantee.
+describe('asksForEmailComposition — mentioning an email is not asking for one', () => {
+  // Both verbatim from history, both dictated into VS Code, both composed
+  // as emails and returned with "Best," appended to a bug report.
+  it('ignores a passing mention deep in a longer dictation', () => {
+    expect(
+      asksForEmailComposition(
+        "I'm a bit confused about why it doesn't know more about Yapper given how much I've told it " +
+          'and also given how much context it has about what Yapper does. I literally just ask it to ' +
+          "write an email to my friend explaining what it does and ask if they'd want to invest.",
+      ),
+    ).toBe(false)
+  })
+
+  it('ignores a bug report about email composition', () => {
+    expect(
+      asksForEmailComposition(
+        "So one additional issue I have currently is sometimes when I'll do like write an email or " +
+          'something, it will add random things. Like sometimes now it wrote a perfect email and then ' +
+          'at the end it said best and then it added a comma then said my name.',
+      ),
+    ).toBe(false)
+  })
+
+  // The real asks, also verbatim. These must keep working — the window
+  // exists to separate them from the two above, not to disable compose.
+  it('still catches an ask that opens the dictation', () => {
+    expect(
+      asksForEmailComposition(
+        'Please write an email to Danielle, explain him the main features of my App Yapr, and also ' +
+          "ask him if he'd like to be an investor.",
+      ),
+    ).toBe(true)
+    expect(asksForEmailComposition('Could you please write an email to Daniel explaining what my app does')).toBe(true)
+    expect(asksForEmailComposition("email Sam I'm running late")).toBe(true)
+  })
+
+  it('allows a short lead-in before the ask', () => {
+    expect(asksForEmailComposition('Hey, can you draft an email to Sam about the launch please')).toBe(true)
+  })
+})
+
 describe('looksLikeMetaReply', () => {
   // Reported: "I said a whole sentence and it just pasted the word
   // identical". No prompt asks for that word — the model volunteered a

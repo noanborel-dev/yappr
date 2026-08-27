@@ -27,7 +27,7 @@ export function ChatGPTShell({ text, flashing }: Props) {
           <div className="gpt-msg assistant">
             <div className="av">
               <Image
-                src="/logos/chatgpt.png"
+                src="/logos/chatgpt.webp"
                 alt="ChatGPT"
                 width={26}
                 height={26}

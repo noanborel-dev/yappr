@@ -45,8 +45,39 @@ const EMAIL_COMPOSE_RE = new RegExp(
   'i',
 )
 
+/**
+ * How far into a dictation the ask may appear and still BE the ask.
+ *
+ * "Please write an email to Danielle explaining…" opens with it. Someone
+ * describing a bug — "…I literally just ask it to write an email to my
+ * friend and it made up some random thing" — mentions it three sentences
+ * deep, inside a paragraph about something else entirely.
+ *
+ * 40 is measured, not guessed. Across the real asks in one user's
+ * history the match starts at 0, 7, 7, 13 and 17 — people lead with what
+ * they want done. The two dictations that were wrongly composed matched
+ * at 72 and 158, both mid-paragraph, in text about something else.
+ * 40 clears every real opening ("Could you please write an email to…"
+ * reaches 17) with room to spare, and neither mention comes close.
+ */
+const COMPOSE_ASK_WINDOW = 40
+
+/**
+ * Is this dictation ASKING for an email, rather than mentioning one?
+ *
+ * The window is the whole point. This used to test the entire transcript,
+ * so any dictation containing the words "write an email" was composed —
+ * including a bug report about email composition, dictated into VS Code,
+ * which came back with "Best," stapled to the end of it. The user's
+ * report was itself the reproduction.
+ *
+ * Matching only near the start is what separates an instruction from a
+ * subject: people lead with what they want done, and refer back to other
+ * things later.
+ */
 export function asksForEmailComposition(transcript: string): boolean {
-  return EMAIL_COMPOSE_RE.test(transcript)
+  const opening = (transcript ?? '').trimStart().slice(0, COMPOSE_ASK_WINDOW)
+  return EMAIL_COMPOSE_RE.test(opening)
 }
 
 export function looksLikeEmailRewrite(command: string): boolean {

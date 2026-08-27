@@ -8,7 +8,7 @@ import notion from '../logos/notion.png'
 import slack from '../logos/slack.png'
 import claude from '../logos/claude.png'
 import claudecode from '../logos/claudecode.png'
-import chatgpt from '../logos/chatgpt.png'
+import chatgpt from '../logos/chatgpt.webp'
 import cursor from '../logos/cursor.png'
 import groq from '../logos/groq.png'
 
