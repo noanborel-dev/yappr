@@ -29,18 +29,19 @@ export default function Home() {
         <Hero />
 
         {/* "Made for people who build things" — straight after the hero.
-            The hero now closes on a dark demo running off the bottom of the
-            screen; this photograph is the one real-world frame on a page of
+            This photograph is the one real-world frame on a page of
             CSS-drawn app chrome, and it lands better as the thing you scroll
             into than buried four sections down. */}
         <PhotoBand photo={PHOTOS.buildBench} expand priority />
         <BuiltForBuilders />
 
-        {/* The three features, in the order that sells them. TheNotch used
-            to sit above these, headlined "what the app actually is" — the
-            hero is now that demo, at full width and in motion, so the
-            section was answering a question the reader had already had
-            answered. Removed rather than moved. */}
+        {/* The three features, in the order that sells them.
+
+            TheNotch used to sit above these, headlined "what the app
+            actually is". The hero already demonstrates that — the notch
+            indicator hangs in the mockup and runs the whole record → polish
+            → paste cycle on a loop — so the section was answering a question
+            the reader had watched answered. Removed rather than moved. */}
         <PromptShaping />
         <SelectRewrite />
         <PersistentContext />
