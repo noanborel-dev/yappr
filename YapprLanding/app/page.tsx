@@ -1,7 +1,6 @@
 import { Nav } from "@/components/Nav";
 import { Hero } from "@/components/Hero";
 import { BuiltForBuilders } from "@/components/BuiltForBuilders";
-import { TheNotch } from "@/components/TheNotch";
 import { PromptShaping } from "@/components/PromptShaping";
 import { SelectRewrite } from "@/components/SelectRewrite";
 import { PersistentContext } from "@/components/PersistentContext";
@@ -29,23 +28,20 @@ export default function Home() {
       <main id="top">
         <Hero />
 
-        {/* Prompt shaping now follows the hero directly. The hero ends on a
-            rambled sentence landing as a structured prompt; this section is
-            that same move, slowed down and explained. Anything between them
-            was making the reader wait for the payoff of what they had just
-            watched.
-
-            The pinned "You have four terminals open" sequence used to sit
-            here. It is gone — see BuiltForBuilders.tsx. */}
-        <PromptShaping />
-
-        {/* What the app actually is, after the feature that sells it */}
-        <TheNotch />
-
-        {/* One real-world frame among the CSS-drawn app chrome. Moved down
-            with the section it used to introduce. */}
+        {/* "Made for people who build things" — straight after the hero.
+            The hero now closes on a dark demo running off the bottom of the
+            screen; this photograph is the one real-world frame on a page of
+            CSS-drawn app chrome, and it lands better as the thing you scroll
+            into than buried four sections down. */}
         <PhotoBand photo={PHOTOS.buildBench} expand priority />
         <BuiltForBuilders />
+
+        {/* The three features, in the order that sells them. TheNotch used
+            to sit above these, headlined "what the app actually is" — the
+            hero is now that demo, at full width and in motion, so the
+            section was answering a question the reader had already had
+            answered. Removed rather than moved. */}
+        <PromptShaping />
         <SelectRewrite />
         <PersistentContext />
         {/* Proof, not pitch */}

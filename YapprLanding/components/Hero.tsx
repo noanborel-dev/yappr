@@ -101,26 +101,40 @@ export function Hero() {
   return (
     <section
       id="hero"
-      className="max-w-[1340px] mx-auto px-8 pt-10 pb-[10vh] min-h-[92vh] flex flex-col justify-center"
+      className="hero--dark"
     >
-      <div className="hero-grid">
-        <div>
-          <h1 className="font-serif font-normal text-[clamp(52px,7.4vw,88px)] leading-[0.94] tracking-[-0.02em] m-0 mb-6">
+      <div className="hero-inner">
+        <div className="hero-head">
+          {/* The gesture, said once, before the headline claims anything.
+              A dot rather than a key glyph: the hotkey is the user's to
+              choose, and drawing ⌃ here would name a key half of them
+              have rebound. */}
+          <p className="hero-eyb">
+            <span className="hero-eyb-dot" aria-hidden="true" />
+            Hold a key. Say the mess.
+          </p>
+
+          <h1 className="hero-title">
             stop writing bad prompts
             <br />
             <em>out loud</em>.
           </h1>
-          <p className="text-[18px] text-ink-2 max-w-[440px] leading-[1.5] mb-9 m-0">
+          <p className="hero-sub">
             Talk however you talk. It lands as Goal, Context, Tasks, Done when.
           </p>
 
-          <a href="#download" className="btn-primary">
-            Start yapping
-            <span className="btn-chip">macOS</span>
-          </a>
-          <p className="text-[13.5px] text-muted mt-3.5 m-0">free, no card</p>
+          <div className="hero-cta">
+            <a href="#download" className="btn-primary">
+              Start yapping
+              <span className="btn-chip">macOS</span>
+            </a>
+            <span className="hero-fine">free, no card</span>
+          </div>
         </div>
 
+        {/* The demo sits UNDER the pitch and runs off the bottom of the
+            viewport on purpose: it reads as the thing you scroll into,
+            not as a screenshot pinned beside the copy. */}
         <div className="hero-right">
           <div className="hero-stage hero-stage--term">
             <div className="hero-app active">
