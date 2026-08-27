@@ -28,6 +28,39 @@ describe('normalizeFactText', () => {
     expect(normalizeFactText('a '.repeat(MAX_FACT_CHARS))).toBeNull()
   })
 
+  // The ceiling separates two real populations, so it is pinned with real
+  // rows rather than with MAX_FACT_CHARS — a relative assertion passes at
+  // any value, including the 200 that let all of this through.
+  //
+  // Symptom: a user opened the project cards and called them gibberish.
+  // Every offending row was hot-path capture storing raw transcript, 155
+  // to 195 chars, clipped mid-word. Every good row was LLM-mined, 52 to
+  // 102 chars.
+  it('rejects raw dictation that the old 200-char ceiling admitted', () => {
+    expect(
+      normalizeFactText(
+        "If some confused, so within Europe, if I use paddle I won't have to actually do the work of having to pay the taxes like they're automatically done for me.",
+      ),
+    ).toBeNull()
+    expect(
+      normalizeFactText(
+        'Sometimes when I tell it to write an email about something it works and then sometimes it literally just says like hijack or something basic or never does the sign off or just anything like that.',
+      ),
+    ).toBeNull()
+  })
+
+  it('keeps synthesised facts, which are the ones worth storing', () => {
+    // Both mined by the compaction pass on the same machine.
+    expect(
+      normalizeFactText('The project creates TikTok-style slideshows for the Yappr platform.'),
+    ).toBe('The project creates TikTok-style slideshows for the Yappr platform.')
+    expect(
+      normalizeFactText(
+        'The project must include logos for Higgsfield, Rong, Tela TV, Granola, Gama, Clay, Lemlist, and Figma.',
+      ),
+    ).not.toBeNull()
+  })
+
   it('rejects a fragment too short to be a fact', () => {
     expect(normalizeFactText('typescript')).toBeNull()
     expect(normalizeFactText('use zod')).toBeNull()

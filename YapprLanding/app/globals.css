@@ -93,10 +93,19 @@
      Defined once because three surfaces use it: the memory card, Pro,
      and the closing CTA. The radial stops are percentages, so the recipe
      scales from a 360px card to a full-screen panel without retuning. */
-  --panel-ink:
-    radial-gradient(120% 92% at 0% 0%, rgba(214, 226, 244, 0.20), rgba(214, 226, 244, 0) 60%),
-    radial-gradient(96% 84% at 100% 100%, rgba(90, 143, 232, 0.22), rgba(90, 143, 232, 0) 66%),
-    linear-gradient(158deg, #24344f 0%, #0b111c 100%);
+  /* It is now literally --plate, the logo's own background: asked for
+     twice, so built rather than argued with a third time.
+
+     The reservation, recorded because it is a constraint and not a
+     taste: --plate is SYMMETRIC — blue at both edges, dark through the
+     middle. That is exactly why a centred wordmark sits well on it, and
+     why full-width body copy may not: text near either edge lands on lit
+     blue. The CTA is centred and unaffected. The memory card and Pro set
+     their copy left, so the left edge is the place to check.
+
+     If it reads badly there the fix is a scrim behind the text column,
+     not a different gradient — the gradient is the brand. */
+  --panel-ink: var(--plate);
 
   /* Symmetric: black at the centre with blue coming up on BOTH sides.
      Light at one edge falling to black at the other was the obvious
