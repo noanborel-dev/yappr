@@ -37,9 +37,12 @@ const APPS: Array<{ name: string; logo: string }> = [
 const ARC_START = 115;
 const ARC_SPAN = 310;
 
-// Radius as a fraction of the stage's short side, so the ring scales with
-// the viewport instead of overflowing it on a laptop.
-const RADIUS_RATIO = 0.34;
+// The ring should fill the frame, so it is sized off BOTH axes and takes
+// whichever is tighter. Off the short side alone it came out at about a
+// third of the screen — a small cluster near the middle with the section
+// empty around it.
+const RADIUS_W = 0.32;
+const RADIUS_H = 0.38;   // clears the sticky nav at the top of the ring
 
 /** Ease-out: the logos decelerate into the ring rather than snapping. */
 const ease = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -65,8 +68,12 @@ export function LogoOrbit() {
     const measure = () => {
       const stage = stageRef.current;
       if (stage) {
-        const short = Math.min(stage.clientWidth, stage.clientHeight);
-        setRadius(Math.max(120, short * RADIUS_RATIO));
+        setRadius(
+          Math.max(
+            140,
+            Math.min(stage.clientWidth * RADIUS_W, stage.clientHeight * RADIUS_H),
+          ),
+        );
       }
     };
     const update = () => {
@@ -101,18 +108,18 @@ export function LogoOrbit() {
     <section id="builders" className="orb" ref={trackRef}>
       <div className="orb-pin">
         <div className="orb-stage" ref={stageRef}>
-          {/* TWO rotations, on two elements, on purpose.
-              A CSS animation beats an inline style, so putting the
-              continuous spin and the scroll-driven turn on the same node
-              silently drops the scroll one — which is what tilted every
-              logo mid-formation. The outer node owns the endless spin,
-              the inner owns the scroll. Each logo undoes both, one level
-              at a time. */}
+          {/* ONE rotation, and only once the ring exists.
+              There used to be a second, scroll-driven one on the ring
+              itself. It rotated the INCOMING LINE as well as the formed
+              ring — so instead of rising from the bottom, the logos swung
+              out to the side and stacked against the left edge of the
+              screen, half of them cut off. Turning a circle that has not
+              been drawn yet has no meaning; the spin waits for the ring. */}
           <div
             className="orb-spin"
             style={{ animationPlayState: p > 0.6 ? "running" : "paused" }}
           >
-          <div className="orb-ring" style={{ transform: `rotate(${p * 200}deg)` }}>
+          <div className="orb-ring">
             {APPS.map((app, i) => {
               const angle =
                 ((ARC_START + (i * ARC_SPAN) / (APPS.length - 1)) * Math.PI) / 180;
@@ -137,16 +144,15 @@ export function LogoOrbit() {
                     opacity: Math.min(1, p * 3),
                   }}
                 >
-                  {/* Undoes both turns so the marks stay upright — a
-                      rotating Slack logo reads as a loading spinner, not
-                      as an app. Outer cancels the endless spin, inner
-                      cancels the scroll. */}
+                  {/* Cancels the endless spin so the marks stay upright —
+                      a rotating Slack logo reads as a loading spinner,
+                      not as an app. One rotation to undo now, not two. */}
                   <div
                     className="orb-counter"
                     style={{ animationPlayState: p > 0.6 ? "running" : "paused" }}
                   >
-                    <div className="orb-logo" style={{ transform: `rotate(${-p * 200}deg)` }}>
-                      <Image src={app.logo} alt={app.name} width={74} height={74} />
+                    <div className="orb-logo">
+                      <Image src={app.logo} alt={app.name} width={96} height={96} />
                     </div>
                   </div>
                 </div>

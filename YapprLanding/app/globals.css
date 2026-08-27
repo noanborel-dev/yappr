@@ -5516,12 +5516,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 74px;
-  height: 74px;
+  width: 96px;
+  height: 96px;
 }
 .orb-logo img {
-  width: 74px;
-  height: 74px;
+  width: 96px;
+  height: 96px;
   object-fit: contain;
   /* A soft drop shadow instead of a plate — it separates a dark mark
      from the cream without drawing a box around it. */
@@ -5553,8 +5553,8 @@ body {
 /* On a phone the ring would collide with itself; the logos shrink and the
    radius follows the short side, which is the width here. */
 @media (max-width: 640px) {
-  .orb-logo { width: 52px; height: 52px; }
-  .orb-logo img { width: 52px; height: 52px; }
+  .orb-logo { width: 58px; height: 58px; }
+  .orb-logo img { width: 58px; height: 58px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
