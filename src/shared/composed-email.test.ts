@@ -4,11 +4,87 @@ import {
   senderNameFromOverview,
   asksForEmailComposition,
   looksLikeSignoff,
+  looksLikeMetaReply,
 } from './rewrite-prompt'
 
 // These are enforced in CODE as well as in the prompt because the live
 // model produced both failures WITH the prohibitions already written into
 // the prompt. A prompt rule is a request; this is the guarantee.
+describe('looksLikeMetaReply', () => {
+  // Reported: "I said a whole sentence and it just pasted the word
+  // identical". No prompt asks for that word — the model volunteered a
+  // verdict about the selection and the pipeline pasted the verdict over
+  // the user's text.
+  it('catches a one-word verdict standing in for a sentence', () => {
+    const sentence = 'The pipeline drops chunks when Groq rate limits, so we fall back to local.'
+    expect(looksLikeMetaReply(sentence, 'identical')).toBe(true)
+    expect(looksLikeMetaReply(sentence, 'unchanged')).toBe(true)
+    expect(looksLikeMetaReply(sentence, 'No changes needed.')).toBe(true)
+  })
+
+  // The length ratio is what makes this safe. A short selection
+  // legitimately rewrites to a short result, and "same" may be the real
+  // answer when the user selected one word.
+  it('leaves short selections alone', () => {
+    expect(looksLikeMetaReply('same', 'identical')).toBe(false)
+    expect(looksLikeMetaReply('ok', 'okay')).toBe(false)
+  })
+
+  it('never fires on a real rewrite', () => {
+    const sentence = 'we should ship the new pricing tomorrow, what do you think'
+    expect(looksLikeMetaReply(sentence, 'We should ship the new pricing tomorrow. What do you think?')).toBe(false)
+    expect(looksLikeMetaReply(sentence, 'Ship the new pricing tomorrow?')).toBe(false)
+  })
+
+  it('ignores empty input on either side', () => {
+    expect(looksLikeMetaReply('', 'identical')).toBe(false)
+    expect(looksLikeMetaReply('a long sentence that goes on a while', '')).toBe(false)
+  })
+})
+
+describe('normalizeComposedEmail — the duplicated sign-off', () => {
+  // Reported verbatim: it writes "best,", then the name, then another
+  // "best,". The trigger is context NOT knowing the user's first name —
+  // the old check could only recognise a signature by matching it against
+  // a known name, so a correctly signed email looked unsigned.
+  it('does not append a second sign-off when the name is unknown', () => {
+    const out = normalizeComposedEmail('Hi Jeff,\n\nThe launch slipped.\n\nBest,\nNoan', null)
+    expect(out).toBe('Hi Jeff,\n\nThe launch slipped.\n\nBest,\nNoan')
+    expect(out.toLowerCase().match(/^best,$/gm)?.length).toBe(1)
+  })
+
+  it('still recognises the signature when the name IS known', () => {
+    const out = normalizeComposedEmail('Hi Jeff,\n\nThe launch slipped.\n\nBest,\nNoan', 'Noan')
+    expect(out.toLowerCase().match(/^best,$/gm)?.length).toBe(1)
+  })
+
+  it('accepts a multi-line signature under the sign-off', () => {
+    const out = normalizeComposedEmail(
+      'Hi Jeff,\n\nShipping Friday.\n\nBest,\nNoan Borel\nYappr Labs',
+      null,
+    )
+    expect(out.toLowerCase().match(/^best,$/gm)?.length).toBe(1)
+    expect(out.endsWith('Yappr Labs')).toBe(true)
+  })
+
+  it('normalises the punctuation of a sign-off that already has a name under it', () => {
+    // "Best regards." reads as the end of a sentence, not the start of a
+    // signature — same rule that already applied when it was the last line.
+    const out = normalizeComposedEmail('Hi Jeff,\n\nThanks for this.\n\nBest regards.\nNoan', null)
+    expect(out).toContain('Best regards,\nNoan')
+  })
+
+  // The guard: "Best" can open a sentence. A long line under it is prose,
+  // so the email genuinely has no ending and still needs one.
+  it('still adds a sign-off when the word appears mid-prose', () => {
+    const out = normalizeComposedEmail(
+      'Hi Jeff,\n\nBest\nwould be to ship on Friday and tell the design partner on Monday morning.',
+      'Noan',
+    )
+    expect(out.endsWith('Best,\nNoan')).toBe(true)
+  })
+})
+
 describe('normalizeComposedEmail', () => {
   const NAME = 'Noan'
 

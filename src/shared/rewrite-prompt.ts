@@ -230,8 +230,46 @@ const PLACEHOLDER_INLINE_RE = /[\[<]\s*(?:your|my|the)?\s*(?:name|recipient|firs
 /** Sign-off words, as the closing line of a message. */
 const SIGNOFF_RE = /^\s*(best|best regards|thanks|thank you|cheers|regards|kind regards|warmly|sincerely|talk soon|speak soon)\b[\s,.!—-]*$/i
 
+// How far back to look for a sign-off that already has a signature under
+// it, and how long a line under one may be before it stops looking like a
+// signature. A name, a title and a company is three short lines; a fourth
+// line, or a long one, is prose that happens to follow the word "Best".
+const SIGNATURE_TAIL_LINES = 4
+const SIGNATURE_LINE_MAX_CHARS = 48
+
 export function looksLikeSignoff(line: string): boolean {
   return SIGNOFF_RE.test(line)
+}
+
+// Words a model reaches for when it decides to REPORT on the text instead
+// of returning it. Anchored and whole-string: a rewrite that legitimately
+// ends up being the single word "same" is not something to guard against,
+// but a one-word reply that IS one of these, standing in for a paragraph,
+// is never what the user asked for.
+const META_REPLY_RE = /^\s*(identical|same|unchanged|no changes?( needed)?|nothing to change|n\/?a|ok|okay|done)\s*[.!]?\s*$/i
+
+/**
+ * Did the model answer ABOUT the selection instead of rewriting it?
+ *
+ * A user dictated a command over a sentence and got back the single word
+ * "identical" — pasted over their text, replacing it. Nothing in any
+ * prompt asks for that word; the model volunteered a judgement, and the
+ * pipeline pasted the judgement.
+ *
+ * Two conditions, both required. The reply has to LOOK like a verdict,
+ * and it has to be far shorter than what it is replacing — a genuine
+ * rewrite that shortens a paragraph to one word is vanishingly rare, and
+ * an actual one-word selection rewritten to another word is common. The
+ * length ratio is what separates them.
+ */
+export function looksLikeMetaReply(original: string, output: string): boolean {
+  const out = (output ?? '').trim()
+  const src = (original ?? '').trim()
+  if (!out || !src) return false
+  if (!META_REPLY_RE.test(out)) return false
+  // Replacing something substantial. A short selection legitimately
+  // rewrites to a short result.
+  return src.length >= 25 && out.length * 4 < src.length
 }
 
 /**
@@ -266,9 +304,34 @@ export function normalizeComposedEmail(text: string, userName?: string | null): 
     return lines.join('\n')
   }
 
-  // The name is already there, under a sign-off. Nothing to do.
-  if (name && last.trim().toLowerCase() === name.toLowerCase()) {
-    return lines.join('\n')
+  // A sign-off ALREADY sits a line or two above, with a signature under it.
+  //
+  // This used to be `name && last === name`, which could only recognise a
+  // signature when context happened to know the user's first name. When it
+  // did not — a new user, an empty overview — a perfectly signed email fell
+  // through to the branch below and got a SECOND sign-off stapled on:
+  //
+  //     Best,          <- the model's
+  //     Noan
+  //                    <- appended
+  //     Best,
+  //
+  // which is the duplicate the user reported. What makes the email finished
+  // is the sign-off being present, not our being able to name the person
+  // beneath it, so the test is now about the sign-off.
+  //
+  // Bounded to the last few lines, and to SHORT ones: a signature is a name,
+  // maybe a title or a company. "Best" opening a sentence in the final
+  // paragraph must not count as an ending.
+  const tailStart = Math.max(0, lines.length - SIGNATURE_TAIL_LINES)
+  for (let i = lines.length - 2; i >= tailStart; i--) {
+    if (!looksLikeSignoff(lines[i])) continue
+    const below = lines.slice(i + 1).filter(l => l.trim() !== '')
+    if (below.every(l => l.trim().length <= SIGNATURE_LINE_MAX_CHARS)) {
+      lines[i] = lines[i].trim().replace(/[\s,.!—-]*$/, ',')
+      return lines.join('\n')
+    }
+    break
   }
 
   // No sign-off at all — the failure that reads as a truncated email.

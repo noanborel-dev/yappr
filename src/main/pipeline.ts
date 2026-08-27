@@ -7,6 +7,7 @@ import {
   normalizeComposedEmail,
   senderNameFromOverview,
   asksForEmailComposition,
+  looksLikeMetaReply,
 } from '../shared/rewrite-prompt'
 import { buildContextBlock } from './context/prompt-injector'
 import { getUserOverview } from './context/store'
@@ -1442,6 +1443,19 @@ The selected text is plain prose. Output as plain prose. Do not introduce markdo
       // never the dictated command, and never the delimited scaffold.
       fallbackText: selectedText,
     }))
+
+  // The model sometimes answers ABOUT the selection rather than rewriting
+  // it — one user got the single word "identical" pasted over a sentence.
+  // Keeping their own text is always the better outcome: a rewrite that
+  // did nothing is a non-event, and a rewrite that deletes a paragraph and
+  // leaves a verdict behind is destructive.
+  if (looksLikeMetaReply(selectedText, result)) {
+    logInfo('Rewrite discarded — model reported instead of rewriting', {
+      reply: result.trim().slice(0, 40),
+      selectionChars: selectedText.length,
+    })
+    return selectedText
+  }
 
   return emailMode ? normalizeEmailRewrite(result) : result
 }
