@@ -5482,7 +5482,12 @@ body {
    scroll drives the formation. Its parent must never get overflow:hidden
    — that silently kills position:sticky, which is the note that already
    cost this page once. */
-.orb { height: 230vh; position: relative; background: var(--cream); }
+/* Long, because a logo's trip is a lap and a half — in at the bottom,
+   round, and out through the top — and 15 of them have to make it inside
+   this one track. At 230vh (the length when the ring was a formation
+   that parked) they streamed past fast enough to read as a spinner.
+   Scaled with TRAVEL_DEG: 900° of sweep at the pace 340vh gave 720°. */
+.orb { height: 420vh; position: relative; background: var(--cream); }
 .orb-pin { position: sticky; top: 0; height: 100vh; overflow: clip; }
 .orb-stage {
   position: relative;
@@ -5493,20 +5498,23 @@ body {
   justify-content: center;
 }
 
-/* Both the ring and the logos inside it run the SAME animation at the
-   same duration in opposite directions, so the marks stay upright while
-   the ring turns. Linear, because an eased orbit reads as a stutter. */
-.orb-spin {
+/* A zero-size anchor at the centre of the stage. Every slot is placed
+   from here by a transform, so the ring has no box of its own and
+   nothing to draw a line around.
+
+   There is NO CSS animation on the ring any more. There used to be a
+   pair — the ring turning one way, each logo counter-rotating the same
+   amount to stay upright — which is what you need when the ring is a
+   rigid body that spins. Travel is per-logo now, so the ring never
+   turns and the marks are upright for free. */
+.orb-ring {
   position: absolute;
   left: 50%;
   top: 50%;
   width: 0;
   height: 0;
-  animation: orb-spin 48s linear infinite;
 }
-.orb-ring { position: absolute; left: 0; top: 0; width: 0; height: 0; }
-.orb-slot { position: absolute; left: 0; top: 0; will-change: transform; }
-.orb-counter { animation: orb-spin-rev 48s linear infinite; }
+.orb-slot { position: absolute; left: 0; top: 0; will-change: transform, opacity; }
 /* No chip behind the logo. The tile was doing nothing except making
    every app look like it had been re-drawn as a Yappr icon, and at this
    size the marks carry themselves — they are designed to be recognised
@@ -5533,9 +5541,6 @@ body {
   filter: drop-shadow(0 8px 18px rgba(20, 30, 50, 0.22));
 }
 
-@keyframes orb-spin     { to { transform: rotate(360deg); } }
-@keyframes orb-spin-rev { to { transform: rotate(-360deg); } }
-
 /* The mark sits at the centre of the ring, not on it. */
 .orb-core {
   position: relative;
@@ -5560,8 +5565,13 @@ body {
 @media (max-width: 640px) {
   .orb-logo { width: 58px; height: 58px; }
   .orb-logo img { width: 58px; height: 58px; }
+  .orb-logo.is-wide { width: 92px; }
+  .orb-logo.is-wide img { width: 92px; height: auto; }
+  /* A shorter track: on a phone it is measured against a much taller
+     viewport, so 420vh of thumb-scrolling is a very long way to go. */
+  .orb { height: 320vh; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .orb-spin, .orb-counter { animation: none !important; }
-}
+/* Reduced motion is handled in the component, which places every logo on
+   the ring at once and stops reading scroll at all — there is no CSS
+   animation left here to switch off. */
