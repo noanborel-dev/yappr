@@ -1644,6 +1644,79 @@ body {
   pointer-events: none;
 }
 
+/* --- The active cue -------------------------------------------------
+   Runs while Yappr is listening and polishing, and stops when the text
+   lands. Without it the notch changes state unnoticed and the paste
+   appears to come from nowhere.
+
+   Ripples off the notch's own silhouette rather than an arrow pointing at
+   it: an annotation would read as a tutorial overlay, and there is no room
+   for one — the terminal window starts about 15px below the notch. Sound
+   leaving the thing that is listening makes the same point and belongs
+   inside the picture.
+
+   All of it is --cobalt, the accent the notch's own wings already use. */
+.notch-cue {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 140px;    /* = the notchWidth passed in Hero.tsx */
+  height: 30px;
+  margin-left: -70px;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+.notch-cue.on { opacity: 1; }
+
+/* Keeps the indicator above the cue. */
+.hero-notch-mark { position: relative; z-index: 1; display: block; }
+
+/* A pool of light on the wallpaper. This is the part that actually pulls
+   the eye up; the ripples only explain what it means. It breathes rather
+   than pulses hard — the section reads as attentive, not as an alarm. */
+.notch-cue-glow {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  width: 300px;
+  height: 150px;
+  margin-left: -150px;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    rgba(90, 143, 232, 0.34),
+    rgba(90, 143, 232, 0) 72%
+  );
+  animation: notch-cue-breathe 2.4s ease-in-out infinite;
+}
+
+/* Two ripples, half a cycle apart. Spread on a box-shadow rather than a
+   scaled element: scaling makes the ring THICKER as it grows, which is
+   backwards — a ripple thins out as it travels. Spread keeps the edge
+   constant and fades it instead. Square-topped and rounded at the bottom,
+   so the wave carries the notch's shape. */
+.notch-cue-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 0 0 13px 13px;
+  animation: notch-cue-ping 2.4s cubic-bezier(0.16, 0.6, 0.3, 1) infinite;
+}
+.notch-cue-ring--late { animation-delay: 1.2s; }
+
+@keyframes notch-cue-ping {
+  0%   { box-shadow: 0 0 0 0 rgba(90, 143, 232, 0.42); }
+  /* Fully faded by 70%, then held — the gap is what separates one ripple
+     from the next instead of them running as a continuous smear. */
+  70%,
+  100% { box-shadow: 0 0 0 22px rgba(90, 143, 232, 0); }
+}
+@keyframes notch-cue-breathe {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
+
 /* Terminal hero. The floor under the window used to be 132px, reserved
    for the "heard" caption track — the ramble ran about three lines. With
    the caption gone that was just empty wallpaper, so the window takes the

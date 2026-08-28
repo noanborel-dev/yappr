@@ -102,6 +102,13 @@ export function Hero() {
 
   const landed = phase === "landed";
 
+  // The cue runs for both beats BEFORE the paste — listening and
+  // polishing — and stops the moment the text lands. Covering both rather
+  // than just listening avoids a blink in the 700ms while Yappr is
+  // thinking, which would read as the cue breaking rather than as a
+  // change of state.
+  const cueing = phase === "listening" || phase === "polishing";
+
   return (
     <section
       id="hero"
@@ -145,18 +152,40 @@ export function Hero() {
                 that's where the real app lives. A lozenge floating in the
                 middle of a window is the old design and the wrong place. */}
             <div className="hero-notch">
-              <NotchIndicator
-                state={
-                  phase === "idle"
-                    ? "idle"
-                    : phase === "listening"
-                      ? "recording"
-                      : phase === "polishing"
-                        ? "processing"
-                        : "done"
-                }
-                notchWidth={140}
-              />
+              {/* The cue that says LOOK HERE.
+                  The notch is 140px wide at the top of a screen mockup and
+                  it is the only thing in the hero doing the actual work —
+                  a first-time reader is looking at the headline or the
+                  terminal and never sees it light up, so the paste arrives
+                  from nowhere.
+                  Ripples leaving the notch's own silhouette, over a pool of
+                  light on the wallpaper. Emission, not annotation: an arrow
+                  pointing at it would read as a tutorial overlay, and there
+                  is no room for one anyway — the terminal starts ~15px
+                  below the notch. Sound coming off the thing that is
+                  listening says the same thing and belongs to the picture. */}
+              <span
+                className={`notch-cue ${cueing ? "on" : ""}`}
+                aria-hidden="true"
+              >
+                <i className="notch-cue-glow" />
+                <i className="notch-cue-ring" />
+                <i className="notch-cue-ring notch-cue-ring--late" />
+              </span>
+              <span className="hero-notch-mark">
+                <NotchIndicator
+                  state={
+                    phase === "idle"
+                      ? "idle"
+                      : phase === "listening"
+                        ? "recording"
+                        : phase === "polishing"
+                          ? "processing"
+                          : "done"
+                  }
+                  notchWidth={140}
+                />
+              </span>
             </div>
 
           </div>
