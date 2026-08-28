@@ -3,26 +3,29 @@
 #
 # Output: assets/tray.png (1x) + assets/tray@2x.png (2x).
 #
-# THE SHAPE IS THE NOTCH, not a pill. This used to be a fully-rounded
-# charcoal lozenge — the exact shape the brand system replaced, so it was
-# the last place in the product still advertising the old mark.
+# IT IS THE MARK NOW, not the indicator's contents.
 #
-# THE FILL IS BRAND_WING, not BRAND_PLATE. That looks like an
-# inconsistency and is not. Two reasons:
+# This drew a notch silhouette with the red recording dot and five cobalt
+# waveform bars in it. The reasoning was sound at the time and is written
+# down here because it explains what changed: the tray icon and the live
+# indicator share a menu bar, a user sees both at once, so they were made
+# the same object — and the indicator carried a bare wordmark on a dark
+# wing, which the plate would have clashed with.
 #
-#   1. The tray icon and the live indicator occupy the same menu bar. A
-#      user sees both at once, so they should be the same object. The
-#      indicator is black-centred with charcoal wings; matching the
-#      brighter logo plate here would put two different Yappr marks
-#      inches apart.
-#   2. The waveform bars are #5A8FE8 — which is exactly the logo plate's
-#      edge colour. On the plate the bars would sit on their own colour
-#      and disappear. The wing's dark palette is what keeps them legible.
+# The indicator now carries the square brand mark (YapprMark lockup
+# "square", see NotchIndicator.tsx). So the argument now points the other
+# way: matching it means showing the plate, and a dot with waveform bars
+# is the odd one out — it was also drawing a RECORDING state permanently,
+# on an icon that is idle almost all of the time.
 #
-# Anything with a top edge to hang from can carry the notch silhouette;
-# the menu bar is the top edge of the screen, so this qualifies.
+# One letter, not five. "Yappr" at 22px tall is about 7px of cap height
+# and unreadable; the square lockup exists for exactly this, and a Y at
+# this size is a shape you recognise rather than text you fail to read.
 #
-# Maxed out at the menubar's 22px tall cap (44px @2x), full-bleed.
+# Square, inset 1px so the plate does not touch the menu bar's edges, with
+# the same 22 percent squircle and the same radial plate as the Dock icon
+# (brand/svg/yappr-appicon.svg). Full colour: macOS only forces template
+# rendering when the file is named *Template.png.
 
 set -euo pipefail
 
@@ -30,68 +33,84 @@ TMP="$(mktemp -d)"
 DEST_1X="assets/tray.png"
 DEST_2X="assets/tray@2x.png"
 
-# Design space is 54×22. sips -Z constrains the longest dim, so we render
-# at @2x explicit dimensions and let sips downscale proportionally.
+# Design space is 22×22 — the menu bar's cap height. sips gets explicit
+# @2x dimensions and downscales for 1x.
 #
 # NOTE: no double hyphen may appear anywhere in this SVG's comments. XML
 # forbids it inside a comment and sips rejects the entire file with
 # "Cannot extract image from file" rather than pointing at the line.
 cat > "$TMP/tray.svg" <<'SVG'
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 54 22" width="108" height="44">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="44" height="44">
   <defs>
-    <!-- The wing: charcoal at the ends, true black through the middle.
-         Same stops as BRAND_WING in src/renderer/shared/ui/YapprMark.tsx. -->
-    <linearGradient id="wing" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0"    stop-color="#2B3950"/>
-      <stop offset="0.14" stop-color="#172130"/>
-      <stop offset="0.32" stop-color="#000000"/>
-      <stop offset="0.68" stop-color="#000000"/>
-      <stop offset="0.86" stop-color="#172130"/>
-      <stop offset="1"    stop-color="#2B3950"/>
-    </linearGradient>
-    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.13"/>
-      <stop offset="0.46" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
-    <radialGradient id="dotGlow" cx="11" cy="11" r="7" gradientUnits="userSpaceOnUse">
-      <stop offset="0%"   stop-color="#e84a3a" stop-opacity="0.6"/>
-      <stop offset="100%" stop-color="#e84a3a" stop-opacity="0"/>
+    <!-- Same stops as the Dock icon and BRAND_PLATE_RADIAL in
+         src/renderer/shared/ui/YapprMark.tsx. Alpha over a #151B26 floor
+         rather than a colour ramp, so the centre stays near black and the
+         edges lift to cobalt. -->
+    <!-- r is 0.86 here against 0.62 on the Dock icon, and the ramp starts
+         later. Same stops scaled to 20px would put the bright end well
+         inside the tile and average out to flat pale blue; at menu bar
+         size the plate has to hold a dark core for the white Y to sit
+         on. Pushing the bright edge past the corners keeps the centre
+         near black and leaves the cobalt as a rim. -->
+    <radialGradient id="t-plate" cx="0.5" cy="0.5" r="0.86">
+      <stop offset="0"    stop-color="#16305C" stop-opacity="0"/>
+      <stop offset="0.34" stop-color="#16305C" stop-opacity="0"/>
+      <stop offset="0.50" stop-color="#1C3660" stop-opacity="0.16"/>
+      <stop offset="0.64" stop-color="#284676" stop-opacity="0.34"/>
+      <stop offset="0.76" stop-color="#365A96" stop-opacity="0.54"/>
+      <stop offset="0.88" stop-color="#446EB6" stop-opacity="0.72"/>
+      <stop offset="1"    stop-color="#5A8FE8" stop-opacity="0.90"/>
     </radialGradient>
-    <!-- Square across the top, rounded only at the bottom. -->
-    <clipPath id="notchClip">
-      <path d="M0,0 H54 V15 A7,7 0 0 1 47,22 H7 A7,7 0 0 1 0,15 Z"/>
+    <linearGradient id="t-sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#FFFFFF" stop-opacity="0.15"/>
+      <stop offset="0.46" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="t-clip">
+      <rect x="1" y="1" width="20" height="20" rx="4.4" ry="4.4"/>
     </clipPath>
   </defs>
 
-  <path d="M0,0 H54 V15 A7,7 0 0 1 47,22 H7 A7,7 0 0 1 0,15 Z" fill="url(#wing)"/>
-
-  <g clip-path="url(#notchClip)">
-    <rect x="0" y="0" width="54" height="12" fill="url(#sheen)"/>
+  <g clip-path="url(#t-clip)">
+    <rect x="1" y="1" width="20" height="20" fill="#151B26"/>
+    <rect x="1" y="1" width="20" height="20" fill="url(#t-plate)"/>
+    <rect x="1" y="1" width="20" height="20" fill="url(#t-sheen)"/>
   </g>
 
-  <!-- Hairline rim. Kept from the previous icon and still doing real
-       work: on a dark menubar a near-black shape has no silhouette
-       without it. -->
-  <path d="M0.3,0 H53.7 V15 A6.7,6.7 0 0 1 47,21.7 H7 A6.7,6.7 0 0 1 0.3,15 Z"
-        fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="0.4"/>
+  <!-- Hairline rim. On a dark menu bar the plate's near black centre has
+       no silhouette without it. -->
+  <rect x="1.2" y="1.2" width="19.6" height="19.6" rx="4.3" ry="4.3"
+        fill="none" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="0.4"/>
 
-  <!-- Red recording dot, left. The indicator's LEFT wing is input, so
-       the dot belongs on this side. -->
-  <circle cx="11" cy="11" r="7" fill="url(#dotGlow)"/>
-  <circle cx="11" cy="11" r="3.0" fill="#e84a3a"/>
+  <!--
+    SKEWED, not font-style="italic".
 
-  <!-- Five cobalt waveform bars, frozen mid-animation, across the right. -->
-  <rect x="22"    y="7"   width="1.8" height="8"  rx="0.9" fill="#5a8fe8"/>
-  <rect x="26.5"  y="3"   width="1.8" height="16" rx="0.9" fill="#5a8fe8"/>
-  <rect x="31"    y="9"   width="1.8" height="4"  rx="0.9" fill="#5a8fe8"/>
-  <rect x="35.5"  y="5"   width="1.8" height="12" rx="0.9" fill="#5a8fe8"/>
-  <rect x="40"    y="7"   width="1.8" height="8"  rx="0.9" fill="#5a8fe8"/>
-  <rect x="44.5"  y="8.5" width="1.8" height="5"  rx="0.9" fill="#5a8fe8"/>
+    sips silently ignores font-style and rasterises roman, and the Yappr
+    mark is never upright. Naming the face "Georgia Italic" is worse: it
+    matches nothing and falls back to a sans.
+
+    The translate cancels the skew's drift: skewX(a) maps (x,y) to
+    (x + y*tan(a), y), so at the y used below (11.6) with a=-11 the glyph
+    moves left by 11.6*tan(11) = 2.25. Translating back keeps it centred.
+
+    The Y's diagonal also makes it sit optically left in its box, which is
+    why .square-logo on the landing page carries a text-indent. The same
+    correction is folded into the translate here.
+  -->
+  <g transform="translate(2.55,0) skewX(-11)">
+    <text
+      x="11" y="11.6"
+      text-anchor="middle"
+      dominant-baseline="central"
+      font-family="Georgia, 'Times New Roman', serif"
+      font-size="14.5"
+      fill="#FFFFFF"
+    >Y</text>
+  </g>
 </svg>
 SVG
 
-sips -s format png -z 44 108 "$TMP/tray.svg" --out "$TMP/tray@2x.png" >/dev/null
-sips -s format png -z 22 54  "$TMP/tray.svg" --out "$TMP/tray.png"    >/dev/null
+sips -s format png -z 44 44 "$TMP/tray.svg" --out "$TMP/tray@2x.png" >/dev/null
+sips -s format png -z 22 22 "$TMP/tray.svg" --out "$TMP/tray.png"    >/dev/null
 
 cp "$TMP/tray.png"    "$DEST_1X"
 cp "$TMP/tray@2x.png" "$DEST_2X"

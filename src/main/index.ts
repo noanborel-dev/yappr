@@ -438,12 +438,18 @@ function setupTray(): void {
     icon = nativeImage.createEmpty()
   }
 
-  // Full-color tray icon — the Yappr pill with red dot + cobalt
-  // bars. NOT a template image (template mode would strip the colors
-  // and only render the silhouette). The pill is already dark, so it
-  // reads fine on both light and dark menubars. assets/tray.png +
-  // assets/tray@2x.png are produced by scripts/generate-tray-icon.sh;
-  // Electron picks the @2x variant on retina displays.
+  // Full-color tray icon — the square brand mark, the same one the Dock
+  // icon and the live indicator carry. It used to draw the indicator's
+  // CONTENTS instead (red dot, cobalt waveform bars), which showed a
+  // permanent recording state on an icon that is idle almost all the
+  // time, and stopped matching the indicator the moment that started
+  // carrying the plate.
+  //
+  // NOT a template image — template mode would strip the colors and
+  // render a silhouette. The plate keeps a near black core, so it reads
+  // on both light and dark menubars. assets/tray.png + tray@2x.png are
+  // produced by scripts/generate-tray-icon.sh; Electron picks the @2x
+  // variant on retina displays.
 
   tray = new Tray(icon)
   tray.setToolTip('Yappr')
@@ -614,7 +620,7 @@ function setupAudioIpc(): void {
     try {
       if (commandMode) {
         broadcastState('processing')
-        const { text: rewritten, command } = await runCommandPipeline(audioBuffer, selection, getSettings())
+        const { text: rewritten, command, guarded } = await runCommandPipeline(audioBuffer, selection, getSettings())
         // Use the press-time AX-role probe — same as dictate mode.
         // Command mode involves no UI interaction during the call, so
         // the user's original focus is still the intended target.
@@ -630,7 +636,11 @@ function setupAudioIpc(): void {
           appName: focused.name,
           appCategory: focused.category,
           timestamp: Date.now(),
-          rewrite: { selection },
+          // No `rewrite` when the guard fired: nothing was rewritten, the
+          // selection was left alone, and filing it as a rewrite would
+          // both mislead the dashboard and hide it from the compactor,
+          // which is exactly the dictation it should be learning from.
+          ...(guarded ? {} : { rewrite: { selection } }),
         })
         // Rewrite/command-mode bumps the activity timestamp so the
         // compactor's idle gate doesn't fire mid-session, but we don't
@@ -813,7 +823,8 @@ async function retryRecording(id: string): Promise<void> {
         appName: meta.context.name,
         appCategory: meta.context.category,
         timestamp: Date.now(),
-        rewrite: { selection: meta.context.selection },
+        // See the live path: a guarded run rewrote nothing.
+        ...(rerun.guarded ? {} : { rewrite: { selection: meta.context.selection } }),
       })
     } else {
       // No state/partial callbacks: a retry must never repaint the

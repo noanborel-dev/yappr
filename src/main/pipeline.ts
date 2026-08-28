@@ -28,6 +28,7 @@ import { wordCount, speakingMsFromAudioBytes } from '../shared/dictation-stats'
 import { MODELS, BUILTIN_DICTIONARY, DICTIONARY_ALIASES, IDE_EDITORS, AGENTIC_AI_APP_NAMES } from '../shared/constants'
 import type { AppCategory, DictationResult, Settings, Strictness } from '../shared/types'
 import { isRewriteEntry, spokenText } from '../shared/history-entry'
+import { selectionLikelyStale } from './rewrite-guard'
 import type { FocusedApp } from './focused-app'
 import type { TranscriptionProvider, CleanupProvider } from './providers/types'
 import {
@@ -1372,7 +1373,12 @@ export async function runCommandPipeline(
   // what the user SAID — for a long time it stored the string
   // '(rewrite)' instead, which meant a rewrite could eat two minutes of
   // speech and leave nothing behind. See DictationResult.rewrite.
-): Promise<{ text: string; command: string }> {
+  //
+  // `guarded` means no rewrite happened: the speech was too long for the
+  // selection to plausibly be its target, so it was cleaned as a
+  // dictation instead and the selection was left untouched. File it as a
+  // dictation, not a rewrite.
+): Promise<{ text: string; command: string; guarded?: boolean }> {
   // Command mode ("rewrite my selection with this voice instruction")
   // fundamentally requires an LLM — there's no regex-able way to
   // "make this paragraph shorter" or "translate to French". Transcription
@@ -1393,6 +1399,37 @@ export async function runCommandPipeline(
 
   if (refreshFocusedApp) await refreshFocusedApp
   const focusedApp = focusOverride ?? getFocusedApp()
+
+  // Did a stray selection just eat a dictation?
+  //
+  // Rewrite mode is entered on one signal — was anything selected — which
+  // knows nothing about how much was then said. On 2026-08-28 a
+  // 16-character selection swallowed 121 seconds of speech and collapsed
+  // it into one line. See rewrite-guard.ts.
+  //
+  // When it fires, the speech is treated as what it evidently is: a
+  // dictation. It is cleaned and returned as normal text, the selection is
+  // left alone, and the caller files it as a dictation rather than a
+  // rewrite so it stays searchable and can be re-polished.
+  if (selectionLikelyStale({
+    transcriptChars: command.length,
+    selectionChars: selectedText.length,
+  })) {
+    logInfo('Rewrite guarded — treating long speech as a dictation', {
+      transcriptChars: command.length,
+      selectionChars: selectedText.length,
+      ratio: selectedText.length > 0
+        ? Number((command.length / selectedText.length).toFixed(1))
+        : null,
+    })
+    return {
+      text: await cleanupAsDictation(
+        command, focusedApp, dictationProjectKey(focusedApp), settings, cleanup,
+      ),
+      command,
+      guarded: true,
+    }
+  }
 
   return {
     text: await rewriteSelection(command, selectedText, focusedApp, settings, cleanup),
@@ -1553,17 +1590,51 @@ export async function repolishEntry(
     return rewriteSelection(said, selection, focusedApp, settings, cleanup)
   }
 
+  const cleaned = await cleanupAsDictation(
+    said, focusedApp, entry.projectKey ?? null, settings, cleanup,
+  )
+  logInfo('Re-polished from history', {
+    chars: cleaned.length,
+    transcriptChars: said.length,
+    category: entry.appCategory,
+  })
+  return cleaned
+}
+
+/**
+ * Clean a transcript the way the dictation path would, given a resolved
+ * app rather than live focus.
+ *
+ * Shared by two callers that both arrive with a transcript and no live
+ * routing context: re-polishing an old history entry, and the rewrite
+ * guard, which has just decided that what it is holding is a dictation
+ * after all. Both need the real cleanup rather than pasting raw Whisper
+ * output, and neither can consult the AX tree.
+ *
+ * Not a substitute for the block inside runDictationPipeline, which has
+ * the live surface, the per-app rule and the AI-CLI routing to work with.
+ * This is the same cleanup with the parts that need a live window left at
+ * their defaults.
+ */
+async function cleanupAsDictation(
+  transcript: string,
+  focusedApp: FocusedApp,
+  projectKey: string | null,
+  settings: Settings,
+  cleanup: CleanupProvider,
+): Promise<string> {
+  const category = focusedApp.category
   const strictness = strictnessFor(focusedApp, settings)
-  const register = registerFor(focusedApp, entry.appCategory)
-  const composingEmail = asksForEmailComposition(said)
-    || (entry.appCategory === 'email' && countWords(said) >= EMAIL_COMPOSE_MIN_WORDS)
+  const register = registerFor(focusedApp, category)
+  const composingEmail = asksForEmailComposition(transcript)
+    || (category === 'email' && countWords(transcript) >= EMAIL_COMPOSE_MIN_WORDS)
   const contextBlock = buildContextBlock({
     enabled: settings.useContextMemory,
-    projectKey: entry.projectKey ?? null,
+    projectKey,
   })
   const systemPrompt = buildCleanupPrompt(
-    entry.appCategory,
-    entry.appName,
+    category,
+    focusedApp.name,
     undefined,
     undefined,
     strictness,
@@ -1572,20 +1643,15 @@ export async function repolishEntry(
     contextBlock,
     undefined,
     composingEmail,
-  ).replace('{text}', said)
+  ).replace('{text}', transcript)
 
   const cleaned = await withCleanupRetry(() =>
-    cleanup.cleanup(said, {
-      appName: entry.appName,
-      appCategory: entry.appCategory,
+    cleanup.cleanup(transcript, {
+      appName: focusedApp.name,
+      appCategory: category,
       systemPrompt,
       expandsOutput: composingEmail,
     }))
 
-  logInfo('Re-polished from history', {
-    chars: cleaned.length,
-    transcriptChars: said.length,
-    category: entry.appCategory,
-  })
   return composingEmail ? normalizeComposedEmail(cleaned, senderFirstName()) : cleaned
 }
