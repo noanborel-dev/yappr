@@ -137,6 +137,33 @@ export function Hero() {
         </div>
 
         <div className="hero-right">
+          {/* Points at the notch while Yappr is listening.
+              This replaced a glow-and-ripple treatment on the notch
+              itself. That lit the right object but read as atmosphere —
+              you noticed the screen was prettier, not that something was
+              happening. An arrow is unambiguous: it has a direction, and
+              a thing with a direction makes you look where it points.
+              It lives OUTSIDE the screen, in the page's own space, because
+              .hero-stage clips to the bezel and there is no room inside —
+              the terminal window starts about 15px below the notch. */}
+          <span
+            className={`notch-arrow ${cueing ? "on" : ""}`}
+            aria-hidden="true"
+          >
+            <svg viewBox="0 0 18 46" fill="none" stroke="currentColor">
+              <path
+                d="M9 2 V 36"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <path
+                d="M2.5 29 L 9 37.5 L 15.5 29"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
           <div className="hero-stage hero-stage--term">
             <div className="hero-app active">
               <ClaudeCodeShell
@@ -152,40 +179,18 @@ export function Hero() {
                 that's where the real app lives. A lozenge floating in the
                 middle of a window is the old design and the wrong place. */}
             <div className="hero-notch">
-              {/* The cue that says LOOK HERE.
-                  The notch is 140px wide at the top of a screen mockup and
-                  it is the only thing in the hero doing the actual work —
-                  a first-time reader is looking at the headline or the
-                  terminal and never sees it light up, so the paste arrives
-                  from nowhere.
-                  Ripples leaving the notch's own silhouette, over a pool of
-                  light on the wallpaper. Emission, not annotation: an arrow
-                  pointing at it would read as a tutorial overlay, and there
-                  is no room for one anyway — the terminal starts ~15px
-                  below the notch. Sound coming off the thing that is
-                  listening says the same thing and belongs to the picture. */}
-              <span
-                className={`notch-cue ${cueing ? "on" : ""}`}
-                aria-hidden="true"
-              >
-                <i className="notch-cue-glow" />
-                <i className="notch-cue-ring" />
-                <i className="notch-cue-ring notch-cue-ring--late" />
-              </span>
-              <span className="hero-notch-mark">
-                <NotchIndicator
-                  state={
-                    phase === "idle"
-                      ? "idle"
-                      : phase === "listening"
-                        ? "recording"
-                        : phase === "polishing"
-                          ? "processing"
-                          : "done"
-                  }
-                  notchWidth={140}
-                />
-              </span>
+              <NotchIndicator
+                state={
+                  phase === "idle"
+                    ? "idle"
+                    : phase === "listening"
+                      ? "recording"
+                      : phase === "polishing"
+                        ? "processing"
+                        : "done"
+                }
+                notchWidth={140}
+              />
             </div>
 
           </div>

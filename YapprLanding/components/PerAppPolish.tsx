@@ -60,7 +60,9 @@ export function PerAppPolish() {
               You don&rsquo;t only talk to <em>machines</em>.
             </>
           }
-          lede="One dictation, three destinations."
+          // No lede. "One dictation, three destinations." was a caption
+          // for the diagram underneath — one quote fanning out to three
+          // cards — and the diagram is not ambiguous enough to need one.
         />
 
         <ScrollExpand from={0.93}>

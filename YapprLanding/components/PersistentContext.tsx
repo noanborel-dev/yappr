@@ -76,11 +76,13 @@ export function PersistentContext() {
               Stop re-explaining your <em>project</em>.
             </>
           }
-          // "Every conversation starts with the same five lines of setup"
-          // came out. The stage below IS those five lines, being struck
-          // out one at a time — saying it first turns the animation into
-          // an illustration of the sentence instead of the argument.
-          lede="It already knows. You skip to the question."
+          // No lede, for the second time and the same reason. "Every
+          // conversation starts with the same five lines of setup" came
+          // out first; "It already knows. You skip to the question." has
+          // now followed it. The stage below IS those five lines being
+          // struck out one at a time, and the question surviving at the
+          // bottom — stating the outcome above the animation turns it
+          // into an illustration of the sentence instead of the argument.
         />
 
         <ScrollExpand from={0.95}>

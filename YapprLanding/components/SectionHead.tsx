@@ -17,12 +17,22 @@ export function SectionHead({
   eyebrow: string;
   pro?: boolean;
   title: ReactNode;
-  lede: ReactNode;
+  /**
+   * Optional. Several sections carry their argument entirely in the
+   * demo below the header, and a line of body copy there was restating
+   * what the animation was about to show.
+   *
+   * Without one the header drops to a single column — the two-column
+   * split exists to hang the lede beside the headline, and keeping it
+   * empty would strand the right third, which is the exact thing this
+   * layout was built to avoid.
+   */
+  lede?: ReactNode;
 }) {
   // lede accepts nodes, not just strings — some sections italicise inside it.
   return (
     <Reveal>
-      <div className="sec-head">
+      <div className={`sec-head ${lede ? "" : "sec-head--solo"}`}>
         <div>
           <div className="sec-eyb-row">
             <span className="sec-num">{num}</span>
@@ -31,7 +41,7 @@ export function SectionHead({
           </div>
           <h2 className="sec-title">{title}</h2>
         </div>
-        <p className="sec-lede">{lede}</p>
+        {lede && <p className="sec-lede">{lede}</p>}
       </div>
     </Reveal>
   );

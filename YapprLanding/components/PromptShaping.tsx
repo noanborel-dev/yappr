@@ -147,7 +147,12 @@ export function PromptShaping() {
               Rambling in. <em>Sections</em> out.
             </>
           }
-          lede="Watch where every piece goes. Nothing is summarised away — it's just filed."
+          // No lede. "Watch where every piece goes. Nothing is summarised
+          // away — it's just filed." described the demo directly below
+          // it, which then spent eight seconds demonstrating the same
+          // thing by lighting up each source phrase as its line lands.
+          // Saying it first turns the animation into an illustration of a
+          // sentence rather than the argument itself.
         />
 
         <div className="ps-stage" ref={hostRef}>

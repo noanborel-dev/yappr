@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SectionHead } from "./SectionHead";
 import { ScrollExpand } from "./ScrollExpand";
-import { Reveal } from "./Reveal";
 
 // Section 02 — one surface, drawn as the real app.
 //
@@ -159,12 +158,11 @@ export function SelectRewrite() {
           <p className="sr-said-quote">&ldquo;{SAID}&rdquo;</p>
         </div>
 
-        <Reveal delay={120}>
-          <p className="sec-foot">
-            Works on a prompt you&rsquo;re about to send, too — or anything
-            else you can select.
-          </p>
-        </Reveal>
+        {/* "Works on a prompt you're about to send, too — or anything
+            else you can select." came out. It was a footnote widening the
+            claim after the demo had already made it, and it landed under
+            the big spoken-instruction line, which is the thing that
+            should close this section. */}
       </div>
     </section>
   );
