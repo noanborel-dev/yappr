@@ -30,11 +30,25 @@ interface NavValue {
    * Call it from an effect, not from render. It sets state on the shell.
    */
   setReady: (ready: boolean) => void
+  /**
+   * Override what Enter does for this step.
+   *
+   * Some steps have beats WITHIN them — KeyStep picks a key, then shows
+   * what it does, then makes you try it — and Enter should walk those
+   * before it leaves. Without an override such a step has to choose
+   * between a working Enter and a visible cue, because the shell owns
+   * both; with one, the cue means the same thing everywhere and only the
+   * destination changes.
+   *
+   * null hands Enter back to the shell.
+   */
+  setOnEnter: (fn: (() => void) | null) => void
 }
 
 const NavContext = createContext<NavValue>({
   next: () => {},
   setReady: () => {},
+  setOnEnter: () => {},
 })
 
 export function OnboardingNavProvider({
@@ -59,8 +73,8 @@ export function useOnboardingNav(): NavValue {
  * never disagree — a keyboard route that works when the button is greyed
  * out is worse than no keyboard route.
  */
-export function useAdvanceOnEnter(ready: boolean): void {
-  const { setReady } = useOnboardingNav()
+export function useAdvanceOnEnter(ready: boolean, onEnter?: () => void): void {
+  const { setReady, setOnEnter } = useOnboardingNav()
   useEffect(() => {
     setReady(ready)
     // Clear on unmount so the next step starts closed and has to open its
@@ -68,4 +82,9 @@ export function useAdvanceOnEnter(ready: boolean): void {
     // previous screen's answer.
     return () => setReady(false)
   }, [ready, setReady])
+
+  useEffect(() => {
+    setOnEnter(onEnter ?? null)
+    return () => setOnEnter(null)
+  }, [onEnter, setOnEnter])
 }

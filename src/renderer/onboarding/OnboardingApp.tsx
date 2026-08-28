@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { Settings } from '../../shared/types'
 import { Pill } from '../shared/ui/Pill'
@@ -60,7 +60,18 @@ export default function OnboardingApp() {
   )
   const back = () => setStep((s) => Math.max(s - 1, 0))
 
-  useEffect(() => { setReady(false) }, [step])
+  // A step can take Enter over for its own internal beats — see
+  // setOnEnter in nav.tsx. Held in a ref so registering one does not
+  // re-run the listener effect on every render of the step.
+  const onEnterRef = useRef<(() => void) | null>(null)
+  const setOnEnter = useCallback((fn: (() => void) | null) => {
+    onEnterRef.current = fn
+  }, [])
+
+  useEffect(() => {
+    setReady(false)
+    onEnterRef.current = null
+  }, [step])
 
   // ONE Enter listener for the whole flow, not one per step. Nine
   // listeners would each still be mounted during the outgoing step's exit
@@ -78,13 +89,15 @@ export default function OnboardingApp() {
         return
       }
       e.preventDefault()
-      next()
+      const own = onEnterRef.current
+      if (own) own()
+      else next()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [ready, next])
 
-  const nav = useMemo(() => ({ next, setReady }), [next])
+  const nav = useMemo(() => ({ next, setReady, setOnEnter }), [next, setOnEnter])
 
   async function finish() {
     const partial: Partial<Settings> = { firstRun: false }

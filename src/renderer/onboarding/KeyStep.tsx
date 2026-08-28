@@ -15,7 +15,7 @@
 //   tap => toggle on, next tap stops · hold => record while held ·
 //   double-tap => paste the last transcription.
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAdvanceOnEnter } from './nav'
 import { Pill } from '../shared/ui/Pill'
 import { MenuBar, NotchMark } from '../shared/ui/NotchMark'
@@ -68,6 +68,31 @@ const CARDS: Array<{ g: Gesture; title: string; line: string }> = [
   { g: 'double', title: 'Double-tap', line: 'the last one, again' },
 ]
 
+// The step runs in three beats: pick the key, watch what it does, then do
+// it yourself. It used to be one screen carrying all three at once, which
+// meant the demo was playing while the user was still deciding which key
+// to bind, and nothing ever asked them to try it.
+type Phase = 'choose' | 'learn' | 'practice'
+
+/**
+ * What the user is asked to perform, in the order they will meet them.
+ *
+ * Tap first, because it is the one that needs no commitment: press and
+ * let go, and the thing is listening. Hold last, because it is the one
+ * you keep — but it only makes sense once you have seen the alternative.
+ */
+const DRILLS: Array<{ g: Gesture; label: string; hint: string }> = [
+  { g: 'tap', label: 'Tap once', hint: 'starts recording — tap again to stop' },
+  { g: 'double', label: 'Tap twice', hint: 'pastes your last dictation again' },
+  { g: 'hold', label: 'Hold, then let go', hint: 'records while it is down' },
+]
+
+// The real thresholds, not demo ones. What is being practised has to be
+// what the key actually does, or the muscle memory is for a different app.
+// See HOTKEY_TIMING in shared/constants.ts and the machine in hotkeys.ts.
+const HOLD_MS = 150
+const DOUBLE_MS = 500
+
 /** Stored key name → the word printed on the physical key. */
 const KEY_NAME: Record<string, string> = {
   CTRL: 'Control',
@@ -100,14 +125,131 @@ function keyFromEvent(e: KeyboardEvent): string | null {
   return null
 }
 
+/**
+ * Watch the real keyboard and report tap / double-tap / hold.
+ *
+ * Same thresholds as the shipped machine, so the drill teaches the key
+ * rather than an easier version of it.
+ *
+ * THE fn PROBLEM. fn is the key this step recommends, and macOS handles it
+ * below the window server — it never arrives in a renderer as a keydown at
+ * all (see keyFromEvent). A drill that only accepted the bound key would
+ * therefore be impossible to complete for exactly the users who took the
+ * recommendation. So when the bound key cannot be seen from here, any key
+ * counts: the gesture is the lesson, and its shape is identical whichever
+ * key carries it. Enter is excluded — it is how you leave the screen.
+ */
+function useGesturePractice(
+  hotkey: string,
+  active: boolean,
+  onGesture: (g: Gesture) => void,
+): boolean {
+  // Live press state, surfaced so the drill can show the key going down.
+  const [down, setDown] = useState(false)
+
+  useEffect(() => {
+    if (!active) return
+    const detectable = hotkey.toUpperCase() !== 'FN'
+    let downAt = 0
+    let lastTapAt = 0
+    let pendingTap = 0
+
+    const matches = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') return false
+      return detectable ? keyFromEvent(e) === hotkey : true
+    }
+
+    function onDown(e: KeyboardEvent) {
+      // Auto-repeat fires keydown forever while a key is held; only the
+      // first one begins a press.
+      if (e.repeat || downAt !== 0 || !matches(e)) return
+      downAt = Date.now()
+      setDown(true)
+    }
+
+    function onUp(e: KeyboardEvent) {
+      if (downAt === 0 || !matches(e)) return
+      const held = Date.now() - downAt
+      downAt = 0
+      setDown(false)
+
+      if (held >= HOLD_MS) {
+        // A hold cancels any tap waiting to resolve: press-hold-release is
+        // one gesture, not a tap followed by something.
+        window.clearTimeout(pendingTap)
+        pendingTap = 0
+        lastTapAt = 0
+        onGesture('hold')
+        return
+      }
+
+      const now = Date.now()
+      if (lastTapAt !== 0 && now - lastTapAt <= DOUBLE_MS) {
+        window.clearTimeout(pendingTap)
+        pendingTap = 0
+        lastTapAt = 0
+        onGesture('double')
+        return
+      }
+      // A single tap cannot be called until the double-tap window has
+      // passed without a second press — the same reason the real machine
+      // waits before acting on one.
+      lastTapAt = now
+      pendingTap = window.setTimeout(() => {
+        pendingTap = 0
+        lastTapAt = 0
+        onGesture('tap')
+      }, DOUBLE_MS)
+    }
+
+    window.addEventListener('keydown', onDown, true)
+    window.addEventListener('keyup', onUp, true)
+    return () => {
+      window.clearTimeout(pendingTap)
+      window.removeEventListener('keydown', onDown, true)
+      window.removeEventListener('keyup', onUp, true)
+    }
+  }, [active, hotkey, onGesture])
+
+  return down
+}
+
 export function KeyStep({ onNext }: { onNext: () => void }) {
   const [hotkey, setHotkey] = useState('CTRL')
   const [listening, setListening] = useState(false)
   const [frameIndex, setFrameIndex] = useState(0)
-  // Not while capturing. During rebind every keystroke belongs to the
-  // capture, and Enter is a bindable key — advancing on it would both
-  // skip the step and swallow the choice being made.
-  useAdvanceOnEnter(!listening)
+  const [phase, setPhase] = useState<Phase>('choose')
+  const [cleared, setCleared] = useState<Gesture[]>([])
+
+  const drillIndex = cleared.length
+  const drill = DRILLS[drillIndex]
+  const practiceDone = drillIndex >= DRILLS.length
+
+  const onGesture = useCallback((g: Gesture) => {
+    setCleared((prev) => {
+      // Strictly in order. Accepting them out of sequence would let one
+      // lucky double-tap tick two boxes and skip the gesture the screen is
+      // currently asking for.
+      const wanted = DRILLS[prev.length]
+      if (!wanted || wanted.g !== g) return prev
+      return [...prev, g]
+    })
+  }, [])
+
+  const pressed = useGesturePractice(hotkey, phase === 'practice' && !listening, onGesture)
+
+  // Enter walks the phases, then leaves the step.
+  //
+  // Not while capturing a rebind — Enter is itself bindable, so advancing
+  // on it would both skip the screen and swallow the choice being made.
+  // And not out of `practice` until the drills are cleared: this is the
+  // one screen whose whole point is that you do the thing.
+  const advancePhase = useCallback(
+    () => setPhase((p) => (p === 'choose' ? 'learn' : 'practice')),
+    [],
+  )
+  const ready = !listening && (phase !== 'practice' || practiceDone)
+  useAdvanceOnEnter(ready, phase === 'practice' ? undefined : advancePhase)
 
   useEffect(() => {
     let alive = true
@@ -174,11 +316,20 @@ export function KeyStep({ onNext }: { onNext: () => void }) {
           Key
         </div>
         <h1 className="font-display text-[46px] leading-[1.0] tracking-[-0.02em]">
-          One key does <em className="italic">everything</em>.
+          {phase === 'choose' ? (
+            <>Pick your <em className="italic">key</em>.</>
+          ) : phase === 'learn' ? (
+            <>One key does <em className="italic">everything</em>.</>
+          ) : (
+            <>Now <em className="italic">you</em>.</>
+          )}
         </h1>
       </div>
 
-      <div className="flex items-center gap-8 mb-8">
+      {/* The keycap and its recommendation lead on `choose`, where the
+          decision is, and shrink out of the way afterwards — the demo
+          below is the subject once the key is bound. */}
+      <div className={phase === 'choose' ? 'flex items-center gap-8 mb-8' : 'hidden'}>
         <div className="flex flex-col items-center gap-2.5 shrink-0">
           <button
             onClick={() => setListening((v) => !v)}
@@ -246,7 +397,12 @@ export function KeyStep({ onNext }: { onNext: () => void }) {
       {/* The notch hangs from a menu bar and may never float mid-panel —
           hence MenuBar, and hence the near-black shell behind it, which is
           the housing colour so the shape merges instead of sitting on top. */}
-      <div className="relative rounded-card overflow-hidden bg-[#0A0B0F] mb-3">
+      <div
+        className={[
+          'relative rounded-card overflow-hidden bg-[#0A0B0F] mb-3',
+          phase === 'choose' ? 'hidden' : '',
+        ].join(' ')}
+      >
         <div
           aria-hidden
           className="absolute inset-0 pointer-events-none transition-opacity duration-500"
@@ -267,7 +423,7 @@ export function KeyStep({ onNext }: { onNext: () => void }) {
         <div className="h-[62px]" />
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-8">
+      <div className={phase === 'learn' ? 'grid grid-cols-3 gap-3 mb-8' : 'hidden'}>
         {CARDS.map((card, i) => {
           const active = frame.g === card.g
           return (
@@ -296,9 +452,75 @@ export function KeyStep({ onNext }: { onNext: () => void }) {
         })}
       </div>
 
-      <Pill variant="primary" onClick={onNext}>
-        Continue
-      </Pill>
+      {/* THE DRILL. The screen stops describing and starts asking.
+          One at a time, in order — three rows lit at once is a checklist,
+          and a checklist gets skimmed. A single live instruction with the
+          key drawn next to it is an instruction you follow. */}
+      {phase === 'practice' && (
+        <div className="mb-8">
+          <div className="flex flex-col gap-2">
+            {DRILLS.map((d, i) => {
+              const done = i < drillIndex
+              const live = i === drillIndex
+              return (
+                <div
+                  key={d.g}
+                  className={[
+                    'rounded-card border px-4 py-3.5 flex items-center gap-4',
+                    'transition-[background,border-color,opacity,transform] duration-300',
+                    done
+                      ? 'border-ok/30 bg-ok/[0.07]'
+                      : live
+                        ? 'border-accent/45 bg-accent-soft shadow-lift -translate-y-[1px]'
+                        : 'border-line bg-card opacity-45',
+                  ].join(' ')}
+                >
+                  <MiniCap glyph={glyph} pressed={live && pressed} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13.5px] font-semibold">{d.label}</div>
+                    <div className="text-[11.5px] text-ink-45 mt-0.5 leading-snug">
+                      {d.hint}
+                    </div>
+                  </div>
+                  <span
+                    className={[
+                      'font-mono text-[11px] uppercase tracking-[0.14em] shrink-0',
+                      done ? 'text-ok' : live ? 'text-accent' : 'text-ink-45',
+                    ].join(' ')}
+                  >
+                    {done ? '✓' : live ? 'try it' : ''}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* fn cannot be seen from a renderer — macOS handles it below
+              the window server — so the drill takes any key when that is
+              what is bound. Saying so is better than letting someone
+              wonder why their fn press did nothing. */}
+          {!practiceDone && hotkey.toUpperCase() === 'FN' && (
+            <p className="text-[11.5px] text-ink-45 mt-3 leading-relaxed m-0">
+              macOS keeps <span className="font-mono">fn</span> to itself in here,
+              so any key will do for the practice. It really is{' '}
+              <span className="font-mono">fn</span> once you are out.
+            </p>
+          )}
+        </div>
+      )}
+
+      {phase === 'practice' ? (
+        <Pill variant={practiceDone ? 'primary' : 'secondary'} onClick={onNext}>
+          {practiceDone ? 'Continue' : `${drill?.label ?? ''} to carry on`}
+        </Pill>
+      ) : (
+        <Pill
+          variant="primary"
+          onClick={() => setPhase(phase === 'choose' ? 'learn' : 'practice')}
+        >
+          {phase === 'choose' ? 'That’s my key' : 'Let me try'}
+        </Pill>
+      )}
     </div>
   )
 }
