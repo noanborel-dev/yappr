@@ -10,16 +10,6 @@ import { NotchIndicator } from "./NotchIndicator";
 
 type Phase = "idle" | "listening" | "polishing" | "landed";
 
-// What you actually say. `strike` chunks are the filler the cleanup drops.
-const RAMBLE: Array<{ text: string; strike?: boolean }> = [
-  { text: "ok so the polish pipeline " },
-  { text: "um " , strike: true },
-  { text: "it waits for the whole transcript before it does anything, " },
-  { text: "I want it to stream chunks instead " },
-  { text: "and if Groq 429s just fall back to local whisper, " },
-  { text: "oh and don't touch the tests" },
-];
-
 // What lands. This is the real `ai_prompt` output shape from
 // src/shared/prompts.ts — sections, not a tidied sentence.
 const SHAPED: PromptLine[] = [
@@ -37,12 +27,31 @@ const SHAPED: PromptLine[] = [
   { kind: "bullet", text: "Don't touch the tests." },
 ];
 
-const CHUNK_START = 700;
-const CHUNK_STEP = 300;
+// The hero used to stream the raw ramble into a "heard" bubble under the
+// terminal, filler struck through as the cleanup dropped it. It is gone.
+//
+// It invited the wrong kind of attention: a reader arriving at the top of
+// the page started auditing the transcript — which words were cut, why
+// that one and not this one — before they had been told what the product
+// does. The hero has one job, which is to show the gesture: Yappr
+// listening, then the prompt landing. The detail of what cleanup removes
+// is argued properly further down the page, in prompt shaping, where
+// there is room for it and the reader is ready.
+//
+// Removing it also leaves the notch as the only moving thing up here,
+// which is the point — it is the product.
+const LEAD_IN_MS = 400;
+// Long enough to read as listening rather than as a blink. The notch runs
+// its waveform for this whole stretch, and it is now the only thing on
+// screen carrying the beat, so it cannot be brief.
+const LISTEN_MS = 2400;
+const PROCESS_MS = 700;
+const FLASH_MS = 600;
+// Hold the landed state long enough to actually read the sections.
+const HOLD_MS = 6200;
 
 export function Hero() {
   const [phase, setPhase] = useState<Phase>("idle");
-  const [chunks, setChunks] = useState<typeof RAMBLE>([]);
   const [flashing, setFlashing] = useState(false);
 
   const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -59,28 +68,24 @@ export function Hero() {
   const run = useCallback(() => {
     cleanup();
     setPhase("idle");
-    setChunks([]);
     setFlashing(false);
 
-    schedule(() => setPhase("listening"), 400);
+    // Four beats, each one starting where the last ended: hold, listen,
+    // think, land. Written as running totals rather than offsets from a
+    // computed midpoint, so changing how long the notch listens for does
+    // not silently move the paste.
+    const listenAt = LEAD_IN_MS;
+    const polishAt = listenAt + LISTEN_MS;
+    const landAt = polishAt + PROCESS_MS;
 
-    RAMBLE.forEach((chunk, i) => {
-      schedule(
-        () => setChunks((prev) => [...prev, chunk]),
-        CHUNK_START + i * CHUNK_STEP,
-      );
-    });
-
-    const polishAt = CHUNK_START + RAMBLE.length * CHUNK_STEP + 500;
+    schedule(() => setPhase("listening"), listenAt);
     schedule(() => setPhase("polishing"), polishAt);
     schedule(() => {
       setPhase("landed");
       setFlashing(true);
-    }, polishAt + 700);
-    schedule(() => setFlashing(false), polishAt + 1300);
-
-    // Hold the landed state long enough to actually read the sections.
-    schedule(run, polishAt + 6200);
+    }, landAt);
+    schedule(() => setFlashing(false), landAt + FLASH_MS);
+    schedule(run, landAt + HOLD_MS);
   }, [cleanup, schedule]);
 
   useEffect(() => {
@@ -88,7 +93,6 @@ export function Hero() {
     if (reduced) {
       // No loop — show the end state and stop, per MASTER.md motion rules.
       setPhase("landed");
-      setChunks(RAMBLE);
       return;
     }
     run();
@@ -155,22 +159,6 @@ export function Hero() {
               />
             </div>
 
-            <div className="hero-pill-region">
-              <div className={`caption ${phase !== "idle" ? "show" : ""}`}>
-                <span className="caption-label">heard</span>
-                <div className="raw">
-                  {chunks.map((c, i) =>
-                    c.strike ? (
-                      <span key={i} className="strike">
-                        {c.text}
-                      </span>
-                    ) : (
-                      <span key={i}>{c.text}</span>
-                    ),
-                  )}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
