@@ -509,17 +509,16 @@ export function KeyStep({ onNext }: { onNext: () => void }) {
         </div>
       )}
 
-      {phase === 'practice' ? (
-        <Pill variant={practiceDone ? 'primary' : 'secondary'} onClick={onNext}>
-          {practiceDone ? 'Continue' : `${drill?.label ?? ''} to carry on`}
-        </Pill>
-      ) : (
-        <Pill
-          variant="primary"
-          onClick={() => setPhase(phase === 'choose' ? 'learn' : 'practice')}
-        >
-          {phase === 'choose' ? 'That’s my key' : 'Let me try'}
-        </Pill>
+      {/* No buttons. Enter walks the three phases and then leaves, and the
+          keycap at the bottom of the window has been saying so since
+          screen one — on the step that is specifically about using keys,
+          a mouse target would be the wrong lesson twice over.
+          What remains is the one thing Enter cannot say: that the drill is
+          still waiting on a gesture. */}
+      {phase === 'practice' && !practiceDone && (
+        <p className="text-[12.5px] text-ink-45 m-0">
+          {drill?.label} to carry on.
+        </p>
       )}
     </div>
   )

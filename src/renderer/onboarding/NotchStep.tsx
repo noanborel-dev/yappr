@@ -18,7 +18,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { useAdvanceOnEnter } from './nav'
 import type { NotchGeometry } from '../global'
-import { Pill } from '../shared/ui/Pill'
 import { MenuBar, NotchMark } from '../shared/ui/NotchMark'
 import {
   clampPlaceholderWidth,
@@ -132,6 +131,14 @@ export function NotchStep({ onNext }: { onNext: () => void }) {
             go. What is left is the shape, the slider, and an arrow. */}
         <Head eyebrow="Display" title={<>Look <em className="italic">up</em>.</>} />
 
+        {/* The headline says look up; this points there. The thing being
+            calibrated is on the hardware ABOVE this window, and every
+            other visual on the screen is inside it — without an arrow out
+            of the frame, "up" reads as "up the page" and the user
+            calibrates the diagram instead of the notch. Which is exactly
+            what happened before the live preview was added. */}
+        <LookUpCue />
+
         {/* Full opacity now. It was dimmed to 60% to demote it below the
             live indicator on the hardware, but a half-faded diagram
             directly above the control that drives it reads as disabled. */}
@@ -150,7 +157,6 @@ export function NotchStep({ onNext }: { onNext: () => void }) {
           />
         </div>
 
-        <Continue onNext={onNext} />
       </div>
     )
   }
@@ -193,7 +199,6 @@ export function NotchStep({ onNext }: { onNext: () => void }) {
         </div>
       )}
 
-      <Continue onNext={onNext} />
     </div>
   )
 }
@@ -273,6 +278,38 @@ function BarGlyphs() {
 }
 
 // ─── Controls ───────────────────────────────────────────────────────
+
+/**
+ * The arrow that says "off the top of this window".
+ *
+ * Points straight up, out of the frame, at the physical notch — which is
+ * the only thing on this screen that is not on this screen. It rises
+ * rather than bobbing down like the slider cue, so the two arrows on the
+ * page read as opposite instructions rather than the same one twice.
+ */
+function LookUpCue() {
+  return (
+    <div className="flex items-center gap-2.5 mb-4" aria-hidden>
+      <svg
+        viewBox="0 0 18 22"
+        className="w-[18px] h-[22px] text-accent animate-lookUp shrink-0"
+        fill="none"
+        stroke="currentColor"
+      >
+        <path d="M9 20 V 7" strokeWidth="2" strokeLinecap="round" />
+        <path
+          d="M3.5 12 L 9 6 L 14.5 12"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <span className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-accent">
+        it’s on your real notch, up there
+      </span>
+    </div>
+  )
+}
 
 /**
  * The arrow that says "this one".
@@ -447,25 +484,6 @@ function Head({
   )
 }
 
-function Continue({ onNext }: { onNext: () => void }) {
-  return (
-    <div className="mt-8">
-      <Pill onClick={onNext}>
-        Continue
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-          <path
-            d="M2 6h7.5M6.5 2.8 9.8 6l-3.3 3.2"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </Pill>
-    </div>
-  )
-}
-
 /**
  * Range styling has to be a stylesheet: the track and thumb are shadow-DOM
  * pseudo-elements no utility class can reach. Colours are the palette's
@@ -505,8 +523,17 @@ function SliderStyles() {
         75%           { transform: translateY(5px); }
       }
       .animate-notchArrow { animation: ns-arrow 1.7s ease-in-out infinite; }
+
+      /* Rises, where the slider cue dips. Two arrows on one page have to
+         mean two different things or neither means anything. */
+      @keyframes ns-lookup {
+        0%, 55%, 100% { transform: translateY(0); }
+        75%           { transform: translateY(-5px); }
+      }
+      .animate-lookUp { animation: ns-lookup 1.7s ease-in-out infinite; }
+
       @media (prefers-reduced-motion: reduce) {
-        .animate-notchArrow { animation: none; }
+        .animate-notchArrow, .animate-lookUp { animation: none; }
       }
     `}</style>
   )

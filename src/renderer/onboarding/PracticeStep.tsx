@@ -431,10 +431,9 @@ export function PracticeStep({ onNext }: { onNext: () => void }) {
         </div>
       </div>
 
+      {/* Continue is gone — Enter leaves this screen. "Show me" stays: it
+          replays the demo, which is a different thing from moving on. */}
       <div className="flex items-center gap-3 mt-7">
-        <Pill variant={phase === 'landed' ? 'primary' : 'secondary'} onClick={onNext}>
-          Continue
-        </Pill>
         {showEscape && (
           <Pill variant="ghost" size="sm" onClick={play} className="animate-slideUp">
             {played ? 'Again' : 'Show me'}

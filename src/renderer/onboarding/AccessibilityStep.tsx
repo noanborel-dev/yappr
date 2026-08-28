@@ -12,13 +12,13 @@
 // window to flip it — so trust is polled, and the poll drives the whole
 // screen: the stage, the strip, and which button is primary.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAdvanceOnEnter } from './nav'
 import { Pill } from '../shared/ui/Pill'
 import { Toggle } from '../shared/ui/Toggle'
 import { BrandLogo } from '../shared/ui/BrandLogo'
 import { MenuBar, NotchMark } from '../shared/ui/NotchMark'
-import type { NotchState } from '../indicator/notch-states'
+import { formatHotkey, type NotchState } from '../indicator/notch-states'
 
 // 'clicking' is new, and it is the beat the step was missing. The demo
 // used to open with the composer already focused, which quietly assumed
@@ -40,6 +40,10 @@ const LISTEN_AT = 1500
 const POLISH_AT = 2700
 const LAND_AT = 3400
 const HOLD_MS = 2200
+// How many times the granted version repeats before it settles on the
+// filled field. Three is enough to stop guessing and start following;
+// endless would compete with the permission decision on the same screen.
+const RUNS = 3
 // How long the stage stays leaned in on the field after the click. Long
 // enough to register as "that one", short enough not to feel like a
 // transition that got stuck.
@@ -47,16 +51,19 @@ const ZOOM_MS = 1100
 
 export function AccessibilityStep({ onNext }: { onNext: () => void }) {
   const [trusted, setTrusted] = useState(false)
+  // The user's real key, so move 2 shows the cap they will actually press
+  // rather than a stand-in they have to translate.
+  const [hotkey, setHotkey] = useState('⌃')
   const [phase, setPhase] = useState<Phase>('quiet')
   const [typed, setTyped] = useState(0)
   // Whether the stage is leaned in on the composer. Separate from `phase`
   // because it starts a frame after the click and ends on its own clock —
   // tying it to a phase would mean inventing a phase per camera move.
   const [zoomed, setZoomed] = useState(false)
-  // Always live. The step already offers "Later" — the permission can be
-  // granted after onboarding, and trapping someone behind a System
-  // Settings toggle they may not be able to reach is worse than letting
-  // them through.
+  // Always live, granted or not. The permission can be given after
+  // onboarding, and trapping someone behind a System Settings switch they
+  // may not be able to reach — a managed Mac, a borrowed one — is worse
+  // than letting them through without it.
   useAdvanceOnEnter(true)
 
   // Polling continues after the grant on purpose: the user is in System
@@ -73,6 +80,20 @@ export function AccessibilityStep({ onNext }: { onNext: () => void }) {
     tick()
     const id = window.setInterval(tick, 1500)
     return () => { cancelled = true; window.clearInterval(id) }
+  }, [])
+
+  // Passes completed. A ref, not state: it must not re-render the screen,
+  // and `play` reschedules itself from inside its own timeout chain.
+  const runsRef = useRef(0)
+  useEffect(() => {
+    let alive = true
+    window.yappr
+      .getSettings()
+      .then((s) => {
+        if (alive) setHotkey(formatHotkey(s.hotkeys?.pushToTalk) ?? '⌃')
+      })
+      .catch(() => { /* the default glyph is already on screen */ })
+    return () => { alive = false }
   }, [])
 
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
@@ -101,9 +122,20 @@ export function AccessibilityStep({ onNext }: { onNext: () => void }) {
       for (let i = 1; i <= LANDED.length; i++) {
         at(() => setTyped(i), LAND_AT + i * CHAR_MS)
       }
-      // Granted plays exactly once. Looping would empty a field the user
-      // just watched fill, which reads as the text being taken away again.
-      at(() => setPhase('settled'), LAND_AT + LANDED.length * CHAR_MS + 200)
+      const doneAt = LAND_AT + LANDED.length * CHAR_MS + 200
+      at(() => setPhase('settled'), doneAt)
+      // It used to stop dead after one pass, on the reasoning that
+      // clearing a field the user had just watched fill would read as the
+      // text being taken away. True — but one pass of a four-beat sequence
+      // is not enough to work out what you watched, and the sequence is
+      // the entire content of the screen.
+      //
+      // So it repeats, a bounded number of times, and then stops on the
+      // filled field. Bounded rather than endless because this screen also
+      // has a permission to grant, and a demo still cycling underneath a
+      // decision competes with it.
+      runsRef.current += 1
+      if (runsRef.current < RUNS) at(play, doneAt + HOLD_MS)
       return
     }
 
@@ -117,6 +149,10 @@ export function AccessibilityStep({ onNext }: { onNext: () => void }) {
       setTyped(trusted ? LANDED.length : 0)
       return
     }
+    // Reset the pass count when the permission flips. Granting it mid-way
+    // changes what the last beat shows, and that is the version the user
+    // has not seen yet — starting it already spent would play it once.
+    runsRef.current = 0
     play()
     return clear
   }, [play, clear, trusted])
@@ -129,6 +165,23 @@ export function AccessibilityStep({ onNext }: { onNext: () => void }) {
           : 'idle'
 
   const openSettings = () => { void window.yappr.openAccessibilitySettings() }
+
+  // The three moves, drawn, with the current one lit.
+  //
+  // The screen was a silent film: a pointer, a waveform, some text
+  // appearing. Each is legible alone, and the SEQUENCE is the argument —
+  // you clicked there, so it went there — which nothing on screen stated.
+  //
+  // Numbered because it genuinely is an order: the click has to come
+  // first or there is nowhere for the text to go, and that is the fact
+  // this whole step exists to teach. Each move carries its own picture —
+  // a pointer, the user's real key, the field — so it can be followed
+  // without reading, and the key on move 2 physically goes down while
+  // Yappr is listening.
+  const move = phase === 'quiet' ? -1
+    : phase === 'clicking' ? 0
+      : phase === 'listening' || phase === 'polishing' ? 1
+        : 2
 
   const clicked = phase !== 'quiet'
 
@@ -291,18 +344,29 @@ export function AccessibilityStep({ onNext }: { onNext: () => void }) {
         </div>
       </div>
 
-      {trusted ? (
-        <div className="flex items-center gap-3 rounded-card bg-card border border-line px-4 py-3 mb-6 animate-springScale">
-          <span
-            aria-hidden
-            className="w-[18px] h-[18px] rounded-full bg-ok text-paper flex items-center justify-center text-[10px] shrink-0"
-          >
-            ✓
-          </span>
-          <span className="text-[12.5px] font-semibold flex-1">Yappr can type for you.</span>
-          <Toggle on onChange={openSettings} label="Open Accessibility in System Settings" title="System Settings" />
-        </div>
-      ) : (
+      {/* THE THREE MOVES. Replaces a strip that read "Yappr can type for
+          you." with a toggle beside it — a status the chip at the top of
+          the screen already reports, and a switch that only opened System
+          Settings, which the step below it also does. Neither told anyone
+          what to DO. */}
+      <ol className="grid grid-cols-3 gap-2.5 mb-6">
+        <Move n={1} on={move === 0} done={move > 0} label="Click where you want it">
+          <span className="scale-[1.35] inline-block"><CursorIcon /></span>
+        </Move>
+        <Move n={2} on={move === 1} done={move > 1} label="Hold your key and talk">
+          <KeyCap glyph={hotkey} pressed={move === 1} />
+        </Move>
+        <Move
+          n={3}
+          on={move === 2}
+          done={false}
+          label={trusted ? 'It types right there' : 'It reaches your clipboard'}
+        >
+          <FieldIcon filled={move === 2} />
+        </Move>
+      </ol>
+
+      {!trusted && (
         <ol className="grid grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] items-stretch gap-1.5 mb-6">
           <Stop n="01" delay={0} label="System Settings" icon={<GearIcon />} />
           <Chevron />
@@ -328,16 +392,16 @@ export function AccessibilityStep({ onNext }: { onNext: () => void }) {
         </ol>
       )}
 
-      <div className="flex items-center gap-3">
-        {trusted ? (
-          <Pill variant="primary" onClick={onNext}>Continue →</Pill>
-        ) : (
-          <>
-            <Pill variant="primary" onClick={openSettings}>Open System Settings →</Pill>
-            <Pill variant="ghost" onClick={onNext}>Later</Pill>
-          </>
-        )}
-      </div>
+      {/* No Continue and no Later. Enter moves on from every screen in
+          this flow and the keycap at the bottom says so, so a button
+          repeating it was a second way to do one thing — and "Later" was
+          a third, since Enter has never waited for this permission. What
+          is left is the only action that is not navigation. */}
+      {!trusted && (
+        <div className="flex items-center gap-3">
+          <Pill variant="primary" onClick={openSettings}>Open System Settings →</Pill>
+        </div>
+      )}
     </div>
   )
 }
@@ -358,6 +422,98 @@ function StatusChip({ on }: { on: boolean }) {
         className={`w-[6px] h-[6px] rounded-full ${on ? 'bg-ok' : 'bg-danger'}`}
       />
       {on ? 'on' : 'off'}
+    </span>
+  )
+}
+
+/**
+ * One of the three moves. Picture on top, number and words under it.
+ *
+ * `done` dims rather than ticks: the sequence loops, so a row of green
+ * checks would be claiming the user had done something they only watched,
+ * three times over.
+ */
+function Move({
+  n,
+  on,
+  done,
+  label,
+  children,
+}: {
+  n: number
+  on: boolean
+  done: boolean
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <li
+      className={[
+        'rounded-card border px-3 py-3.5 flex flex-col items-center gap-2.5 text-center',
+        'transition-[background,border-color,opacity,transform] duration-300',
+        on
+          ? 'border-cobalt/45 bg-cobalt/[0.07] -translate-y-[1px] shadow-lift'
+          : done
+            ? 'border-line bg-card opacity-55'
+            : 'border-line bg-card opacity-80',
+      ].join(' ')}
+    >
+      <span className="h-[34px] flex items-center justify-center">{children}</span>
+      <span className="flex items-baseline gap-1.5">
+        <span
+          className={`font-mono text-[10px] tabular-nums ${on ? 'text-cobalt' : 'text-ink-45'}`}
+        >
+          {n}
+        </span>
+        <span className={`text-[12px] leading-snug ${on ? 'text-ink font-medium' : 'text-ink-60'}`}>
+          {label}
+        </span>
+      </span>
+    </li>
+  )
+}
+
+/** The user's real key, going down while Yappr is listening. */
+function KeyCap({ glyph, pressed }: { glyph: string; pressed: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className="inline-flex items-center justify-center font-mono text-ink"
+      style={{
+        minWidth: glyph.length > 2 ? 46 : 34,
+        height: 30,
+        padding: '0 8px',
+        fontSize: glyph.length > 2 ? 11 : 15,
+        borderRadius: 7,
+        background: 'linear-gradient(180deg,#FDFBF3 0%,#EDE6D2 100%)',
+        border: '1px solid #C5BDA0',
+        transform: pressed ? 'translateY(3px)' : 'translateY(0)',
+        boxShadow: pressed
+          ? '0 1px 0 #B8AF90, inset 0 1px 0 rgba(255,255,255,0.6)'
+          : '0 4px 0 #B8AF90, 0 5px 10px rgba(21,22,26,0.10), inset 0 1px 0 rgba(255,255,255,0.85)',
+        transition: 'transform 110ms ease-out, box-shadow 110ms ease-out',
+      }}
+    >
+      {glyph}
+    </span>
+  )
+}
+
+/** A text field, with a line of type in it once the words have landed. */
+function FieldIcon({ filled }: { filled: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`inline-flex items-center rounded-[6px] px-2 transition-colors duration-300 ${
+        filled ? 'border-2 border-cobalt bg-paper' : 'border border-line bg-card'
+      }`}
+      style={{ width: 52, height: 28 }}
+    >
+      <span
+        className={`block h-[3px] rounded-full transition-all duration-500 ${
+          filled ? 'bg-cobalt w-[30px]' : 'bg-ink/15 w-[12px]'
+        }`}
+      />
     </span>
   )
 }

@@ -218,7 +218,10 @@ function Done({ onFinish }: { onFinish: () => void }) {
       </h1>
 
       {/* The key, once, at the size of the thing under your finger — the
-          only fact this screen has left to carry. */}
+          only fact this screen has left to carry.
+          Spelled out underneath, because "Go talk" does not say WITH WHAT.
+          This is the last frame before the window closes and the flow
+          stops being able to tell them anything. */}
       <div
         className="inline-flex items-center justify-center mb-9 animate-springScale"
         style={{
@@ -239,6 +242,16 @@ function Done({ onFinish }: { onFinish: () => void }) {
         </span>
       </div>
 
+      <p className="text-[17px] text-ink-2 leading-relaxed max-w-[42ch] mb-8 -mt-4">
+        Anywhere on your Mac, hold <strong className="text-ink font-semibold">{glyph}</strong>{' '}
+        and talk. Let go, and it lands where your cursor is.
+      </p>
+
+      {/* The one button left in the flow, and it is not navigation — it
+          closes onboarding and hands the Mac back. Enter does the same,
+          which is why the keycap is still at the bottom of the window;
+          this is here because the very last screen should not be the one
+          place a stuck Enter leaves someone with no way out. */}
       <div>
         <Pill variant="primary" onClick={onFinish}>
           Start yapping

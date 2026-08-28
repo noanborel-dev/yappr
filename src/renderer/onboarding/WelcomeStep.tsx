@@ -19,7 +19,6 @@
 // fail. The one live value is the user's own push-to-talk key.
 
 import { useEffect, useState } from 'react'
-import { Pill } from '../shared/ui/Pill'
 import { useAdvanceOnEnter } from './nav'
 import { BrandLogo } from '../shared/ui/BrandLogo'
 import { MenuBar, NotchMark } from '../shared/ui/NotchMark'
@@ -263,9 +262,10 @@ export function WelcomeStep({ onNext }: { onNext: () => void }) {
         </div>
       </div>
 
-      <Pill variant="primary" onClick={onNext}>
-        Start →
-      </Pill>
+      {/* No Start button. Enter opens the flow and carries every screen in
+          it, and this is where the reader meets that keycap for the first
+          time — putting a button beside it on screen one would teach the
+          mouse before the keyboard had a chance. */}
     </div>
   )
 }

@@ -541,18 +541,18 @@ export function MicStep({ onNext }: { onNext: () => void }) {
         </div>
       )}
 
-      <div className="flex items-center gap-3">
-        <Pill variant="primary" onClick={onNext} disabled={!heard}>
-          Continue
-        </Pill>
-        {/* Escape hatch for a mic that genuinely cannot be heard — a dead
-            input must not be a locked door. */}
-        {!heard && (rescue || blocked) && (
+      {/* No Continue — Enter carries every screen in this flow and the
+          keycap at the bottom says so. Skip stays: it is not navigation
+          but an ESCAPE, for a mic that genuinely cannot be heard. Enter
+          is gated on `heard`, so without it a dead input really would be
+          a locked door. */}
+      {!heard && (rescue || blocked) && (
+        <div className="flex items-center gap-3">
           <Pill variant="ghost" size="sm" onClick={onNext}>
             Skip
           </Pill>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

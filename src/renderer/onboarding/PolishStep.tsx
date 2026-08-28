@@ -15,7 +15,6 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useAdvanceOnEnter } from './nav'
 import type { CategoryStrictness, Strictness } from '../../shared/types'
 import { BrandLogo, type BrandSlug } from '../shared/ui/BrandLogo'
-import { Pill } from '../shared/ui/Pill'
 
 type LaneId = keyof CategoryStrictness
 
@@ -150,6 +149,7 @@ export function PolishStep({ onNext }: { onNext: () => void }) {
   const level = preview ?? strictness[lane.id]
   const text = lane.out[level]
   const unseen = LANES.find((l) => !seen.includes(l.id))
+  const remaining = LANES.filter((l) => !seen.includes(l.id)).length
 
   // Enter walks the three registers, then leaves. Same key, same cue, and
   // it does what the button beside it does — the button already worked
@@ -240,13 +240,14 @@ export function PolishStep({ onNext }: { onNext: () => void }) {
         })}
       </div>
 
-      {/* One button drives the three rounds and then leaves — a separate
-          "next register" control would compete with Continue for the same
-          click. Jumping via the cards is still honoured: it advances to
-          whatever is left rather than to the next in order. */}
-      <Pill variant="primary" onClick={() => (unseen ? show(unseen.id) : onNext())}>
-        {unseen ? 'Next →' : 'Continue →'}
-      </Pill>
+      {/* No button. Enter drives the three rounds and then leaves, which
+          is what the button did — and the cards above are still the way
+          to jump straight to one. */}
+      {remaining > 0 && (
+        <p className="text-[12.5px] text-ink-45 m-0">
+          {remaining} more {remaining === 1 ? 'register' : 'registers'} to see.
+        </p>
+      )}
     </div>
   )
 }
