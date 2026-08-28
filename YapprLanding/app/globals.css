@@ -5555,9 +5555,11 @@ body {
    this one track. At 230vh (the length when the ring was a formation
    that parked) they streamed past fast enough to read as a spinner.
    Scaled with TRAVEL_DEG: 900° of sweep at the pace 340vh gave 720°.
-   The last 16% is ORBIT_SPAN's tail, where the ring is empty and the
-   caption types — that costs ~80vh on top of the orbit's 420vh. */
-.orb { height: 500vh; position: relative; background: var(--cream); }
+   The last 7% is ORBIT_SPAN's hold on the closing frame — ~30vh on top
+   of the orbit's 420vh. It was 500vh when the caption typed on the tail;
+   the caption now writes itself during the arrivals, so the tail no
+   longer has to be long enough to read a sentence in. */
+.orb { height: 450vh; position: relative; background: var(--cream); }
 .orb-pin { position: sticky; top: 0; height: 100vh; overflow: clip; }
 .orb-stage {
   position: relative;
@@ -5682,8 +5684,8 @@ body {
   .orb-logo.is-wide { width: 92px; }
   .orb-logo.is-wide img { width: 92px; height: auto; }
   /* A shorter track: on a phone it is measured against a much taller
-     viewport, so 500vh of thumb-scrolling is a very long way to go. */
-  .orb { height: 380vh; }
+     viewport, so 450vh of thumb-scrolling is a very long way to go. */
+  .orb { height: 340vh; }
 }
 
 /* Reduced motion is handled in the component, which places every logo on

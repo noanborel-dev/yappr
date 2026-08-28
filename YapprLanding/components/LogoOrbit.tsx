@@ -95,6 +95,10 @@ const SWEEP_DEG = TRAVEL_DEG + APPS.length * SPACING_DEG;
 // is caught mid-fade.
 const STILL_AT = (TRAVEL_DEG + (APPS.length - 1) * SPACING_DEG) / 2;
 
+// The arrivals: the first logo is already entering at zero, the last one
+// a full set of gaps later. When the last one lands the circle is closed.
+const ARRIVAL_END = (APPS.length - 1) * SPACING_DEG;
+
 // The exodus: the first logo leaves the moment it completes its travel,
 // the last one a full set of gaps later. The mark grows across exactly
 // this window, so it takes over the frame at the rate the ring vacates
@@ -102,13 +106,10 @@ const STILL_AT = (TRAVEL_DEG + (APPS.length - 1) * SPACING_DEG) / 2;
 const EXODUS_START = TRAVEL_DEG;
 const EXODUS_END = TRAVEL_DEG + (APPS.length - 1) * SPACING_DEG;
 
-// How much of the track the orbit gets. The remainder is the tail, where
-// the ring is already empty and the caption types.
-//
-// The last logo leaves at EXODUS_END / SWEEP_DEG = 0.973 of the orbit,
-// which lands just inside this — so there is a short beat with the mark
-// alone at full size before the first character appears.
-const ORBIT_SPAN = 0.84;
+// How much of the track the orbit gets. The remainder is a hold on the
+// closing frame — empty ring, mark at full size, the line already
+// written — so the section lands instead of cutting away mid-motion.
+const ORBIT_SPAN = 0.93;
 
 // Scale of the centre mark, as a multiple of its rendered size (68px).
 //
@@ -123,9 +124,15 @@ const ORBIT_SPAN = 0.84;
 const MARK_BASE = 1.75;
 const MARK_MAX = 2.85;
 
-// Typed one character at a time by the scroll itself — no timer. The
-// line is the section's conclusion, so it should not be sitting there
-// during the part that is still making the argument.
+// Typed one character at a time by the scroll itself — no timer — and in
+// step with the ARRIVALS rather than after them.
+//
+// It ran on the tail at first, writing itself only once the ring had
+// emptied. That put the sentence after its own evidence and left the
+// first third of the section saying nothing while the logos poured in.
+// The line and the logos are the same claim, so they are made together:
+// roughly one character per logo (17 across 15), which is why the ring
+// closing and the sentence finishing land on the same beat.
 const CAPTION = "wherever you type";
 
 // The ring should fill the frame, so it is sized off BOTH axes and takes
@@ -197,13 +204,11 @@ export function LogoOrbit() {
     };
   }, []);
 
-  // Two phases off one scroll: the orbit, then a tail with the ring
-  // already empty. Splitting here rather than stretching one progress
-  // value keeps the orbit's pacing independent of how long the caption
-  // takes to type.
+  // The orbit runs across ORBIT_SPAN of the track and the remainder holds
+  // the closing frame. Everything below is driven off `swept` — degrees
+  // travelled — so the arrivals, the exodus and the caption all read off
+  // the same clock and cannot drift apart.
   const orbit = still ? 1 : clamp01(p / ORBIT_SPAN);
-  const tail = still ? 1 : clamp01((p - ORBIT_SPAN) / (1 - ORBIT_SPAN));
-
   const swept = still ? STILL_AT : orbit * SWEEP_DEG;
 
   // Grows as the ring vacates. Smoothstep, not ease-out: an ease-out put
@@ -220,7 +225,9 @@ export function LogoOrbit() {
 
   // Linear, unlike everything else here: typing has a cadence, and an
   // eased one reads as a stutter rather than as someone writing.
-  const typed = still ? CAPTION.length : Math.round(tail * CAPTION.length);
+  const typed = still
+    ? CAPTION.length
+    : Math.round(clamp01(swept / ARRIVAL_END) * CAPTION.length);
 
   return (
     <section id="builders" className="orb" ref={trackRef}>
@@ -306,7 +313,7 @@ export function LogoOrbit() {
             <p className="orb-core-line">
               <span className="sr-only">{CAPTION}</span>
               <span aria-hidden="true">{CAPTION.slice(0, typed)}</span>
-              {tail > 0 && typed < CAPTION.length && (
+              {typed > 0 && typed < CAPTION.length && (
                 <i className="orb-caret" aria-hidden="true" />
               )}
             </p>
