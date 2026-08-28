@@ -116,19 +116,19 @@ export default function HistoryTab() {
 //
 // The first attempt at a fix was a disclosure toggle over the raw text
 // with a copy button and a re-run button under it, and then a third
-// button on the result. Four clicks and a decision to recover from a
+// button on the result. Four clicks and a decision, to recover from a
 // mistake the app made. That is a menu, not a rescue.
 //
-// It is one button now. It copies the transcript IMMEDIATELY — the part
-// that cannot fail, so the words are safe before anything else is
-// attempted — then re-runs the AI pass and, if that succeeds, upgrades
-// the clipboard to the better version. If the pass fails you still have
-// your words. The status line says which of the two you are holding,
-// because silently changing what is on someone's clipboard is only
-// acceptable if you tell them.
+// The second attempt collapsed all of it into one button that copied the
+// transcript AND re-ran the pass AND swapped the clipboard to the result.
+// One click, but you could not ask for either half on its own, and it
+// changed what was on your clipboard twice without being asked to.
 //
-// It still pastes nothing and still does not rewrite the entry: that
-// entry is a record of what happened.
+// Two buttons, each doing exactly one thing it is named after. Copy
+// Transcription copies the transcript. Rerun AI re-runs the pass and
+// shows what came back. Neither touches the other's job, and neither
+// pastes anything or rewrites the entry — that entry is a record of what
+// happened.
 function HistoryItem({
   item,
   copied,
@@ -140,7 +140,8 @@ function HistoryItem({
 }) {
   const [expanded, setExpanded] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [status, setStatus] = useState<string | null>(null)
+  const [rawCopied, setRawCopied] = useState(false)
+  const [redoneCopied, setRedoneCopied] = useState(false)
   const [redone, setRedone] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -151,32 +152,30 @@ function HistoryItem({
   // — an action that cannot work is worse than no action.
   const recoverable = said.trim().length > 0
 
-  async function recover() {
+  async function copyTranscription() {
+    await navigator.clipboard.writeText(said)
+    setRawCopied(true)
+    window.setTimeout(() => setRawCopied(false), 1400)
+  }
+
+  async function rerunAI() {
     if (busy) return
     setBusy(true)
     setError(null)
     setRedone(null)
-    try {
-      await navigator.clipboard.writeText(said)
-      setStatus('Transcription copied. Running the AI pass…')
-    } catch {
-      setStatus('Running the AI pass…')
-    }
-
     const res = await window.yappr.repolishHistoryEntry(item.id)
     setBusy(false)
-    if (res.ok) {
-      setRedone(res.text)
-      try {
-        await navigator.clipboard.writeText(res.text)
-        setStatus('New version copied — the transcription is below.')
-      } catch {
-        setStatus('Done. Copy whichever you want below.')
-      }
-    } else {
-      setError(res.error)
-      setStatus('Transcription copied — that is still on your clipboard.')
-    }
+    // The result is shown, not copied. Putting it on the clipboard would
+    // be this button quietly doing the other button's job.
+    if (res.ok) setRedone(res.text)
+    else setError(res.error)
+  }
+
+  async function copyRedone() {
+    if (redone === null) return
+    await navigator.clipboard.writeText(redone)
+    setRedoneCopied(true)
+    window.setTimeout(() => setRedoneCopied(false), 1400)
   }
 
   return (
@@ -223,69 +222,90 @@ function HistoryItem({
             {copied ? 'Copied' : 'Copy'}
           </button>
           {recoverable && (
-            <button
-              onClick={recover}
-              disabled={busy}
-              className={[
-                'text-[11px] font-medium rounded-pill px-3 py-1.5 border whitespace-nowrap',
-                'transition-all border-line text-ink-60',
-                'hover:text-ink hover:bg-paper disabled:opacity-45 disabled:cursor-not-allowed',
-                // Visible on hover like Copy, but pinned open once it has
-                // been used — the status underneath belongs to it, and a
-                // control that vanishes from under its own result is
-                // disorienting.
-                busy || status ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
-              ].join(' ')}
-            >
-              {busy ? 'Working…' : 'Copy transcription and rerun AI'}
-            </button>
+            <>
+              <button
+                onClick={copyTranscription}
+                className={[
+                  'text-[11px] font-medium rounded-pill px-3 py-1.5 border whitespace-nowrap transition-all',
+                  rawCopied
+                    ? 'bg-ok/12 text-ok border-ok/30 opacity-100'
+                    : 'border-line text-ink-60 hover:text-ink hover:bg-paper opacity-0 group-hover:opacity-100',
+                ].join(' ')}
+              >
+                {rawCopied ? 'Copied' : 'Copy Transcription'}
+              </button>
+              <button
+                onClick={rerunAI}
+                disabled={busy}
+                className={[
+                  'text-[11px] font-medium rounded-pill px-3 py-1.5 border whitespace-nowrap',
+                  'transition-all border-line text-ink-60',
+                  'hover:text-ink hover:bg-paper disabled:opacity-45 disabled:cursor-not-allowed',
+                  // Stays open once it has produced something: the result
+                  // underneath belongs to this button, and a control that
+                  // vanishes from above its own output is disorienting.
+                  busy || redone !== null || error ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                ].join(' ')}
+              >
+                {busy ? 'Running…' : 'Rerun AI'}
+              </button>
+            </>
           )}
         </div>
       </div>
 
-      {(status || error || redone !== null) && (
+      {/* Only Rerun AI opens this. Copy Transcription says what it did on
+          its own face and has nothing to show — a panel unfolding under a
+          copy is a second thing to read after a finished action. */}
+      {(error || redone !== null) && (
         <div className="mt-3 pt-3 border-t border-line-soft">
-          {status && (
-            <p className="text-[11.5px] text-ink-45 leading-relaxed m-0">{status}</p>
-          )}
           {error && (
-            <p className="text-[11.5px] text-danger mt-1.5 leading-relaxed m-0">{error}</p>
+            <p className="text-[11.5px] text-danger leading-relaxed m-0">{error}</p>
           )}
 
           {redone !== null && (
-            <div className="mt-2.5">
-              <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 mb-1.5">
-                New result
+            <>
+              <div className="flex items-center justify-between gap-3 mb-1.5">
+                <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45">
+                  New result
+                </div>
+                <button
+                  onClick={copyRedone}
+                  className={`text-[10.5px] font-medium rounded-pill px-2.5 py-1 border transition-all ${
+                    redoneCopied
+                      ? 'bg-ok/12 text-ok border-ok/30'
+                      : 'border-line text-ink-60 hover:text-ink hover:bg-paper'
+                  }`}
+                >
+                  {redoneCopied ? 'Copied' : 'Copy'}
+                </button>
               </div>
               <div className="text-[12px] leading-relaxed whitespace-pre-wrap break-words bg-paper border border-line rounded-[9px] px-3 py-2.5">
                 {redone}
               </div>
-            </div>
-          )}
 
-          {/* The transcript, shown after the fact rather than behind a
-              toggle beforehand. Once you have pressed the button you are
-              recovering something, and at that point seeing the words is
-              the point — before it, it was a disclosure control nobody
-              had a reason to open. */}
-          <div className="mt-2.5">
-            <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 mb-1.5">
-              What you said
-            </div>
-            <div className="text-[12px] leading-relaxed whitespace-pre-wrap break-words text-ink-60">
-              {said}
-            </div>
-            {isRewrite && item.rewrite && (
-              <>
-                <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 mt-2.5 mb-1.5">
-                  Applied to
+              {/* What it was run against, so the new version can be judged
+                  rather than just taken. */}
+              <div className="mt-2.5">
+                <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 mb-1.5">
+                  What you said
                 </div>
-                <div className="text-[12px] leading-relaxed whitespace-pre-wrap break-words text-ink-45">
-                  {item.rewrite.selection}
+                <div className="text-[12px] leading-relaxed whitespace-pre-wrap break-words text-ink-60">
+                  {said}
                 </div>
-              </>
-            )}
-          </div>
+                {isRewrite && item.rewrite && (
+                  <>
+                    <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 mt-2.5 mb-1.5">
+                      Applied to
+                    </div>
+                    <div className="text-[12px] leading-relaxed whitespace-pre-wrap break-words text-ink-45">
+                      {item.rewrite.selection}
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
