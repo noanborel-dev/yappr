@@ -330,8 +330,20 @@ export function normalizeComposedEmail(text: string, userName?: string | null): 
   // normalise "Best regards." to "Best regards," — a full stop after a
   // sign-off reads as the end of a sentence, not the start of a signature.
   if (looksLikeSignoff(last)) {
-    lines[lines.length - 1] = last.trim().replace(/[\s,.!—-]*$/, ',')
-    if (name) lines.push(name)
+    const word = last.trim().replace(/[\s,.!—-]*$/, '')
+    if (name) {
+      lines[lines.length - 1] = `${word},`
+      lines.push(name)
+    } else {
+      // NO trailing comma when there is no name to put under it.
+      //
+      // A comma at the end of a sign-off is a piece of punctuation whose
+      // whole job is to introduce the line beneath it. With nothing
+      // beneath, "Best," reads as an email that stopped mid-signature —
+      // which is exactly how it was reported. "Best" on its own is a
+      // real, if terse, ending.
+      lines[lines.length - 1] = word
+    }
     return lines.join('\n')
   }
 
@@ -366,7 +378,8 @@ export function normalizeComposedEmail(text: string, userName?: string | null): 
   }
 
   // No sign-off at all — the failure that reads as a truncated email.
-  lines.push('', 'Best,')
+  // Comma only when a name follows it, same as the branch above.
+  lines.push('', name ? 'Best,' : 'Best')
   if (name) lines.push(name)
   return lines.join('\n')
 }
@@ -385,8 +398,23 @@ export function normalizeComposedEmail(text: string, userName?: string | null): 
  * is a correct outcome — the sign-off word then stands alone, which is a
  * real ending rather than a placeholder.
  */
+// It used to demand the verb IMMEDIATELY after the first word, which the
+// compactor's own overviews do not do. The real one on a live install
+// opens:
+//
+//   "Noan Borel, 18, is a Madrid-based entrepreneur-student who ..."
+//
+// A surname and an appositive sit between "Noan" and "is", so the match
+// failed, senderFirstName() returned null, and every composed email
+// signed off "Best," with nothing under it — a comma promising a
+// signature that never came. That was reported as the missing comma.
+//
+// So: the first name, then any further capitalised words (surnames), then
+// optionally one comma-led clause, then the verb. Still deliberately
+// narrow — anything that does not have this shape returns null, and null
+// is a correct outcome.
 const OVERVIEW_NAME_RE =
-  /^\s*([A-Z][a-zA-Z'-]{1,20})\s+(?:is|builds|works|runs|writes|makes|leads|founded|studies)\b/
+  /^\s*([A-Z][a-zA-Z'’-]{1,20})(?:\s+[A-Z][a-zA-Z'’-]{1,20})*\s*(?:,[^.!?\n]{0,60})?\s*\b(?:is|was|builds|works|runs|writes|makes|leads|founded|studies)\b/
 
 export function senderNameFromOverview(overview: string | null | undefined): string | null {
   const m = OVERVIEW_NAME_RE.exec((overview ?? '').trim())

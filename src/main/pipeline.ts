@@ -29,6 +29,7 @@ import { MODELS, BUILTIN_DICTIONARY, DICTIONARY_ALIASES, IDE_EDITORS, AGENTIC_AI
 import type { AppCategory, DictationResult, Settings, Strictness } from '../shared/types'
 import { isRewriteEntry, spokenText } from '../shared/history-entry'
 import { selectionLikelyStale } from './rewrite-guard'
+import { applyNearMissTerms } from '../shared/near-miss'
 import type { FocusedApp } from './focused-app'
 import type { TranscriptionProvider, CleanupProvider } from './providers/types'
 import {
@@ -1221,6 +1222,19 @@ export async function runDictationPipeline(
     ...BUILTIN_DICTIONARY,
     ...(settings.userDictionary ?? []),
   ])
+
+  // Then the near misses — the words the transcriber got ALMOST right.
+  //
+  // The pass above is exact-match, so it only ever fixed casing. A user
+  // with "Noan" in their dictionary said their own name and got "Noen"
+  // pasted, over and over, and reasonably asked why it could not tell.
+  //
+  // USER TERMS ONLY, never BUILTIN_DICTIONARY. The user asked for their
+  // terms by adding them; the built-in list is a hundred brand names
+  // nobody opted into, and letting those claim near neighbours would
+  // start rewriting ordinary English across every dictation. See
+  // shared/near-miss.ts for why the test is phonetic AND edit distance.
+  cleaned = applyNearMissTerms(cleaned, settings.userDictionary ?? [])
 
   // Deterministic self-correction safety net. The LLM should handle
   // "at 6, I mean 7" → "at 7" — but the 8B cleanup model still keeps

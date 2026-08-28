@@ -134,7 +134,9 @@ describe('normalizeComposedEmail', () => {
   it('strips the [Your Name] placeholder the prompt already forbids', () => {
     const out = normalizeComposedEmail('Hi Jeff,\n\nThe launch slipped.\n\nThanks,\n[Your Name]', null)
     expect(out).not.toContain('[')
-    expect(out).toMatch(/Thanks,$/)
+    // No trailing comma with nothing under it — see the sign-off tests
+    // below for why that changed.
+    expect(out).toMatch(/Thanks$/)
   })
 
   it('replaces the placeholder with the real name when one is known', () => {
@@ -158,14 +160,31 @@ describe('normalizeComposedEmail', () => {
 
   it('adds the sign-off word alone when no name is known', () => {
     const out = normalizeComposedEmail("Hi Sam,\n\nI'm running late.", null)
-    expect(out.endsWith('Best,')).toBe(true)
+    expect(out.endsWith('Best')).toBe(true)
+  })
+
+  // THE DANGLING COMMA. Reported from a real composed email that ended
+  // "Best," with nothing beneath it, which reads as an email cut off
+  // mid-signature. A comma after a sign-off is punctuation whose only job
+  // is to introduce the line below; with no name to introduce, it is a
+  // promise the email does not keep.
+  it('drops the sign-off comma when there is no name to put under it', () => {
+    expect(normalizeComposedEmail("Hi Sam,\n\nLate.\n\nBest,", null))
+      .toMatch(/Best$/)
+  })
+
+  it('keeps the comma when a name follows', () => {
+    expect(normalizeComposedEmail("Hi Sam,\n\nLate.", NAME).endsWith('Best,\nNoan')).toBe(true)
   })
 
   // "Best regards." — a full stop after a sign-off reads as the end of a
-  // sentence rather than the start of a signature.
-  it('normalises a full-stopped sign-off to a comma', () => {
+  // sentence rather than the start of a signature. It still gets
+  // normalised; it just does not gain a comma it has no use for.
+  it('strips a full stop from a sign-off', () => {
     expect(normalizeComposedEmail("Hi Sam,\n\nLate.\n\nBest regards.", null))
-      .toMatch(/Best regards,$/)
+      .toMatch(/Best regards$/)
+    expect(normalizeComposedEmail("Hi Sam,\n\nLate.\n\nBest regards.", NAME))
+      .toMatch(/Best regards,\nNoan$/)
   })
 
   it('appends the name under an existing sign-off', () => {
@@ -188,7 +207,30 @@ describe('normalizeComposedEmail', () => {
 describe('senderNameFromOverview', () => {
   it('reads the name from the shape the compactor writes', () => {
     expect(senderNameFromOverview('Noan builds Yappr, a Mac dictation app.')).toBe('Noan')
+  })
+
+  // THE OVERVIEW THE COMPACTOR ACTUALLY WROTE, verbatim from a live
+  // install. The old pattern demanded the verb immediately after the
+  // first word, so a surname and an appositive defeated it — which is
+  // why composed emails were signing off "Best," with nothing under it.
+  it('reads the name past a surname and an appositive', () => {
+    expect(senderNameFromOverview(
+      'Noan Borel, 18, is a Madrid-based entrepreneur-student who will begin a BBA.',
+    )).toBe('Noan')
+  })
+
+  it('reads the name past a surname alone', () => {
+    expect(senderNameFromOverview('Noan Borel is building Yappr.')).toBe('Noan')
+    expect(senderNameFromOverview('Noan Borel builds Yappr.')).toBe('Noan')
     expect(senderNameFromOverview('Sarah is a product designer in Berlin.')).toBe('Sarah')
+  })
+
+  // The widening must not swallow a whole clause looking for a verb. An
+  // overview that opens on something other than the person still has to
+  // come back null rather than signing the email "Yesterday".
+  it('still refuses a sentence that does not open on a person', () => {
+    expect(senderNameFromOverview('Yesterday the build broke again.')).toBeNull()
+    expect(senderNameFromOverview('Everything about the project is late.')).toBeNull()
   })
 
   // A wrong name under a sign-off is worse than none: it is signed by
