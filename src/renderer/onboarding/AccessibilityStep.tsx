@@ -13,6 +13,7 @@
 // screen: the stage, the strip, and which button is primary.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useAdvanceOnEnter } from './nav'
 import { Pill } from '../shared/ui/Pill'
 import { Toggle } from '../shared/ui/Toggle'
 import { BrandLogo } from '../shared/ui/BrandLogo'
@@ -35,6 +36,11 @@ export function AccessibilityStep({ onNext }: { onNext: () => void }) {
   const [trusted, setTrusted] = useState(false)
   const [phase, setPhase] = useState<Phase>('quiet')
   const [typed, setTyped] = useState(0)
+  // Always live. The step already offers "Later" — the permission can be
+  // granted after onboarding, and trapping someone behind a System
+  // Settings toggle they may not be able to reach is worse than letting
+  // them through.
+  useAdvanceOnEnter(true)
 
   // Polling continues after the grant on purpose: the user is in System
   // Settings with the switch under their cursor, and a screen that still

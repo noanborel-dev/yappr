@@ -12,6 +12,7 @@
 // is that they should look like the real thing.
 
 import { useEffect, useState, type ReactNode } from 'react'
+import { useAdvanceOnEnter } from './nav'
 import type { CategoryStrictness, Strictness } from '../../shared/types'
 import { BrandLogo, type BrandSlug } from '../shared/ui/BrandLogo'
 import { Pill } from '../shared/ui/Pill'
@@ -75,6 +76,10 @@ const LANES: Lane[] = [
 ]
 
 export function PolishStep({ onNext }: { onNext: () => void }) {
+  // Every option here ships with a default, so there is nothing to wait
+  // for — the screen is showing you what the settings do, not demanding
+  // a decision before you are allowed on.
+  useAdvanceOnEnter(true)
   // Seeded with the shipped defaults so the mock renders text on the
   // first frame — a spinner here would hide the only thing on screen.
   const [strictness, setStrictness] = useState<CategoryStrictness>({

@@ -391,8 +391,55 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   padding: 10px 12px;
 }
 
+/* ── Onboarding: the Enter keycap ─────────────────────────────────────
+   Drawn as a physical key rather than a button, because the whole flow is
+   teaching that the keyboard drives this. A rounded rectangle with a label
+   would read as something to click, which is the opposite lesson.
+
+   The tap is real depth — the cap travels down onto its own shadow and the
+   shadow collapses under it — so the eye reads a key being pressed rather
+   than a badge blinking. A flat opacity pulse was the first attempt and
+   looked like a notification. */
+.onb-keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 40px;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #fff, #f1eee7);
+  border: 1px solid var(--line);
+  color: var(--ink-60);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 3px 0 var(--line),
+    0 5px 10px rgba(20, 20, 24, 0.10);
+  animation: onb-tap 2.1s cubic-bezier(0.3, 0, 0.2, 1) infinite;
+}
+.onb-keycap svg { width: 22px; height: 22px; }
+
+@keyframes onb-tap {
+  /* Most of the cycle is at rest. A key that is always moving reads as
+     an animation playing, not as an instruction being repeated. */
+  0%, 62%, 100% {
+    transform: translateY(0);
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 3px 0 var(--line),
+      0 5px 10px rgba(20, 20, 24, 0.10);
+  }
+  72%, 82% {
+    transform: translateY(3px);
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 0 0 var(--line),
+      0 1px 3px rgba(20, 20, 24, 0.12);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cc-md .ln { animation: none; opacity: 1; }
   .cc-caret, .ps-cursor { animation: none; }
   .pap-raw, .pap-card { transition: none; opacity: 1; transform: none; }
+  .onb-keycap { animation: none; }
 }

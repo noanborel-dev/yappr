@@ -16,6 +16,7 @@
 // "hidden" is only defensible because we ask here.
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useAdvanceOnEnter } from './nav'
 import type { NotchGeometry } from '../global'
 import { Pill } from '../shared/ui/Pill'
 import { MenuBar, NotchMark } from '../shared/ui/NotchMark'
@@ -44,6 +45,8 @@ const PT_TO_PX = 0.42
 const WALLPAPER = '#0A0B0F'
 
 export function NotchStep({ onNext }: { onNext: () => void }) {
+  // Calibration is a preference with a working default, not a gate.
+  useAdvanceOnEnter(true)
   const [geometry, setGeometry] = useState<NotchGeometry | null>(null)
   const [override, setOverride] = useState<number | null>(null)
   const [mode, setMode] = useState<Mode>('hidden')

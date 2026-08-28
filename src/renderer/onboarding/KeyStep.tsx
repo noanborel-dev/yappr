@@ -16,6 +16,7 @@
 //   double-tap => paste the last transcription.
 
 import { useEffect, useState } from 'react'
+import { useAdvanceOnEnter } from './nav'
 import { Pill } from '../shared/ui/Pill'
 import { MenuBar, NotchMark } from '../shared/ui/NotchMark'
 import { formatHotkey, type NotchState } from '../indicator/notch-states'
@@ -103,6 +104,10 @@ export function KeyStep({ onNext }: { onNext: () => void }) {
   const [hotkey, setHotkey] = useState('CTRL')
   const [listening, setListening] = useState(false)
   const [frameIndex, setFrameIndex] = useState(0)
+  // Not while capturing. During rebind every keystroke belongs to the
+  // capture, and Enter is a bindable key — advancing on it would both
+  // skip the step and swallow the choice being made.
+  useAdvanceOnEnter(!listening)
 
   useEffect(() => {
     let alive = true

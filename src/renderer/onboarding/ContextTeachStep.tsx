@@ -10,6 +10,7 @@
 // in, and facts come out as chips. Three beats, looping, with a pause.
 
 import { useEffect, useState } from 'react'
+import { useAdvanceOnEnter } from './nav'
 import { Pill } from '../shared/ui/Pill'
 import { Wordmark } from '../shared/ui/Wordmark'
 
@@ -96,6 +97,9 @@ function BuildLoop({ busy, done }: { busy: boolean; done: boolean }) {
 // ─── The step ───────────────────────────────────────────────────────
 
 export function ContextTeachStep({ onNext }: { onNext: () => void }) {
+  // Optional by design — this step asks for something to remember, and
+  // skipping it costs nothing but a colder first week.
+  useAdvanceOnEnter(true)
   const [seed, setSeed] = useState('')
   const [busy, setBusy] = useState(false)
   const [stored, setStored] = useState<number | null>(null)

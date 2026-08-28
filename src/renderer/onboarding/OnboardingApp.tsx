@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { Settings } from '../../shared/types'
 import { Pill } from '../shared/ui/Pill'
@@ -12,6 +12,8 @@ import { NotchStep } from './NotchStep'
 import { PolishStep } from './PolishStep'
 import { ContextTeachStep } from './ContextTeachStep'
 import { PracticeStep } from './PracticeStep'
+import { OnboardingNavProvider, useAdvanceOnEnter, useOnboardingNav } from './nav'
+import { EnterCue } from './EnterCue'
 
 // The shell, and only the shell: drag strip, wordmark, counter, back
 // button, progress hairline, and one `animate-stepIn` container keyed by
@@ -47,9 +49,42 @@ const STEPS = [
 
 export default function OnboardingApp() {
   const [step, setStep] = useState(0)
+  // Whether Enter advances right now. Owned here, declared by the step —
+  // see nav.tsx. Reset on every step change so a new screen starts closed
+  // rather than inheriting the last one's answer.
+  const [ready, setReady] = useState(false)
 
-  const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1))
+  const next = useCallback(
+    () => setStep((s) => Math.min(s + 1, STEPS.length - 1)),
+    [],
+  )
   const back = () => setStep((s) => Math.max(s - 1, 0))
+
+  useEffect(() => { setReady(false) }, [step])
+
+  // ONE Enter listener for the whole flow, not one per step. Nine
+  // listeners would each still be mounted during the outgoing step's exit
+  // animation, so a single press could advance twice and skip a screen.
+  //
+  // Ignored while focus is in a text field: the practice steps have real
+  // inputs, and Enter inside one is the user typing, not navigating.
+  useEffect(() => {
+    if (!ready) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.metaKey || e.ctrlKey || e.altKey) return
+      const el = document.activeElement
+      const tag = el?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (el as HTMLElement | null)?.isContentEditable) {
+        return
+      }
+      e.preventDefault()
+      next()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [ready, next])
+
+  const nav = useMemo(() => ({ next, setReady }), [next])
 
   async function finish() {
     const partial: Partial<Settings> = { firstRun: false }
@@ -97,17 +132,23 @@ export default function OnboardingApp() {
         />
       </div>
 
-      <main key={step} className="flex-1 min-h-0 overflow-auto px-14 py-8 animate-stepIn">
-        {step === 0 && <WelcomeStep onNext={next} />}
-        {step === 1 && <MicStep onNext={next} />}
-        {step === 2 && <AccessibilityStep onNext={next} />}
-        {step === 3 && <KeyStep onNext={next} />}
-        {step === 4 && <NotchStep onNext={next} />}
-        {step === 5 && <PolishStep onNext={next} />}
-        {step === 6 && <ContextTeachStep onNext={next} />}
-        {step === 7 && <PracticeStep onNext={next} />}
-        {step === 8 && <Done onFinish={finish} />}
-      </main>
+      <OnboardingNavProvider value={nav}>
+        {/* pb-24 leaves the keycap a lane of its own. Without it the last
+            control on a tall step sits under the cue, and the thing
+            telling you how to move on covers the thing you are doing. */}
+        <main key={step} className="flex-1 min-h-0 overflow-auto px-14 pt-8 pb-24 animate-stepIn">
+          {step === 0 && <WelcomeStep onNext={next} />}
+          {step === 1 && <MicStep onNext={next} />}
+          {step === 2 && <AccessibilityStep onNext={next} />}
+          {step === 3 && <KeyStep onNext={next} />}
+          {step === 4 && <NotchStep onNext={next} />}
+          {step === 5 && <PolishStep onNext={next} />}
+          {step === 6 && <ContextTeachStep onNext={next} />}
+          {step === 7 && <PracticeStep onNext={next} />}
+          {step === 8 && <Done onFinish={finish} />}
+        </main>
+        <EnterCue visible={ready} />
+      </OnboardingNavProvider>
     </div>
   )
 }
@@ -119,6 +160,24 @@ function Done({ onFinish }: { onFinish: () => void }) {
   // writes it on every rebind, so settings is the one copy that cannot be
   // stale.
   const [glyph, setGlyph] = useState('⌃')
+
+  // The last screen keeps the promise the other eight made: Enter moves
+  // you on. Here "on" means out — `next()` clamps at the final step, so
+  // without this the cue would be showing a key that does nothing.
+  useAdvanceOnEnter(true)
+  const { setReady } = useOnboardingNav()
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.metaKey || e.ctrlKey || e.altKey) return
+      e.preventDefault()
+      // Close the gate first: finish() closes the window, and a second
+      // Enter arriving during the IPC round-trip would run it twice.
+      setReady(false)
+      onFinish()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onFinish, setReady])
 
   useEffect(() => {
     let cancelled = false

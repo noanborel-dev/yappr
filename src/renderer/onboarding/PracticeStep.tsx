@@ -14,6 +14,7 @@
 // otherwise have been a screenshot.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useAdvanceOnEnter } from './nav'
 import { Pill } from '../shared/ui/Pill'
 import { BrandLogo } from '../shared/ui/BrandLogo'
 import { MenuBar, NotchMark } from '../shared/ui/NotchMark'
@@ -125,6 +126,10 @@ const NOTCH_FOR: Record<Phase, NotchState> = {
 
 export function PracticeStep({ onNext }: { onNext: () => void }) {
   const [phase, setPhase] = useState<Phase>('armed')
+  // Live throughout. This is the last teaching screen and its whole point
+  // is that you try it — but someone who has already understood should
+  // not be held here, and the Continue button was never disabled either.
+  useAdvanceOnEnter(true)
   const [typed, setTyped] = useState(0)
   const [bars, setBars] = useState<number[]>(() => Array(BAR_COUNT).fill(0))
   const [micReady, setMicReady] = useState<boolean | null>(null)

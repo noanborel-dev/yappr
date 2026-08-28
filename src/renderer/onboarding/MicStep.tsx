@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
+import { useAdvanceOnEnter } from './nav'
 import { Pill } from '../shared/ui/Pill'
 import { ACCENT } from '../indicator/notch-states'
 
@@ -124,6 +125,10 @@ export function MicStep({ onNext }: { onNext: () => void }) {
   const [bands, setBands] = useState<number[]>(() => Array<number>(BANDS).fill(0))
   const [progress, setProgress] = useState(0)
   const [heard, setHeard] = useState(false)
+  // Enter opens the moment the meter has actually heard something — the
+  // same condition the Continue button is disabled by, so the keyboard
+  // route can never work while the button says you are not ready yet.
+  useAdvanceOnEnter(heard)
   const [devices, setDevices] = useState<Device[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [rescue, setRescue] = useState(false)

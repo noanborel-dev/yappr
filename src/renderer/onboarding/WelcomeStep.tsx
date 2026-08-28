@@ -20,6 +20,7 @@
 
 import { useEffect, useState } from 'react'
 import { Pill } from '../shared/ui/Pill'
+import { useAdvanceOnEnter } from './nav'
 import { BrandLogo } from '../shared/ui/BrandLogo'
 import { MenuBar, NotchMark } from '../shared/ui/NotchMark'
 import { formatHotkey, type NotchState } from '../indicator/notch-states'
@@ -78,6 +79,9 @@ const BLOOM: Record<string, number> = {
 }
 
 export function WelcomeStep({ onNext }: { onNext: () => void }) {
+  // Nothing to wait for on the first screen — Enter is live immediately,
+  // which is also where the user learns the cue exists.
+  useAdvanceOnEnter(true)
   // Reduced motion parks the demo on its final frame rather than hiding
   // it: the story still resolves, it just doesn't move. Read once — this
   // never needs to change mid-screen.
