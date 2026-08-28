@@ -200,6 +200,10 @@ export function registerIpcHandlers(hooks: IpcHooks = {}): void {
   // every tier card with its actual state on mount.
   ipcMain.handle(IPC.LOCAL_MODEL_STATUS, () => ({
     readiness: localWhisperReadiness(),
+    // Which model the app actually runs. Sent so a renderer can report on
+    // it — onboarding shows its download progress — without hardcoding an
+    // id that only main is entitled to decide.
+    active: prewarmModelId(),
     // getLocalModelProgress() with no arg returns the array of all
     // known per-model progress entries.
     progress: getLocalModelProgress(),

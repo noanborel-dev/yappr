@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { CategoryStrictness, Settings, Strictness } from '../../shared/types'
+import type { LocalModelProgress } from '../global'
 import { Pill } from '../shared/ui/Pill'
 import { Toggle } from '../shared/ui/Toggle'
 import { Wordmark } from '../shared/ui/Wordmark'
@@ -616,9 +617,89 @@ function Done({ hotkey, onFinish }: { hotkey: string; onFinish: () => void }) {
         </div>
       </div>
 
+      <ModelReadiness />
+
       <Pill variant="primary" onClick={onFinish}>Start yapping</Pill>
       <p className="text-[11px] text-ink-45 mt-4">
         Everything here lives in Settings, from the menu bar icon.
+      </p>
+    </div>
+  )
+}
+
+// The voice model arriving.
+//
+// Nothing asks the user about this: main fetches the model at startup
+// because no other surface can any more. But a first launch on a slow
+// connection is a few minutes where dictation would fail for a reason the
+// user has no way to see, so the last screen of setup says so — a
+// statement of what's happening, not a question and not a gate. Leaving
+// now is fine; the download continues without this window.
+function ModelReadiness() {
+  const [ready, setReady] = useState<boolean | null>(null)
+  const [progress, setProgress] = useState<LocalModelProgress | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    let active: string | null = null
+
+    const refresh = () =>
+      window.yappr.getLocalModelStatus().then((s) => {
+        if (!alive) return
+        active = s.active
+        setReady(Boolean(s.downloaded[s.active]))
+        setProgress(s.progress.find((p) => p.modelId === s.active) ?? null)
+      })
+
+    refresh()
+    const off = window.yappr.onLocalModelProgress((p) => {
+      if (!alive || (active && p.modelId !== active)) return
+      setProgress(p)
+      if (p.status === 'done') refresh()
+    })
+    // Backstop: the fetch may have finished before this screen mounted, in
+    // which case no progress event is coming.
+    const poll = window.setInterval(refresh, 2000)
+
+    return () => { alive = false; off(); window.clearInterval(poll) }
+  }, [])
+
+  // Say nothing until we know — a flash of "downloading" on a machine
+  // that already has the model is worse than a beat of silence.
+  if (ready === null) return null
+
+  const failed = progress?.status === 'error'
+  const downloading = !ready && !failed
+  const pct = progress && progress.totalBytes > 0
+    ? Math.min(100, (progress.receivedBytes / progress.totalBytes) * 100)
+    : 0
+
+  return (
+    <div className="bg-card border border-line rounded-card px-5 py-4 mb-6">
+      <div className="flex items-baseline justify-between gap-4 mb-2">
+        <div className="text-[12.5px] font-semibold">
+          {ready ? 'Voice model ready' : failed ? 'Voice model didn\u2019t download' : 'Getting the voice model'}
+        </div>
+        <div className="text-[10.5px] font-mono text-ink-45 tabular-nums">
+          {ready ? 'on this Mac' : failed ? 'retries on next launch' : `${pct.toFixed(0)}%`}
+        </div>
+      </div>
+
+      {downloading && (
+        <div className="h-1 bg-ink/[0.06] rounded-full overflow-hidden mb-2">
+          <div
+            className="h-full bg-cobalt rounded-full transition-[width] duration-300"
+            style={{ width: `${Math.max(pct, 2)}%` }}
+          />
+        </div>
+      )}
+
+      <p className="text-[11px] text-ink-60 leading-relaxed">
+        {ready
+          ? 'Transcription runs on this Mac. Your audio never leaves it.'
+          : failed
+            ? 'You can still finish setup — Yappr tries again the next time it starts.'
+            : 'A one-time download so transcription can run on this Mac. You can finish setup now; it keeps going in the background.'}
       </p>
     </div>
   )
