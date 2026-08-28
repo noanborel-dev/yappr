@@ -262,7 +262,7 @@ export const BRAND_PLATE_RADIAL = `${TOP_SHEEN}, radial-gradient(circle at 50% 5
  */
 export const BRAND_WING = `linear-gradient(90deg, ${BRAND_CHARCOAL} 0%, ${BRAND_ABYSS} 14%, #000 32%, #000 68%, ${BRAND_ABYSS} 86%, ${BRAND_CHARCOAL} 100%)`
 
-export type MarkLockup = 'pill' | 'bare' | 'icon' | 'stacked' | 'notch' | 'circle'
+export type MarkLockup = 'pill' | 'bare' | 'icon' | 'stacked' | 'notch' | 'circle' | 'square'
 export type MarkTone = 'dark' | 'light' | 'ink' | 'white' | 'plate'
 export type MarkSize = 'hero' | 'button' | 'inline' | 'favicon'
 
@@ -450,6 +450,58 @@ export function YapprMark({
         }}
       >
         {word}
+      </span>
+    )
+  }
+
+  // SQUARE — the blue plate carrying a single letterform.
+  //
+  // This is the mark the landing page leads with, and the one the app
+  // icon is drawn from. It exists because "Yappr" does not fit a square
+  // at small sizes and shrinking it to fit is how the favicon became
+  // unreadable: one letter at a legible size beats five at an illegible
+  // one.
+  //
+  // Radial rather than the horizontal plate, for the same reason `circle`
+  // is: a left-to-right ramp inside a square reads as a panel lit from
+  // one side, where a radial reads as the object having depth.
+  //
+  // Kept in step with .square-logo on the landing page — same gradient,
+  // same 22% squircle, same optical nudge. If one changes, change both.
+  if (lockup === 'square') {
+    const box = s.px * 1.9
+    return (
+      <span
+        aria-label="Yappr"
+        role="img"
+        className={`inline-flex items-center justify-center shrink-0 ${className}`}
+        style={{
+          width: box,
+          height: box,
+          // macOS squircle proportion — ~22% of the side.
+          borderRadius: box * 0.22,
+          background: BRAND_PLATE_RADIAL,
+          color: '#FFFFFF',
+          fontFamily: BRAND_SERIF,
+          fontStyle: 'italic',
+          fontWeight: 400,
+          fontSize: box * 0.52,
+          lineHeight: 1,
+          userSelect: 'none',
+          // The Y's diagonal makes it sit optically left and high in its
+          // box; these two nudge it back to the centre it looks like it
+          // should be at.
+          textIndent: '0.04em',
+          paddingBottom: '0.04em',
+          boxShadow: [
+            'inset 0 1px 0 rgba(255,255,255,0.14)',
+            'inset 0 0 0 1px rgba(255,255,255,0.06)',
+            '0 6px 18px rgba(12,20,38,0.28)',
+          ].join(', '),
+          ...style,
+        }}
+      >
+        Y
       </span>
     )
   }

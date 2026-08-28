@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DictationResult } from '../../../shared/types'
+import { isRewriteEntry, spokenText } from '../../../shared/history-entry'
 import {
   aggregate,
   compactNumber,
@@ -105,6 +106,18 @@ export default function HistoryTab() {
   )
 }
 
+// One entry, with a way back out of a bad cleanup.
+//
+// The list used to offer exactly one button — copy the polished text —
+// which is fine until the polish is the thing that went wrong. Then the
+// only artifact you had was the output you were trying to get rid of,
+// while the raw transcript sat in the store with no way to reach it. A
+// user lost two minutes of dictation that way.
+//
+// So: the raw transcript is visible and copyable, and the AI pass can be
+// run again. Both read what is already stored; neither pastes anything,
+// because the reason you are in this window is that the automatic paste
+// was wrong.
 function HistoryItem({
   item,
   copied,
@@ -115,40 +128,156 @@ function HistoryItem({
   onCopy: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [showRaw, setShowRaw] = useState(false)
+  const [rawCopied, setRawCopied] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [redone, setRedone] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [redoneCopied, setRedoneCopied] = useState(false)
+
+  const said = spokenText(item)
+  const isRewrite = isRewriteEntry(item)
+  // An entry recorded before rewrites kept their instruction. Saying so
+  // beats offering a button that copies nothing.
+  const lostWords = isRewrite && said.length === 0
+
+  async function copyRaw() {
+    await navigator.clipboard.writeText(said)
+    setRawCopied(true)
+    window.setTimeout(() => setRawCopied(false), 1200)
+  }
+
+  async function copyRedone() {
+    if (!redone) return
+    await navigator.clipboard.writeText(redone)
+    setRedoneCopied(true)
+    window.setTimeout(() => setRedoneCopied(false), 1200)
+  }
+
+  async function repolish() {
+    setBusy(true)
+    setError(null)
+    const res = await window.yappr.repolishHistoryEntry(item.id)
+    setBusy(false)
+    if (res.ok) {
+      setRedone(res.text)
+      setShowRaw(true)
+    } else {
+      setError(res.error)
+      setShowRaw(true)
+    }
+  }
+
   return (
-    <div className="bg-white/50 backdrop-blur-md rounded-[12px] px-4 py-3 flex items-start gap-3 group shadow-glass hover:shadow-glass-lift hover:-translate-y-[1px] transition-[box-shadow,transform] duration-200">
-      <div className="flex-1 min-w-0">
-        {/* Clamped: a dictated Claude Code prompt can run 40 lines, and
-            unclamped entries turned the list into one entry per screen.
-            Click to expand the one you're looking for. */}
-        <div
-          onClick={() => setExpanded((v) => !v)}
-          className={[
-            'text-[12.5px] leading-relaxed whitespace-pre-wrap break-words cursor-pointer',
-            expanded ? '' : 'line-clamp-4',
-          ].join(' ')}
+    <div className="bg-white/50 backdrop-blur-md rounded-[12px] px-4 py-3 group shadow-glass hover:shadow-glass-lift hover:-translate-y-[1px] transition-[box-shadow,transform] duration-200">
+      <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          {/* Clamped: a dictated Claude Code prompt can run 40 lines, and
+              unclamped entries turned the list into one entry per screen.
+              Click to expand the one you're looking for. */}
+          <div
+            onClick={() => setExpanded((v) => !v)}
+            className={[
+              'text-[12.5px] leading-relaxed whitespace-pre-wrap break-words cursor-pointer',
+              expanded ? '' : 'line-clamp-4',
+            ].join(' ')}
+          >
+            {item.cleaned}
+          </div>
+          <div className="text-[10px] font-mono text-ink-45 mt-1.5 flex items-center gap-2 flex-wrap">
+            <span>{formatRelativeTime(item.timestamp)}</span>
+            <span className="opacity-40">·</span>
+            <span>{item.appName}</span>
+            <span className="opacity-40">·</span>
+            <span>{wordCount(item.cleaned)}w</span>
+            {isRewrite && (
+              <>
+                <span className="opacity-40">·</span>
+                <span>rewrite</span>
+              </>
+            )}
+            <button
+              onClick={() => setShowRaw((v) => !v)}
+              className="underline underline-offset-2 hover:text-ink transition-colors"
+            >
+              {showRaw ? 'hide what you said' : 'what you said'}
+            </button>
+          </div>
+        </div>
+        <button
+          onClick={onCopy}
+          aria-label="Copy to clipboard"
+          className={`shrink-0 text-[11px] font-medium rounded-pill px-3 py-1.5 transition-all border ${
+            copied
+              ? 'bg-ok/12 text-ok border-ok/30'
+              : 'border-line text-ink-60 hover:text-ink hover:bg-paper opacity-0 group-hover:opacity-100'
+          }`}
         >
-          {item.cleaned}
-        </div>
-        <div className="text-[10px] font-mono text-ink-45 mt-1.5 flex items-center gap-2 flex-wrap">
-          <span>{formatRelativeTime(item.timestamp)}</span>
-          <span className="opacity-40">·</span>
-          <span>{item.appName}</span>
-          <span className="opacity-40">·</span>
-          <span>{wordCount(item.cleaned)}w</span>
-        </div>
+          {copied ? 'Copied' : 'Copy'}
+        </button>
       </div>
-      <button
-        onClick={onCopy}
-        aria-label="Copy to clipboard"
-        className={`shrink-0 text-[11px] font-medium rounded-pill px-3 py-1.5 transition-all border ${
-          copied
-            ? 'bg-ok/12 text-ok border-ok/30'
-            : 'border-line text-ink-60 hover:text-ink hover:bg-paper opacity-0 group-hover:opacity-100'
-        }`}
-      >
-        {copied ? 'Copied' : 'Copy'}
-      </button>
+
+      {showRaw && (
+        <div className="mt-3 pt-3 border-t border-line-soft">
+          {lostWords ? (
+            <p className="text-[11.5px] text-ink-45 leading-relaxed m-0">
+              This rewrite was recorded before Yappr kept the words you spoke
+              for one. They weren&rsquo;t saved.
+            </p>
+          ) : (
+            <>
+              <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 mb-1.5">
+                What you said
+              </div>
+              <div className="text-[12px] leading-relaxed whitespace-pre-wrap break-words text-ink-60">
+                {said}
+              </div>
+              {isRewrite && item.rewrite && (
+                <>
+                  <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 mt-3 mb-1.5">
+                    Applied to
+                  </div>
+                  <div className="text-[12px] leading-relaxed whitespace-pre-wrap break-words text-ink-45">
+                    {item.rewrite.selection}
+                  </div>
+                </>
+              )}
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
+                <Pill variant="secondary" size="sm" onClick={copyRaw}>
+                  {rawCopied ? 'Copied' : 'Copy what you said'}
+                </Pill>
+                <Pill variant="secondary" size="sm" onClick={repolish} disabled={busy}>
+                  {busy ? 'Running…' : 'Run the AI pass again'}
+                </Pill>
+              </div>
+            </>
+          )}
+
+          {error && (
+            <p className="text-[11.5px] text-danger mt-2.5 leading-relaxed m-0">{error}</p>
+          )}
+
+          {redone !== null && (
+            <div className="mt-3">
+              <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 mb-1.5">
+                New result
+              </div>
+              <div className="text-[12px] leading-relaxed whitespace-pre-wrap break-words bg-paper border border-line rounded-[9px] px-3 py-2.5">
+                {redone}
+              </div>
+              {/* The new text replaces nothing on its own. The entry in the
+                  list is a record of what happened, and rewriting history
+                  to say something else happened would be a lie — so this
+                  goes to the clipboard and the user decides. */}
+              <div className="mt-2">
+                <Pill variant="secondary" size="sm" onClick={copyRedone}>
+                  {redoneCopied ? 'Copied' : 'Copy new result'}
+                </Pill>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

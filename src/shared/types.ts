@@ -185,6 +185,25 @@ export interface DictationResult {
   // dictations by project and mine each group for project facts. Without
   // it, compaction sees 50 dictations with no idea which belong together.
   projectKey?: string | null
+  /**
+   * Present when this entry came from select-and-rewrite rather than a
+   * plain dictation.
+   *
+   * On a rewrite entry, `transcript` is WHAT THE USER SAID — the spoken
+   * instruction — exactly as it is on a dictation entry. It used to be
+   * the literal string '(rewrite)', with the instruction thrown away.
+   * That lost a user 121 seconds of speech on 2026-08-28: a stale
+   * 16-character selection sent a two-minute dictation down this path,
+   * the model collapsed it into one short line, and nothing recorded
+   * what had been asked for. Never store a placeholder here again.
+   *
+   * Read it through shared/history-entry.ts, which also recognises the
+   * legacy placeholder in entries written before the fix.
+   */
+  rewrite?: {
+    /** The text that was selected and rewritten. */
+    selection: string
+  }
 }
 
 // IPC channel names — kept in shared so renderer and main stay in sync
@@ -203,6 +222,10 @@ export const IPC = {
   HISTORY_GET: 'history:get',
   HISTORY_GET_ALL: 'history:get-all',
   HISTORY_CLEAR: 'history:clear',
+  // Run the AI pass again on one stored entry and return the new text.
+  // Returns text only — the settings window is not where a paste belongs,
+  // and the user is here because the last automatic paste was wrong.
+  HISTORY_REPOLISH: 'history:repolish',
   // Feature 4 Phase 1: read/write the user_overview paragraph used as
   // background context in cleanup prompts. Backed by SQLite, not the
   // electron-store Settings file, so Phase 3's auto-compaction can

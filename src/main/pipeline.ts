@@ -27,6 +27,7 @@ const EMAIL_COMPOSE_MIN_WORDS = 12
 import { wordCount, speakingMsFromAudioBytes } from '../shared/dictation-stats'
 import { MODELS, BUILTIN_DICTIONARY, DICTIONARY_ALIASES, IDE_EDITORS, AGENTIC_AI_APP_NAMES } from '../shared/constants'
 import type { AppCategory, DictationResult, Settings, Strictness } from '../shared/types'
+import { isRewriteEntry, spokenText } from '../shared/history-entry'
 import type { FocusedApp } from './focused-app'
 import type { TranscriptionProvider, CleanupProvider } from './providers/types'
 import {
@@ -1367,7 +1368,11 @@ export async function runCommandPipeline(
   // effect here: this pipeline already returns its text for the caller to
   // deliver rather than pasting it itself.
   focusOverride?: FocusedApp,
-): Promise<string> {
+  // Returns the command as well as the result. The caller has to persist
+  // what the user SAID — for a long time it stored the string
+  // '(rewrite)' instead, which meant a rewrite could eat two minutes of
+  // speech and leave nothing behind. See DictationResult.rewrite.
+): Promise<{ text: string; command: string }> {
   // Command mode ("rewrite my selection with this voice instruction")
   // fundamentally requires an LLM — there's no regex-able way to
   // "make this paragraph shorter" or "translate to French". Transcription
@@ -1389,6 +1394,31 @@ export async function runCommandPipeline(
   if (refreshFocusedApp) await refreshFocusedApp
   const focusedApp = focusOverride ?? getFocusedApp()
 
+  return {
+    text: await rewriteSelection(command, selectedText, focusedApp, settings, cleanup),
+    command,
+  }
+}
+
+/**
+ * Apply a spoken command to a piece of selected text.
+ *
+ * Split out of runCommandPipeline so the same prompt-building runs when a
+ * rewrite is re-run from the history list (repolishEntry). Duplicating it
+ * there would let the two drift, and the markdown and email rules below
+ * are exactly the sort of thing that only shows up as a bug months later.
+ *
+ * Takes an already-transcribed command and a resolved focused app, so it
+ * touches neither the microphone nor the AX tree — which is what makes it
+ * safe to call from an IPC handler long after the fact.
+ */
+async function rewriteSelection(
+  command: string,
+  selectedText: string,
+  focusedApp: FocusedApp,
+  settings: Settings,
+  cleanup: CleanupProvider,
+): Promise<string> {
   // Markdown-preservation rule. The 8B model flattens structured
   // input into a single paragraph by default. If the selection has
   // markdown shape (headings, bullets, fences, multi-paragraph), we
@@ -1463,4 +1493,99 @@ The selected text is plain prose. Output as plain prose. Do not introduce markdo
   }
 
   return emailMode ? normalizeEmailRewrite(result) : result
+}
+
+/**
+ * Run the AI pass again on an entry from the history list, and hand back
+ * the new text without pasting anything.
+ *
+ * This exists because there was no way to recover from a bad cleanup. If
+ * the model mangled a dictation you had exactly one artifact — the text it
+ * had already pasted — and the raw transcript sat in the store, unreachable.
+ *
+ * HONEST LIMIT: this re-runs with today's settings and the app NAME and
+ * CATEGORY stored on the entry. It cannot reproduce the original run
+ * exactly, because the things that steered it — the AX role of the focused
+ * field, whether an AI CLI was running in the terminal, which project the
+ * window title resolved to — were live facts about a moment that has
+ * passed and were never persisted. Expect the same register, not the same
+ * bytes.
+ */
+export async function repolishEntry(
+  entry: DictationResult,
+  settings: Settings,
+): Promise<string> {
+  const said = spokenText(entry)
+  if (said.trim().length === 0) {
+    // A rewrite recorded before the instruction was persisted. There is
+    // nothing to run on, and saying so is better than running the literal
+    // string '(rewrite)' through the model.
+    throw new Error(
+      'This entry has no transcript to work from — it was recorded before Yappr kept the words spoken for a rewrite.',
+    )
+  }
+
+  const { cleanup, cleanupAvailable } = buildProviders(settings)
+  if (!cleanupAvailable) {
+    throw new Error('The AI pass needs a cleanup key. Add one in Settings → General.')
+  }
+
+  // A stand-in for the app this was dictated into. bundleId is empty on
+  // purpose: it is the key every routing table is keyed by, and guessing
+  // one from a display name would silently apply another app's rules.
+  // Everything keyed by bundle id therefore falls back to its default,
+  // which is the honest answer for a dictation that happened an hour ago.
+  const focusedApp: FocusedApp = {
+    bundleId: '',
+    name: entry.appName,
+    category: entry.appCategory,
+    pid: 0,
+    windowTitle: '',
+    surface: 'other',
+    tabTitle: null,
+  }
+
+  if (isRewriteEntry(entry)) {
+    const selection = entry.rewrite?.selection ?? ''
+    if (selection.trim().length === 0) {
+      throw new Error('This rewrite has no saved selection to apply the instruction to.')
+    }
+    return rewriteSelection(said, selection, focusedApp, settings, cleanup)
+  }
+
+  const strictness = strictnessFor(focusedApp, settings)
+  const register = registerFor(focusedApp, entry.appCategory)
+  const composingEmail = asksForEmailComposition(said)
+    || (entry.appCategory === 'email' && countWords(said) >= EMAIL_COMPOSE_MIN_WORDS)
+  const contextBlock = buildContextBlock({
+    enabled: settings.useContextMemory,
+    projectKey: entry.projectKey ?? null,
+  })
+  const systemPrompt = buildCleanupPrompt(
+    entry.appCategory,
+    entry.appName,
+    undefined,
+    undefined,
+    strictness,
+    settings.emojiInMessages,
+    register,
+    contextBlock,
+    undefined,
+    composingEmail,
+  ).replace('{text}', said)
+
+  const cleaned = await withCleanupRetry(() =>
+    cleanup.cleanup(said, {
+      appName: entry.appName,
+      appCategory: entry.appCategory,
+      systemPrompt,
+      expandsOutput: composingEmail,
+    }))
+
+  logInfo('Re-polished from history', {
+    chars: cleaned.length,
+    transcriptChars: said.length,
+    category: entry.appCategory,
+  })
+  return composingEmail ? normalizeComposedEmail(cleaned, senderFirstName()) : cleaned
 }

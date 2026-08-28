@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('yappr', {
   getHistory: () => ipcRenderer.invoke(IPC.HISTORY_GET),
   getAllHistory: () => ipcRenderer.invoke(IPC.HISTORY_GET_ALL),
   clearHistory: () => ipcRenderer.invoke(IPC.HISTORY_CLEAR),
+  repolishHistoryEntry: (id: string) => ipcRenderer.invoke(IPC.HISTORY_REPOLISH, id),
   getDictationStats: (): Promise<StatRecord[]> => ipcRenderer.invoke(IPC.STATS_GET),
   clearDictationStats: (): Promise<void> => ipcRenderer.invoke(IPC.STATS_CLEAR),
   getContextOverview: (): Promise<string> =>

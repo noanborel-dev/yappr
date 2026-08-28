@@ -26,7 +26,8 @@ import { forceCompaction, getCompactionStatus } from './context/compactor'
 import { listBuckets, deleteFact, deleteBucket, addFact } from './context/facts'
 import type { OnboardingImport } from '../shared/onboarding-import'
 import { generateContext } from './context/generate'
-import { logInfo } from './log'
+import { logInfo, logError } from './log'
+import { repolishEntry } from './pipeline'
 
 // Hot in-memory cache for paste-last + indicator lookups. Always
 // reflects the most recent N entries (N = HISTORY_LIMIT). On startup
@@ -130,6 +131,32 @@ export function registerIpcHandlers(hooks: IpcHooks = {}): void {
   ipcMain.handle(IPC.HISTORY_GET, () => getHistory())
   ipcMain.handle(IPC.HISTORY_GET_ALL, () => getPersistedHistory())
   ipcMain.handle(IPC.HISTORY_CLEAR, () => clearHistory())
+
+  // Re-run the AI pass on one stored entry.
+  //
+  // Looks the entry up by id in the PERSISTED store rather than trusting
+  // the renderer's copy: the transcript is what gets sent to the cleanup
+  // provider, and a renderer that has been sitting open for a day should
+  // not be able to decide what that is.
+  //
+  // Errors are returned, not thrown. A rejected invoke() surfaces in the
+  // renderer as an Error whose message is prefixed with the IPC channel
+  // and handler frame, which is not a sentence to show someone trying to
+  // recover their words.
+  ipcMain.handle(IPC.HISTORY_REPOLISH, async (_e, id: string) => {
+    const entry = loadPersistedHistory().find((h) => h.id === id)
+    if (!entry) return { ok: false as const, error: 'That entry is no longer in your history.' }
+    try {
+      const text = await repolishEntry(entry, getSettings())
+      return { ok: true as const, text }
+    } catch (err) {
+      logError('Re-polish failed', err)
+      return {
+        ok: false as const,
+        error: err instanceof Error ? err.message : 'The AI pass failed. Try again in a moment.',
+      }
+    }
+  })
 
   ipcMain.handle(IPC.CONTEXT_OVERVIEW_GET, () => getUserOverview())
   ipcMain.handle(IPC.CONTEXT_OVERVIEW_SET, (_e, text: string) => {

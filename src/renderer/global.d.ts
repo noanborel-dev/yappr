@@ -49,6 +49,10 @@ declare global {
       getHistory: () => Promise<DictationResult[]>
       getAllHistory: () => Promise<DictationResult[]>
       clearHistory: () => Promise<void>
+      /** Re-run the AI pass on one stored entry. Never throws; see ipc.ts. */
+      repolishHistoryEntry: (
+        id: string,
+      ) => Promise<{ ok: true; text: string } | { ok: false; error: string }>
       getDictationStats: () => Promise<StatRecord[]>
       clearDictationStats: () => Promise<void>
       getContextOverview: () => Promise<string>

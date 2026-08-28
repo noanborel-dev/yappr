@@ -716,10 +716,19 @@ export default function NotchIndicator() {
                 ))}
               </span>
             )}
-            {/* The wordmark, not a generic mic glyph — this is the one
-                place the app says who it is. The notch itself is the
-                charcoal pill the brand mark normally draws, so the mark
-                sheds its container and keeps only the italic serif. */}
+            {/* The square mark, not a generic mic glyph — this is the one
+                place the app says who it is.
+                It was the bare italic wordmark, on the reasoning that the
+                notch is already the brand's container so the mark should
+                shed its own. True, but it left the indicator as the only
+                surface in the product NOT carrying the blue plate the
+                landing page, the app icon and the favicon all lead with —
+                a word in a black bar reads as a label, not as a logo.
+                The square lockup is the same object those are drawn from,
+                and it fits where the wordmark did: the wings are where
+                colour is allowed. The notch's CENTRE stays true black so
+                it disappears into the camera housing — that constraint is
+                load-bearing and this must never encroach on it. */}
             {v.mic && (
               <span
                 className={`notch-in${micClickable ? ' notch-mark' : ''}`}
@@ -727,8 +736,8 @@ export default function NotchIndicator() {
                 title={micClickable ? 'Start dictating' : undefined}
                 style={{
                   // The wrapper keeps the hit target, padding and hover
-                  // transition. The MARK itself is the shared bare lockup
-                  // — this used to restate the font stack, the italic, the
+                  // transition. The MARK itself is a shared lockup — this
+                  // used to restate the font stack, the italic, the
                   // letter-spacing and a third white value inline, which
                   // is how the live indicator drifted from both the notch
                   // mockup and the brand pill.
@@ -741,7 +750,15 @@ export default function NotchIndicator() {
                   transition: 'background 160ms ease, color 160ms ease',
                 }}
               >
-                <YapprMark lockup="bare" tone="dark" dot={false} style={{ fontSize: LABEL_SIZE }} />
+                {/* `favicon`, not the default `button`. The lockup sizes
+                    its box off the scale (px * 1.9), so button would draw
+                    a 34px square inside a notch that is about 30px tall.
+                    favicon gives ~21px, which clears the shell with room
+                    either side.
+                    The old call passed style={{ fontSize: LABEL_SIZE }},
+                    which never did anything — every lockup sets its own
+                    font size internally, so the outer span's was inert. */}
+                <YapprMark lockup="square" size="favicon" />
               </span>
             )}
             {/* The key the user actually bound, read from settings. A

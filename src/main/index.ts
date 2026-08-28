@@ -614,7 +614,7 @@ function setupAudioIpc(): void {
     try {
       if (commandMode) {
         broadcastState('processing')
-        const rewritten = await runCommandPipeline(audioBuffer, selection, getSettings())
+        const { text: rewritten, command } = await runCommandPipeline(audioBuffer, selection, getSettings())
         // Use the press-time AX-role probe — same as dictate mode.
         // Command mode involves no UI interaction during the call, so
         // the user's original focus is still the intended target.
@@ -622,16 +622,20 @@ function setupAudioIpc(): void {
         const focused = getFocusedApp()
         addToHistory({
           id: crypto.randomUUID(),
-          transcript: '(rewrite)',
+          // What the user SAID. This was '(rewrite)' — a placeholder that
+          // threw the instruction away and, on 2026-08-28, took two
+          // minutes of someone's speech with it.
+          transcript: command,
           cleaned: rewritten,
           appName: focused.name,
           appCategory: focused.category,
           timestamp: Date.now(),
+          rewrite: { selection },
         })
         // Rewrite/command-mode bumps the activity timestamp so the
         // compactor's idle gate doesn't fire mid-session, but we don't
-        // count it toward the threshold — the compactor itself filters
-        // '(rewrite)' entries from its input list.
+        // count it toward the threshold — the compactor filters rewrite
+        // entries out of its input list (see shared/history-entry.ts).
         markDictationActive()
         updateTrayMenu()
         // Text delivered (a clipboard fallback still counts — it's on the
@@ -795,14 +799,21 @@ async function retryRecording(id: string): Promise<void> {
   try {
     let text: string
     if (meta.context.commandMode) {
-      text = await runCommandPipeline(audio, meta.context.selection, getSettings(), focusOverride)
+      const rerun = await runCommandPipeline(
+        audio, meta.context.selection, getSettings(), focusOverride,
+      )
+      text = rerun.text
       addToHistory({
         id: crypto.randomUUID(),
-        transcript: '(rewrite)',
+        // Same as the live path: store what was said, not a placeholder.
+        // This one matters more, not less — a recovered recording is
+        // already a dictation the user nearly lost once.
+        transcript: rerun.command,
         cleaned: text,
         appName: meta.context.name,
         appCategory: meta.context.category,
         timestamp: Date.now(),
+        rewrite: { selection: meta.context.selection },
       })
     } else {
       // No state/partial callbacks: a retry must never repaint the

@@ -30,6 +30,7 @@ import {
   incrementDictationCount,
 } from './store'
 import { loadPersistedHistory } from '../history-store'
+import { isRewriteEntry } from '../../shared/history-entry'
 import { getSettings } from '../store'
 import { compactionGate, shouldKeepRetrying, type GateInput } from './compaction-gate'
 import { logInfo, logError } from '../log'
@@ -226,8 +227,17 @@ async function runCompaction(
   apiKey: string,
   rebuildFromScratch: boolean,
 ): Promise<CompactionResult> {
+  // Rewrites are excluded: they are edits to text the user already had,
+  // not statements about their work, and mining them teaches the overview
+  // things like "make this shorter".
+  //
+  // Via isRewriteEntry rather than a literal placeholder check — rewrites
+  // now store the real spoken instruction, so the old
+  // `transcript !== '(rewrite)'` test would let every new one through.
+  // The helper still recognises the placeholder in entries written before
+  // that changed.
   const dictations = loadPersistedHistory()
-    .filter((d) => d.transcript !== '(rewrite)')
+    .filter((d) => !isRewriteEntry(d))
     .slice(0, 50)
 
   if (dictations.length === 0) {
