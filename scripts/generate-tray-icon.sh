@@ -82,30 +82,38 @@ cat > "$TMP/tray.svg" <<'SVG'
         fill="none" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="0.4"/>
 
   <!--
-    SKEWED, not font-style="italic".
+    THE Y IS AN OUTLINE, not text, and this is the whole point of the file.
 
-    sips silently ignores font-style and rasterises roman, and the Yappr
-    mark is never upright. Naming the face "Georgia Italic" is worse: it
-    matches nothing and falls back to a sans.
+    The landing page draws this mark in Instrument Serif ITALIC. That is a
+    web font: it is not installed on the machine, so sips cannot see it and
+    falls back to Georgia without saying so. The first version of this icon
+    therefore shipped Georgia's roman Y with a skewX on it, which is a
+    synthetic oblique of the wrong letterform — Instrument Serif's italic Y
+    has a very different weight distribution and tail, and it looked wrong
+    next to the same mark on the site.
 
-    The translate cancels the skew's drift: skewX(a) maps (x,y) to
-    (x + y*tan(a), y), so at the y used below (11.6) with a=-11 the glyph
-    moves left by 11.6*tan(11) = 2.25. Translating back keeps it centred.
+    So the glyph is embedded as its own path, lifted straight out of the
+    font (Instrument Serif italic, unitsPerEm 1000, glyph "Y"). No font
+    dependency, identical output on any machine, and it is the real
+    letterform rather than an impression of one.
 
-    The Y's diagonal also makes it sit optically left in its box, which is
-    why .square-logo on the landing page carries a text-indent. The same
-    correction is folded into the translate here.
+    Font coordinates are y-UP and SVG is y-DOWN, hence the negative Y
+    scale. Glyph bbox is x 57..601, y 0..720, so its centre is (329,360);
+    the transform maps that onto the tile's centre (11,11) at a scale that
+    gives the letter 11px of height inside the 20px plate.
+
+    To regenerate after a font update:
+      python3 -c "from fontTools.ttLib import TTFont; \
+        from fontTools.pens.svgPathPen import SVGPathPen; \
+        f=TTFont('InstrumentSerif-Italic.ttf'); g=f.getGlyphSet(); \
+        p=SVGPathPen(g); g[f.getBestCmap()[ord('Y')]].draw(p); \
+        print(p.getCommands())"
   -->
-  <g transform="translate(2.55,0) skewX(-11)">
-    <text
-      x="11" y="11.6"
-      text-anchor="middle"
-      dominant-baseline="central"
-      font-family="Georgia, 'Times New Roman', serif"
-      font-size="14.5"
-      fill="#FFFFFF"
-    >Y</text>
-  </g>
+  <path
+    transform="translate(5.974,16.5) scale(0.015278,-0.015278)"
+    fill="#FFFFFF"
+    d="M71 0Q57 0 57 10Q57 21 72 23L119 30Q139 33 149.0 40.5Q159 48 163 69L217 305Q220 317 219.5 327.0Q219 337 216 348L140 656Q136 673 129.5 682.0Q123 691 107 695L99 697Q87 700 87 709Q87 720 105 720H270Q283 720 283 710Q283 698 263 697L243 695Q226 694 217.0 684.0Q208 674 213 653L276 388Q278 381 283.5 380.5Q289 380 294 387L471 632Q490 658 487.5 674.5Q485 691 462 694L441 697Q427 699 427 709Q427 720 443 720H587Q601 720 601 711Q601 700 584 697L573 695Q559 693 545.0 678.5Q531 664 507 631L315 368Q305 354 298.5 341.5Q292 329 288 313L232 69Q228 48 233.5 41.0Q239 34 258 30L297 23Q312 20 312 12Q312 0 294 0Z"
+  />
 </svg>
 SVG
 
