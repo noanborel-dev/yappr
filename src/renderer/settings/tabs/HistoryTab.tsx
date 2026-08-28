@@ -106,7 +106,7 @@ export default function HistoryTab() {
   )
 }
 
-// One entry, with a way back out of a bad cleanup.
+// One entry, with one button that gets your words back.
 //
 // The list used to offer exactly one button — copy the polished text —
 // which is fine until the polish is the thing that went wrong. Then the
@@ -114,10 +114,21 @@ export default function HistoryTab() {
 // while the raw transcript sat in the store with no way to reach it. A
 // user lost two minutes of dictation that way.
 //
-// So: the raw transcript is visible and copyable, and the AI pass can be
-// run again. Both read what is already stored; neither pastes anything,
-// because the reason you are in this window is that the automatic paste
-// was wrong.
+// The first attempt at a fix was a disclosure toggle over the raw text
+// with a copy button and a re-run button under it, and then a third
+// button on the result. Four clicks and a decision to recover from a
+// mistake the app made. That is a menu, not a rescue.
+//
+// It is one button now. It copies the transcript IMMEDIATELY — the part
+// that cannot fail, so the words are safe before anything else is
+// attempted — then re-runs the AI pass and, if that succeeds, upgrades
+// the clipboard to the better version. If the pass fails you still have
+// your words. The status line says which of the two you are holding,
+// because silently changing what is on someone's clipboard is only
+// acceptable if you tell them.
+//
+// It still pastes nothing and still does not rewrite the entry: that
+// entry is a record of what happened.
 function HistoryItem({
   item,
   copied,
@@ -128,43 +139,43 @@ function HistoryItem({
   onCopy: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  const [showRaw, setShowRaw] = useState(false)
-  const [rawCopied, setRawCopied] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [status, setStatus] = useState<string | null>(null)
   const [redone, setRedone] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [redoneCopied, setRedoneCopied] = useState(false)
 
   const said = spokenText(item)
   const isRewrite = isRewriteEntry(item)
-  // An entry recorded before rewrites kept their instruction. Saying so
-  // beats offering a button that copies nothing.
-  const lostWords = isRewrite && said.length === 0
+  // An entry from before rewrites kept their instruction. There is
+  // nothing to copy and nothing to re-run, so the button does not appear
+  // — an action that cannot work is worse than no action.
+  const recoverable = said.trim().length > 0
 
-  async function copyRaw() {
-    await navigator.clipboard.writeText(said)
-    setRawCopied(true)
-    window.setTimeout(() => setRawCopied(false), 1200)
-  }
-
-  async function copyRedone() {
-    if (!redone) return
-    await navigator.clipboard.writeText(redone)
-    setRedoneCopied(true)
-    window.setTimeout(() => setRedoneCopied(false), 1200)
-  }
-
-  async function repolish() {
+  async function recover() {
+    if (busy) return
     setBusy(true)
     setError(null)
+    setRedone(null)
+    try {
+      await navigator.clipboard.writeText(said)
+      setStatus('Transcription copied. Running the AI pass…')
+    } catch {
+      setStatus('Running the AI pass…')
+    }
+
     const res = await window.yappr.repolishHistoryEntry(item.id)
     setBusy(false)
     if (res.ok) {
       setRedone(res.text)
-      setShowRaw(true)
+      try {
+        await navigator.clipboard.writeText(res.text)
+        setStatus('New version copied — the transcription is below.')
+      } catch {
+        setStatus('Done. Copy whichever you want below.')
+      }
     } else {
       setError(res.error)
-      setShowRaw(true)
+      setStatus('Transcription copied — that is still on your clipboard.')
     }
   }
 
@@ -196,86 +207,85 @@ function HistoryItem({
                 <span>rewrite</span>
               </>
             )}
-            <button
-              onClick={() => setShowRaw((v) => !v)}
-              className="underline underline-offset-2 hover:text-ink transition-colors"
-            >
-              {showRaw ? 'hide what you said' : 'what you said'}
-            </button>
           </div>
         </div>
-        <button
-          onClick={onCopy}
-          aria-label="Copy to clipboard"
-          className={`shrink-0 text-[11px] font-medium rounded-pill px-3 py-1.5 transition-all border ${
-            copied
-              ? 'bg-ok/12 text-ok border-ok/30'
-              : 'border-line text-ink-60 hover:text-ink hover:bg-paper opacity-0 group-hover:opacity-100'
-          }`}
-        >
-          {copied ? 'Copied' : 'Copy'}
-        </button>
+
+        <div className="shrink-0 flex flex-col items-end gap-1.5">
+          <button
+            onClick={onCopy}
+            aria-label="Copy to clipboard"
+            className={`text-[11px] font-medium rounded-pill px-3 py-1.5 transition-all border ${
+              copied
+                ? 'bg-ok/12 text-ok border-ok/30'
+                : 'border-line text-ink-60 hover:text-ink hover:bg-paper opacity-0 group-hover:opacity-100'
+            }`}
+          >
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+          {recoverable && (
+            <button
+              onClick={recover}
+              disabled={busy}
+              className={[
+                'text-[11px] font-medium rounded-pill px-3 py-1.5 border whitespace-nowrap',
+                'transition-all border-line text-ink-60',
+                'hover:text-ink hover:bg-paper disabled:opacity-45 disabled:cursor-not-allowed',
+                // Visible on hover like Copy, but pinned open once it has
+                // been used — the status underneath belongs to it, and a
+                // control that vanishes from under its own result is
+                // disorienting.
+                busy || status ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+              ].join(' ')}
+            >
+              {busy ? 'Working…' : 'Copy transcription and rerun AI'}
+            </button>
+          )}
+        </div>
       </div>
 
-      {showRaw && (
+      {(status || error || redone !== null) && (
         <div className="mt-3 pt-3 border-t border-line-soft">
-          {lostWords ? (
-            <p className="text-[11.5px] text-ink-45 leading-relaxed m-0">
-              This rewrite was recorded before Yappr kept the words you spoke
-              for one. They weren&rsquo;t saved.
-            </p>
-          ) : (
-            <>
-              <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 mb-1.5">
-                What you said
-              </div>
-              <div className="text-[12px] leading-relaxed whitespace-pre-wrap break-words text-ink-60">
-                {said}
-              </div>
-              {isRewrite && item.rewrite && (
-                <>
-                  <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 mt-3 mb-1.5">
-                    Applied to
-                  </div>
-                  <div className="text-[12px] leading-relaxed whitespace-pre-wrap break-words text-ink-45">
-                    {item.rewrite.selection}
-                  </div>
-                </>
-              )}
-              <div className="flex items-center gap-2 mt-3 flex-wrap">
-                <Pill variant="secondary" size="sm" onClick={copyRaw}>
-                  {rawCopied ? 'Copied' : 'Copy what you said'}
-                </Pill>
-                <Pill variant="secondary" size="sm" onClick={repolish} disabled={busy}>
-                  {busy ? 'Running…' : 'Run the AI pass again'}
-                </Pill>
-              </div>
-            </>
+          {status && (
+            <p className="text-[11.5px] text-ink-45 leading-relaxed m-0">{status}</p>
           )}
-
           {error && (
-            <p className="text-[11.5px] text-danger mt-2.5 leading-relaxed m-0">{error}</p>
+            <p className="text-[11.5px] text-danger mt-1.5 leading-relaxed m-0">{error}</p>
           )}
 
           {redone !== null && (
-            <div className="mt-3">
+            <div className="mt-2.5">
               <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 mb-1.5">
                 New result
               </div>
               <div className="text-[12px] leading-relaxed whitespace-pre-wrap break-words bg-paper border border-line rounded-[9px] px-3 py-2.5">
                 {redone}
               </div>
-              {/* The new text replaces nothing on its own. The entry in the
-                  list is a record of what happened, and rewriting history
-                  to say something else happened would be a lie — so this
-                  goes to the clipboard and the user decides. */}
-              <div className="mt-2">
-                <Pill variant="secondary" size="sm" onClick={copyRedone}>
-                  {redoneCopied ? 'Copied' : 'Copy new result'}
-                </Pill>
-              </div>
             </div>
           )}
+
+          {/* The transcript, shown after the fact rather than behind a
+              toggle beforehand. Once you have pressed the button you are
+              recovering something, and at that point seeing the words is
+              the point — before it, it was a disclosure control nobody
+              had a reason to open. */}
+          <div className="mt-2.5">
+            <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 mb-1.5">
+              What you said
+            </div>
+            <div className="text-[12px] leading-relaxed whitespace-pre-wrap break-words text-ink-60">
+              {said}
+            </div>
+            {isRewrite && item.rewrite && (
+              <>
+                <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-ink-45 mt-2.5 mb-1.5">
+                  Applied to
+                </div>
+                <div className="text-[12px] leading-relaxed whitespace-pre-wrap break-words text-ink-45">
+                  {item.rewrite.selection}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
