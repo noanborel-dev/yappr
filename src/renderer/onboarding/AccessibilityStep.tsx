@@ -20,22 +20,39 @@ import { BrandLogo } from '../shared/ui/BrandLogo'
 import { MenuBar, NotchMark } from '../shared/ui/NotchMark'
 import type { NotchState } from '../indicator/notch-states'
 
-type Phase = 'quiet' | 'listening' | 'polishing' | 'landing' | 'settled'
+// 'clicking' is new, and it is the beat the step was missing. The demo
+// used to open with the composer already focused, which quietly assumed
+// the thing it is trying to teach: that the text goes into whatever field
+// YOU put your cursor in. Now a pointer crosses the mock, clicks the
+// field, and the stage leans in on that click — so by the time the
+// sentence arrives you have already been shown where "here" is.
+type Phase = 'quiet' | 'clicking' | 'listening' | 'polishing' | 'landing' | 'settled'
 
 // Long enough to read as a message someone would actually dictate, short
 // enough that typing it out fits inside one loop.
 const LANDED = 'Deploy is green — I will cut the release after standup.'
 
 const CHAR_MS = 22
-const LISTEN_AT = 320
-const POLISH_AT = 1500
-const LAND_AT = 2200
+// The pointer travels, then lands. Everything after it is pushed back by
+// the click, because the click is now the first thing that happens.
+const CLICK_AT = 620
+const LISTEN_AT = 1500
+const POLISH_AT = 2700
+const LAND_AT = 3400
 const HOLD_MS = 2200
+// How long the stage stays leaned in on the field after the click. Long
+// enough to register as "that one", short enough not to feel like a
+// transition that got stuck.
+const ZOOM_MS = 1100
 
 export function AccessibilityStep({ onNext }: { onNext: () => void }) {
   const [trusted, setTrusted] = useState(false)
   const [phase, setPhase] = useState<Phase>('quiet')
   const [typed, setTyped] = useState(0)
+  // Whether the stage is leaned in on the composer. Separate from `phase`
+  // because it starts a frame after the click and ends on its own clock —
+  // tying it to a phase would mean inventing a phase per camera move.
+  const [zoomed, setZoomed] = useState(false)
   // Always live. The step already offers "Later" — the permission can be
   // granted after onboarding, and trapping someone behind a System
   // Settings toggle they may not be able to reach is worse than letting
@@ -71,7 +88,11 @@ export function AccessibilityStep({ onNext }: { onNext: () => void }) {
     clear()
     setPhase('quiet')
     setTyped(0)
+    setZoomed(false)
 
+    at(() => setPhase('clicking'), CLICK_AT)
+    at(() => setZoomed(true), CLICK_AT + 40)
+    at(() => setZoomed(false), CLICK_AT + 40 + ZOOM_MS)
     at(() => setPhase('listening'), LISTEN_AT)
     at(() => setPhase('polishing'), POLISH_AT)
     at(() => setPhase('landing'), LAND_AT)
@@ -109,8 +130,56 @@ export function AccessibilityStep({ onNext }: { onNext: () => void }) {
 
   const openSettings = () => { void window.yappr.openAccessibilitySettings() }
 
+  const clicked = phase !== 'quiet'
+
   return (
-    <div className="max-w-[640px]">
+    // Wider than the other steps on purpose. This one is carried entirely
+    // by a picture — where the text goes — and at 640px the composer it
+    // has to point at was 11px type inside a 392px window.
+    <div className="max-w-[780px]">
+      <style>{`
+        /* The lean-in. transform-origin sits on the composer rather than
+           the middle of the stage, so the field grows toward the viewer
+           instead of the whole scene drifting. */
+        .ax-stage-inner {
+          transition: transform 520ms cubic-bezier(.22,1,.36,1);
+          transform-origin: 50% 78%;
+        }
+        .ax-stage-inner.is-zoomed { transform: scale(1.16); }
+
+        /* The nudge when the sentence lands. Two small knocks, not a
+           wobble: this is the field being written into, not an error. */
+        @keyframes ax-nudge {
+          0%, 100% { transform: translateX(0); }
+          20%      { transform: translateX(-2.5px); }
+          45%      { transform: translateX(2px); }
+          70%      { transform: translateX(-1px); }
+        }
+        .ax-nudge { animation: ax-nudge 300ms ease-out; }
+
+        /* The pointer crossing the window and pressing. */
+        @keyframes ax-pointer {
+          0%   { transform: translate(38px, 46px) scale(1); opacity: 0; }
+          18%  { opacity: 1; }
+          70%  { transform: translate(0, 0) scale(1); opacity: 1; }
+          80%  { transform: translate(0, 0) scale(0.82); opacity: 1; }
+          100% { transform: translate(0, 0) scale(1); opacity: 1; }
+        }
+        .ax-pointer { animation: ax-pointer 620ms cubic-bezier(.3,0,.2,1) both; }
+
+        /* The ring left behind by the press. */
+        @keyframes ax-ripple {
+          0%   { transform: scale(0.4); opacity: 0.55; }
+          100% { transform: scale(2.4); opacity: 0; }
+        }
+        .ax-ripple { animation: ax-ripple 520ms ease-out both; }
+
+        @media (prefers-reduced-motion: reduce) {
+          .ax-stage-inner { transition: none; }
+          .ax-stage-inner.is-zoomed { transform: none; }
+          .ax-nudge, .ax-pointer, .ax-ripple { animation: none; }
+        }
+      `}</style>
       <div className="flex items-center justify-between gap-4 mb-3">
         <div className="text-[10.5px] font-mono uppercase tracking-[0.18em] text-accent">
           Accessibility
@@ -131,22 +200,24 @@ export function AccessibilityStep({ onNext }: { onNext: () => void }) {
           <NotchMark state={notch} notchWidth={92} />
         </MenuBar>
 
-        <div className="px-8 pt-7 pb-7 bg-[linear-gradient(180deg,#0A0B0F_0%,#161B25_48%,#1E2534_100%)]">
-          <div className="mx-auto w-[392px] rounded-[12px] overflow-hidden bg-card border border-black/20 shadow-[0_22px_48px_-18px_rgba(0,0,0,0.7)]">
-            <div className="flex items-center gap-2 h-[26px] px-3 bg-cream2 border-b border-line">
-              <span className="flex items-center gap-[5px]" aria-hidden>
+        <div className="px-10 pt-9 pb-10 overflow-hidden bg-[linear-gradient(180deg,#0A0B0F_0%,#161B25_48%,#1E2534_100%)]">
+          <div
+            className={`ax-stage-inner mx-auto w-[540px] rounded-[14px] overflow-hidden bg-card border border-black/20 shadow-[0_22px_48px_-18px_rgba(0,0,0,0.7)] ${zoomed ? 'is-zoomed' : ''}`}
+          >
+            <div className="flex items-center gap-2 h-[32px] px-3.5 bg-cream2 border-b border-line">
+              <span className="flex items-center gap-[6px]" aria-hidden>
                 <Dot color="#FF5F57" /><Dot color="#FEBC2E" /><Dot color="#28C840" />
               </span>
-              <span className="ml-1 flex items-center gap-1.5">
-                <BrandLogo brand="slack" size={11} />
-                <span className="text-[10px] font-medium text-ink-60">#launch</span>
+              <span className="ml-1 flex items-center gap-2">
+                <BrandLogo brand="slack" size={14} />
+                <span className="text-[12px] font-medium text-ink-60">#launch</span>
               </span>
             </div>
 
-            <div className="relative px-3.5 pt-3 pb-3.5">
-              <div className="flex items-center gap-2 mb-2.5 opacity-40">
-                <span className="w-[15px] h-[15px] rounded-[4px] bg-ink/20 shrink-0" aria-hidden />
-                <span className="text-[10.5px] text-ink-60">any word on the release?</span>
+            <div className="relative px-5 pt-4 pb-5">
+              <div className="flex items-center gap-2.5 mb-3.5 opacity-40">
+                <span className="w-[19px] h-[19px] rounded-[5px] bg-ink/20 shrink-0" aria-hidden />
+                <span className="text-[13px] text-ink-60">any word on the release?</span>
               </div>
 
               {/* Not granted: the sentence stops here, on the clipboard,
@@ -163,28 +234,56 @@ export function AccessibilityStep({ onNext }: { onNext: () => void }) {
                 </div>
               )}
 
-              <div
-                className={[
-                  'flex items-center gap-2 rounded-[9px] border border-cobalt bg-paper px-2.5 min-h-[36px]',
-                  'transition-shadow duration-300',
-                  phase === 'listening' || phase === 'polishing'
-                    ? 'shadow-[0_0_0_3px_rgba(90,143,232,0.22)]'
-                    : 'shadow-none',
-                ].join(' ')}
-              >
-                <p className="flex-1 min-w-0 text-[11.5px] leading-[1.5] py-2 text-ink">
-                  {typed > 0
-                    ? LANDED.slice(0, typed)
-                    : <span className="text-ink-45">Message #launch</span>}
-                  <span className="ps-cursor ml-[1px]" aria-hidden />
-                </p>
-                {typed > 0 && (
-                  <span
-                    aria-hidden
-                    className="shrink-0 w-[20px] h-[20px] rounded-full bg-cobalt text-white flex items-center justify-center text-[10px] animate-checkPop"
-                  >
-                    ↑
-                  </span>
+              <div className="relative">
+                <div
+                  // Keyed on `typed > 0` so the nudge replays the moment
+                  // the first character arrives, and only then.
+                  key={typed > 0 ? 'filled' : 'empty'}
+                  className={[
+                    'flex items-center gap-2.5 rounded-[11px] bg-paper px-3.5 min-h-[52px]',
+                    'transition-[box-shadow,border-color] duration-300',
+                    // Unfocused until the pointer clicks it. The border is
+                    // the difference between "a field" and "the field your
+                    // cursor is in", which is the entire subject here.
+                    clicked ? 'border-2 border-cobalt' : 'border border-line',
+                    phase === 'listening' || phase === 'polishing'
+                      ? 'shadow-[0_0_0_4px_rgba(90,143,232,0.22)]'
+                      : 'shadow-none',
+                    typed > 0 ? 'ax-nudge' : '',
+                  ].join(' ')}
+                >
+                  <p className="flex-1 min-w-0 text-[14px] leading-[1.5] py-2.5 text-ink">
+                    {typed > 0
+                      ? LANDED.slice(0, typed)
+                      : <span className="text-ink-45">Message #launch</span>}
+                    {clicked && <span className="ps-cursor ml-[1px]" aria-hidden />}
+                  </p>
+                  {typed > 0 && (
+                    <span
+                      aria-hidden
+                      className="shrink-0 w-[26px] h-[26px] rounded-full bg-cobalt text-white flex items-center justify-center text-[12px] animate-checkPop"
+                    >
+                      ↑
+                    </span>
+                  )}
+                </div>
+
+                {/* The pointer, and the ring it leaves. Rendered only for
+                    the one beat it exists — a cursor parked on screen for
+                    the rest of the loop reads as a stuck mouse. */}
+                {phase === 'clicking' && (
+                  <>
+                    <span
+                      aria-hidden
+                      className="ax-ripple absolute left-[26px] top-1/2 -mt-[13px] w-[26px] h-[26px] rounded-full bg-cobalt/40 pointer-events-none"
+                    />
+                    <span
+                      aria-hidden
+                      className="ax-pointer absolute left-[30px] top-1/2 -mt-[4px] pointer-events-none"
+                    >
+                      <CursorIcon />
+                    </span>
+                  </>
                 )}
               </div>
             </div>
@@ -260,6 +359,27 @@ function StatusChip({ on }: { on: boolean }) {
       />
       {on ? 'on' : 'off'}
     </span>
+  )
+}
+
+/**
+ * The macOS arrow pointer, drawn rather than emoji'd.
+ *
+ * White fill with a dark outline so it stays visible over both the cream
+ * composer and the field's blue focus ring, which is the whole path it
+ * travels.
+ */
+function CursorIcon() {
+  return (
+    <svg viewBox="0 0 16 20" className="w-[16px] h-[20px] drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
+      <path
+        d="M1 1 L1 15.2 L4.9 11.7 L7.4 17.6 L9.9 16.5 L7.5 10.8 L12.6 10.4 Z"
+        fill="#FFFFFF"
+        stroke="#15161A"
+        strokeWidth="1.1"
+        strokeLinejoin="round"
+      />
+    </svg>
   )
 }
 

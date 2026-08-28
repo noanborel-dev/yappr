@@ -10,7 +10,6 @@ import { AccessibilityStep } from './AccessibilityStep'
 import { KeyStep } from './KeyStep'
 import { NotchStep } from './NotchStep'
 import { PolishStep } from './PolishStep'
-import { ContextTeachStep } from './ContextTeachStep'
 import { PracticeStep } from './PracticeStep'
 import { OnboardingNavProvider, useAdvanceOnEnter, useOnboardingNav } from './nav'
 import { EnterCue } from './EnterCue'
@@ -35,6 +34,11 @@ import { EnterCue } from './EnterCue'
 // moment it is given, so `finish()` has nothing left to write but the
 // first-run flag.
 
+// 'Context' is gone. It was a textarea headed "What are you working on?"
+// asking the user to type a paragraph about themselves — a form, in a
+// flow whose whole method is that you learn this by doing it. Practice,
+// two screens later, already has them hold the key and talk, and context
+// memory fills itself from real dictations anyway.
 const STEPS = [
   'Welcome',
   'Mic',
@@ -42,7 +46,6 @@ const STEPS = [
   'Key',
   'Notch',
   'Polish',
-  'Context',
   'Practice',
   'Done',
 ] as const
@@ -156,9 +159,8 @@ export default function OnboardingApp() {
           {step === 3 && <KeyStep onNext={next} />}
           {step === 4 && <NotchStep onNext={next} />}
           {step === 5 && <PolishStep onNext={next} />}
-          {step === 6 && <ContextTeachStep onNext={next} />}
-          {step === 7 && <PracticeStep onNext={next} />}
-          {step === 8 && <Done onFinish={finish} />}
+          {step === 6 && <PracticeStep onNext={next} />}
+          {step === 7 && <Done onFinish={finish} />}
         </main>
         <EnterCue visible={ready} />
       </OnboardingNavProvider>

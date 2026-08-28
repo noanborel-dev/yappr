@@ -123,23 +123,24 @@ export function NotchStep({ onNext }: { onNext: () => void }) {
     return (
       <div className="max-w-[640px]">
         <SliderStyles />
-        <Head
-          eyebrow="Display"
-          title={<>Look <em className="italic">up</em>.</>}
-          lede="Yappr is on your notch right now. Drag until its edges meet the black."
-        />
+        {/* No lede, and no grey note under the diagram. This screen had
+            two sentences of explanation ("Yappr is on your notch right
+            now…", "For reference — the one to watch is at the top of your
+            screen") for an interaction that is one slider changing one
+            width. The band moves as you drag; that is the entire lesson,
+            and a paragraph about it only gave the eye somewhere else to
+            go. What is left is the shape, the slider, and an arrow. */}
+        <Head eyebrow="Display" title={<>Look <em className="italic">up</em>.</>} />
 
-        {/* Demoted to a diagram. The live shape is on the hardware above
-            this window — showing a second one at full size invited the
-            user to calibrate the copy, which is exactly what happened. */}
-        <div className="animate-slideUp opacity-60" style={{ animationDelay: '60ms' }}>
+        {/* Full opacity now. It was dimmed to 60% to demote it below the
+            live indicator on the hardware, but a half-faded diagram
+            directly above the control that drives it reads as disabled. */}
+        <div className="animate-slideUp" style={{ animationDelay: '60ms' }}>
           <Stage bandPx={Math.round(width * PT_TO_PX)} readout={`${width} pt`} />
         </div>
-        <p className="text-[11.5px] text-ink-45 mt-2">
-          For reference — the one to watch is at the top of your screen.
-        </p>
 
-        <div className="mt-5 animate-slideUp" style={{ animationDelay: '140ms' }}>
+        <div className="mt-7 animate-slideUp" style={{ animationDelay: '140ms' }}>
+          <AdjustCue />
           <WidthSlider
             value={width}
             min={NOTCH_WIDTH_MIN_PT}
@@ -176,7 +177,11 @@ export function NotchStep({ onNext }: { onNext: () => void }) {
       {showing && (
         <div className="mt-5 animate-slideUp">
           <Stage bandPx={Math.round(barWidth * PT_TO_PX)} readout={`${barWidth} pt`} />
-          <div className="mt-5">
+          <div className="mt-7">
+            {/* Same cue on the machine with no cutout. The slider is just
+                as quiet here, and this is the branch where the user has
+                never seen the shape before. */}
+            <AdjustCue />
             <WidthSlider
               value={barWidth}
               min={PLACEHOLDER_MIN_PT}
@@ -268,6 +273,42 @@ function BarGlyphs() {
 }
 
 // ─── Controls ───────────────────────────────────────────────────────
+
+/**
+ * The arrow that says "this one".
+ *
+ * The slider is the only thing to do on this screen and it still needed
+ * pointing at, because a track and a thumb are quiet objects — they look
+ * like a readout until something tells you they are a control. An arrow
+ * has a direction, and the bob is what makes the eye go to it; a static
+ * one becomes furniture within a second.
+ *
+ * The four words under it are the cue's own label, not the explanatory
+ * copy this screen just lost. They say what to do, not how it works.
+ */
+function AdjustCue() {
+  return (
+    <div className="flex flex-col items-center gap-1 mb-2" aria-hidden>
+      <span className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-accent">
+        adjust it to your liking
+      </span>
+      <svg
+        viewBox="0 0 18 22"
+        className="w-[18px] h-[22px] text-accent animate-notchArrow"
+        fill="none"
+        stroke="currentColor"
+      >
+        <path d="M9 2 V 15" strokeWidth="2" strokeLinecap="round" />
+        <path
+          d="M3.5 10 L 9 16 L 14.5 10"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </div>
+  )
+}
 
 function WidthSlider({
   value,
@@ -433,25 +474,40 @@ function Continue({ onNext }: { onNext: () => void }) {
 function SliderStyles() {
   return (
     <style>{`
-      .ns-range { -webkit-appearance: none; appearance: none; height: 20px; background: transparent; cursor: pointer; }
+      /* Sized up from a 4px track and an 18px thumb. This is the only
+         control on the screen and it read as a readout — a hairline with
+         a dot on it. At 8px and 30px it reads as a handle, which is the
+         one thing the screen needs the eye to find. */
+      .ns-range { -webkit-appearance: none; appearance: none; height: 34px; background: transparent; cursor: pointer; }
       .ns-range:focus { outline: none; }
       .ns-range::-webkit-slider-runnable-track {
-        height: 4px; border-radius: 999px;
+        height: 8px; border-radius: 999px;
         background: linear-gradient(to right,
           #C8553D 0%, #C8553D var(--fill),
           rgba(21,22,26,.10) var(--fill), rgba(21,22,26,.10) 100%);
       }
       .ns-range::-webkit-slider-thumb {
         -webkit-appearance: none; appearance: none;
-        width: 18px; height: 18px; border-radius: 999px;
-        background: #FBF9F1; border: 1.5px solid #C8553D;
-        box-shadow: 0 1px 3px rgba(21,22,26,.22);
-        margin-top: -7px; /* centres an 18px thumb on a 4px track */
+        width: 30px; height: 30px; border-radius: 999px;
+        background: #FBF9F1; border: 2px solid #C8553D;
+        box-shadow: 0 2px 6px rgba(21,22,26,.24);
+        margin-top: -11px; /* centres a 30px thumb on an 8px track */
         transition: transform 120ms ease, box-shadow 120ms ease;
       }
       .ns-range:hover::-webkit-slider-thumb { transform: scale(1.06); }
       .ns-range:active::-webkit-slider-thumb { transform: scale(1.14); }
-      .ns-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(200,85,61,.22); }
+      .ns-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(200,85,61,.22); }
+
+      /* Nudges toward the slider and back. Rests for most of the cycle —
+         a cue that never stops moving stops being a cue. */
+      @keyframes ns-arrow {
+        0%, 55%, 100% { transform: translateY(0); }
+        75%           { transform: translateY(5px); }
+      }
+      .animate-notchArrow { animation: ns-arrow 1.7s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) {
+        .animate-notchArrow { animation: none; }
+      }
     `}</style>
   )
 }

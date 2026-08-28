@@ -11,7 +11,7 @@
 // convincing app UIs shrink into three generic boxes, and the whole point
 // is that they should look like the real thing.
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useAdvanceOnEnter } from './nav'
 import type { CategoryStrictness, Strictness } from '../../shared/types'
 import { BrandLogo, type BrandSlug } from '../shared/ui/BrandLogo'
@@ -76,10 +76,6 @@ const LANES: Lane[] = [
 ]
 
 export function PolishStep({ onNext }: { onNext: () => void }) {
-  // Every option here ships with a default, so there is nothing to wait
-  // for — the screen is showing you what the settings do, not demanding
-  // a decision before you are allowed on.
-  useAdvanceOnEnter(true)
   // Seeded with the shipped defaults so the mock renders text on the
   // first frame — a spinner here would hide the only thing on screen.
   const [strictness, setStrictness] = useState<CategoryStrictness>({
@@ -89,6 +85,19 @@ export function PolishStep({ onNext }: { onNext: () => void }) {
   })
   const [laneId, setLaneId] = useState<LaneId>('personal')
   const [seen, setSeen] = useState<LaneId[]>(['personal'])
+
+  // A level the screen is SHOWING, not one the user has chosen.
+  //
+  // The step opened parked on whichever level was already saved, so the
+  // thing it exists to demonstrate — that the same sentence comes out
+  // three different ways — only happened if you thought to drag the
+  // control. Now it walks Light, Balanced, Strict on arrival and on every
+  // lane change, then hands the display back to the saved value.
+  //
+  // Deliberately NOT written to settings: this is a demo, and a screen
+  // that silently changes a preference while you watch it is a screen you
+  // cannot trust. null means "showing the real setting".
+  const [preview, setPreview] = useState<Strictness | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -102,11 +111,30 @@ export function PolishStep({ onNext }: { onNext: () => void }) {
     return () => { alive = false }
   }, [])
 
+  // The cycle. One timeout chain per lane, cleared on lane change so two
+  // lanes can never drive the display at once.
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    setPreview(1)
+    const t = [
+      window.setTimeout(() => setPreview(2), 1150),
+      window.setTimeout(() => setPreview(3), 2300),
+      // Back to whatever is actually saved, so the screen ends up telling
+      // the truth about the setting rather than leaving Strict on screen.
+      window.setTimeout(() => setPreview(null), 3500),
+    ]
+    return () => t.forEach(window.clearTimeout)
+  }, [laneId])
+
   // Persist per click rather than on Continue: the user can close the
   // window from the traffic lights at any point. Every onboarding step
   // writes its own answer at the moment it is given (NotchStep does the
   // same on drag) — the shell no longer batches a save at the end.
   function setLevel(id: LaneId, level: Strictness) {
+    // Touching the control ends the demo. Otherwise the next scheduled
+    // tick would overwrite the choice a second after it was made, which
+    // reads as the app arguing with you.
+    setPreview(null)
     const next: CategoryStrictness = { ...strictness }
     next[id] = level
     setStrictness(next)
@@ -119,9 +147,27 @@ export function PolishStep({ onNext }: { onNext: () => void }) {
   }
 
   const lane = LANES.find((l) => l.id === laneId) ?? LANES[0]
-  const level = strictness[lane.id]
+  const level = preview ?? strictness[lane.id]
   const text = lane.out[level]
   const unseen = LANES.find((l) => !seen.includes(l.id))
+
+  // Enter walks the three registers, then leaves. Same key, same cue, and
+  // it does what the button beside it does — the button already worked
+  // this way and the keyboard had no equivalent, so Enter used to skip
+  // two thirds of the screen.
+  //
+  // Never gated: every option here ships with a default, so there is
+  // nothing to wait for. Passing undefined once they are all seen hands
+  // Enter back to the shell, which moves to the next step.
+  const unseenId = unseen?.id
+  const goNextLane = useCallback(
+    () => { if (unseenId) show(unseenId) },
+    // `show` is stable enough in practice (it only closes over setState),
+    // and depending on it would rebuild this every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [unseenId],
+  )
+  useAdvanceOnEnter(true, unseenId ? goNextLane : undefined)
 
   return (
     <div className="max-w-[640px]">
@@ -135,35 +181,6 @@ export function PolishStep({ onNext }: { onNext: () => void }) {
       >
         {lane.question}
       </h1>
-
-      <div className="inline-flex items-center gap-0.5 bg-ink/[0.05] rounded-pill p-0.5 mb-4">
-        {LANES.map((l) => {
-          const on = l.id === lane.id
-          return (
-            <button
-              key={l.id}
-              onClick={() => show(l.id)}
-              className={[
-                'flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-pill text-[11.5px] font-medium',
-                'transition-colors duration-150',
-                on ? 'bg-ink text-paper' : 'text-ink-60 hover:text-ink',
-              ].join(' ')}
-            >
-              <span className="flex items-center -space-x-1.5">
-                {l.apps.map((brand) => (
-                  <span
-                    key={brand}
-                    className="w-[18px] h-[18px] rounded-full bg-white ring-1 ring-ink-08 flex items-center justify-center overflow-hidden"
-                  >
-                    <BrandLogo brand={brand} size={12} />
-                  </span>
-                ))}
-              </span>
-              {l.tab}
-            </button>
-          )
-        })}
-      </div>
 
       <Heard />
 
@@ -183,9 +200,49 @@ export function PolishStep({ onNext }: { onNext: () => void }) {
         </div>
       </div>
 
+      {/* THE THREE REGISTERS, at the bottom and as cards.
+          They were a pill-tab row above the demo, at 11.5px with 18px
+          logos — sized like a filter control for a table. They are not a
+          filter; they are the three things this screen is about, and each
+          one is a separate setting the user is being asked to form an
+          opinion on. So they sit under the proof, at a size that says
+          "pick one", rather than over it at a size that says "sort by". */}
+      <div className="grid grid-cols-3 gap-2.5 mb-6">
+        {LANES.map((l) => {
+          const on = l.id === lane.id
+          return (
+            <button
+              key={l.id}
+              onClick={() => show(l.id)}
+              className={[
+                'rounded-card border px-4 py-3.5 flex flex-col items-center gap-2',
+                'transition-[background,border-color,box-shadow,transform] duration-200',
+                on
+                  ? 'border-accent/45 bg-accent-soft shadow-lift -translate-y-[1px]'
+                  : 'border-line bg-card hover:border-ink-08 hover:-translate-y-[1px]',
+              ].join(' ')}
+            >
+              <span className="flex items-center -space-x-2">
+                {l.apps.map((brand) => (
+                  <span
+                    key={brand}
+                    className="w-[30px] h-[30px] rounded-full bg-white ring-1 ring-ink-08 flex items-center justify-center overflow-hidden"
+                  >
+                    <BrandLogo brand={brand} size={19} />
+                  </span>
+                ))}
+              </span>
+              <span className={`text-[13.5px] font-semibold ${on ? 'text-ink' : 'text-ink-60'}`}>
+                {l.tab}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
       {/* One button drives the three rounds and then leaves — a separate
           "next register" control would compete with Continue for the same
-          click. Jumping via the tabs is still honoured: it advances to
+          click. Jumping via the cards is still honoured: it advances to
           whatever is left rather than to the next in order. */}
       <Pill variant="primary" onClick={() => (unseen ? show(unseen.id) : onNext())}>
         {unseen ? 'Next →' : 'Continue →'}
