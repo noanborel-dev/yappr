@@ -129,7 +129,19 @@ export function PromptShapingStage() {
   const dropping = phase === 'polishing' || phase === 'writing' || phase === 'hold'
 
   return (
-    <div className="stage-bleed bg-cream2/60 border-y border-line px-9 pt-0 pb-7 mb-7">
+    // A CARD, not a full-bleed stage.
+    //
+    // This ran edge to edge with a 300px terminal under a 132px
+    // transcript and a full-width menu-bar strip above both — over 500px,
+    // which is the entire first screenful of the pane. The context memory
+    // section underneath it was invisible until you scrolled, and nothing
+    // suggested there was anything to scroll to.
+    //
+    // It is a demo of a feature that is always on and has no settings, so
+    // it does not get to own the screen. Same card treatment as Hotkey and
+    // Polish, roughly half the height, and the section that DOES have
+    // controls now starts above the fold.
+    <div className="ps-compact bg-card border border-line rounded-card overflow-hidden mb-7">
       {/* The indicator hangs from a menu bar, as it must — and moves
           through the same states the text below is moving through.
 
@@ -145,13 +157,13 @@ export function PromptShapingStage() {
           growing out of it. Near-black does the same structural job and
           lets the notch merge with it, which is what it does on a real
           screen. */}
-      <div className="-mx-9 mb-6 bg-[#0A0B0F]">
+      <div className="bg-[#0A0B0F]">
         <MenuBar>
-          <NotchMark state={NOTCH_FOR[phase]} notchWidth={92} />
+          <NotchMark state={NOTCH_FOR[phase]} notchWidth={72} scale={0.82} />
         </MenuBar>
       </div>
 
-      <div className="ps-stage">
+      <div className="ps-stage px-5 pt-4 pb-5">
         <div className={`ps-said ${phase === 'idle' ? 'dim' : ''}`}>
           <span className="ps-said-label">you said</span>
           <p>

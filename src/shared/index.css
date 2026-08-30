@@ -249,6 +249,37 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .ps-out { height: 300px; display: flex; }
 .ps-out .cc-window { flex: 1; min-width: 0; }
 
+/* === The compact card, used on the AI pane ===================
+   Same demo, roughly half the height. It ran over 500px edge-to-edge and
+   owned the whole first screenful of a pane whose only actual SETTINGS
+   live underneath it — so nothing suggested there was anything below to
+   scroll to. This is a feature with no controls; it does not get the
+   fold.
+
+   Everything here is a size, not a behaviour: the sequence, the
+   highlighting and the fixed heights that stop it jittering all still
+   work exactly as they do at full size. */
+.ps-compact .ps-said {
+  height: 84px;
+  padding: 24px 16px 14px;
+  border-radius: 11px;
+  box-shadow: 0 10px 24px -22px rgba(20, 30, 50, 0.22);
+}
+.ps-compact .ps-said-label { top: 9px; left: 16px; font-size: 8.5px; }
+.ps-compact .ps-said p { font-size: 14.5px; line-height: 1.35; }
+.ps-compact .ps-mid { height: 18px; }
+.ps-compact .ps-out { height: 176px; }
+/* The terminal's own type has to come down with the window, or the shell
+   renders three lines and clips the rest of the prompt it is there to
+   show. */
+.ps-compact .ps-out .cc-content { padding: 10px 12px 0; }
+.ps-compact .ps-out .cc-box { padding: 8px 11px; gap: 10px; }
+.ps-compact .ps-out .cc-mascot { width: 30px; height: 22px; }
+.ps-compact .ps-out .cc-meta { font-size: 9.5px; }
+.ps-compact .ps-out .cc-meta .welcome { font-size: 10.5px; }
+.ps-compact .ps-out .cc-input { margin: auto 12px 11px; min-height: 96px; }
+.ps-compact .ps-out .cc-md { font-size: 10px; line-height: 1.5; }
+
 /* === Per-app polish fan-out ================================= */
 .pap-stage { position: relative; padding: 4px 0 0; }
 .pap-raw {
