@@ -31,7 +31,12 @@ const ITEMS: Array<{ q: React.ReactNode; a: React.ReactNode }> = [
   },
   {
     q: "What runs the cleanup?",
-    a: "Whisper large-v3-turbo runs locally for transcription. Cleanup runs on Groq's Llama. No OpenAI dependency.",
+    // Parakeet, not Whisper. The whisper tiers (base / small /
+    // large-v3-turbo) were retired when parakeet-tdt-0.6b-v3 matched them
+    // on English and removed the auto-elevation machinery — see the app's
+    // CLAUDE.md. This line kept naming a model the product no longer ships,
+    // which is the kind of claim someone checks.
+    a: "Parakeet runs locally for transcription — on-device, so your audio never leaves your Mac. Cleanup runs on Groq's Llama. No OpenAI dependency.",
   },
   {
     q: "Windows or Linux?",

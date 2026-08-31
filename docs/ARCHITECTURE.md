@@ -65,19 +65,48 @@ Each of these is currently absent:
    lever — that risk becomes real the moment the key is ours.
 4. **A revised privacy claim.** This is the important one.
 
-### The privacy claim has to change
+### The privacy claim — precisely which half breaks
 
-*"Our servers are not in the path"* is true under BYOK and **false** under a
-proxy. It is on the live site, in the FAQ, marked approved verbatim.
+Split audio from text. They are not in the same position, and conflating
+them either overstates the problem or hides it.
 
-Transcription is unaffected — it is local (Parakeet, on-device) and stays
-local. What changes is cleanup: the **text** of a dictation would pass
-through Yappr's infrastructure. The honest replacement is narrower and
-still strong: *audio never leaves your Mac; transcription happens
-on-device; only the text of a dictation is sent for cleanup.*
+**Audio — safe, but only by a decision you must keep making.**
+
+Audio does not leave the machine today, and this is stronger than a
+default: `getSettings()` in `src/main/store.ts` **hard-coerces**
+`provider.provider = 'local'` on every single read. The cloud-transcription
+branch in `buildProviders` is therefore unreachable in the shipping build.
+
+That is also a trap. Delete one line of coercion and
+`createGroqTranscriptionProvider` starts uploading audio, with no other
+code change and nothing on screen to say so — and the FAQ's *"the audio
+doesn't leave the machine at all"* becomes false silently. **Keep
+transcription on-device.** It is free (Parakeet, ~37ms at 1s) and it is the
+only reason the audio claim survives the move to a subscription.
+
+**Transcripts — this is the claim that actually breaks.**
+
+The transcript text already goes to a cloud model for cleanup; that is not
+new. What is new is *whose* server. Today it goes from the user's machine
+to Groq under the user's own key, so **Yappr never sees it**. Behind a
+proxy, every transcript passes through Yappr's infrastructure.
+
+So the position after the change is:
+
+| | Today (BYOK) | Behind the proxy |
+|---|---|---|
+| Audio | Never leaves the Mac | Unchanged, **if** transcription stays local |
+| Transcript text | Goes to Groq, not to Yappr | **Goes through Yappr** |
+| Keys | The user's own | There are none |
+
+*"Our servers are not in the path"* is true today and false behind the
+proxy. The honest replacement keeps the strong half and drops the part
+that stops being true: *your audio never leaves your Mac — transcription
+runs on-device. The text is sent for cleanup and is never stored or
+trained on.*
 
 Do not quietly reword the approved copy. Raise it, get a decision, then
-change the FAQ, `YapprLanding/CLAUDE.md`, and `CLAUDE.md` together.
+change the FAQ, `YapprLanding/CLAUDE.md` and `CLAUDE.md` together.
 
 ---
 
