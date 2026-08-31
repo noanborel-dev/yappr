@@ -11,8 +11,20 @@ lands at the cursor.
 > `mv` plus `git worktree repair`; nothing in the repo depends on it.
 
 > **Not open source.** Yappr is closed-source. Never describe it as OSS,
-> MIT-licensed, auditable, self-hostable, or forkable. The differentiation is
-> *creative product + BYOK transparency*, not source availability.
+> MIT-licensed, auditable, self-hostable, or forkable.
+
+> **Source of truth: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).** Read
+> it before answering anything about the business model, pricing, or where
+> audio and text travel. It wins over any other file, including this one.
+>
+> **Yappr is a monthly subscription. Users do NOT bring their own API key.**
+> The code and the landing site still implement and describe the older
+> bring-your-own-key model — that gap is real, deliberate to record, and
+> catalogued in that file. Do not "fix" the discrepancy by assuming BYOK is
+> current; an assistant reading only the repo already made that mistake.
+>
+> Keep it current in the same commit whenever you change who pays, who
+> supplies the inference key, or any claim about where data goes.
 
 ---
 
