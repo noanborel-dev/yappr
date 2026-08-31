@@ -104,6 +104,33 @@ const DEEP_SIGNALS: RegExp[] = [
   /\bthink through\b|\bfigure out how (?:to|we)\b|\bwork out how (?:to|we)\b/i,
   // The user's own example: reasoning across a whole stack.
   /\b(?:tech|technology) stack\b|\bfull stack\b/i,
+
+  // ── Added from a survey of real dictations that should have fired ──
+  //
+  // Still shapes, never size. Each of these describes work whose ANSWER
+  // is a judgement rather than an edit, which is the line this list has
+  // always drawn.
+
+  // Getting something over a bar. "Ready for beta testers" is a plan with
+  // security, limits and polish in it, not a task.
+  /\bready (?:for|to)\s+(?:beta|launch|ship|shipping|production|release|users?|testers?|customers?)\b/i,
+  /\bproduction[- ]ready\b|\bgo[- ]live\b/i,
+
+  // Being asked to judge something rather than change it.
+  /\b(?:review|audit|evaluate|assess|critique)\b[^.?!]{0,60}\b(?:security|architecture|codebase|code base|approach|approaches|design|performance|cost|costs|plan|options|feature list|list of)\b/i,
+  /\bidentify\b[^.?!]{0,40}\b(?:pitfalls?|risks?|gaps?|bottlenecks?|trade[- ]?offs?)\b/i,
+
+  // Choosing. A question with alternatives in it wants reasoning, not a
+  // diff — "should we X or Y", "what's the best way to Z".
+  /\bbest way to\b|\bbest approach\b/i,
+  /\b(?:how|what) should (?:we|i)\b/i,
+  /\bshould (?:we|i)\b[^.?!]{0,70}\bor\b/i,
+  /\bprioriti[sz]e\b/i,
+
+  // Cost and performance as a subject, not a passing mention. Both are
+  // trade-off questions by nature.
+  /\b(?:reduce|cut|lower|limit)\b[^.?!]{0,30}\b(?:cost|costs|spend|latency|token usage)\b/i,
+  /\b(?:security|scalability|reliability)\b[^.?!]{0,40}\b(?:review|audit|concerns?|issues?|holes?|hardening)\b/i,
 ]
 
 // Ordinary verbs that only imply depth when aimed at something broad.
@@ -145,26 +172,67 @@ function explicitMatch(input: string): RegExpExecArray | null {
  *               anywhere; putting it first keeps the user's own wording
  *               untouched below it.
  */
-export function applyUltrathink(text: string, opts: { enabled: boolean }): UltrathinkResult {
+export function applyUltrathink(
+  text: string,
+  opts: {
+    enabled: boolean
+    /**
+     * WHAT THE USER ACTUALLY SAID, before cleanup rewrote it.
+     *
+     * This is the whole reason the feature was not working. The mapping
+     * runs at the end of the pipeline, on the CLEANED text — which for a
+     * Claude Code dictation is a restructured `## Goal / ## Tasks` prompt
+     * the model has paraphrased. Cleanup normalises away exactly the
+     * phrases this detects:
+     *
+     *   said:    "I'd like to figure out how we can make the app faster"
+     *   cleaned: "## Goal Determine ways to accelerate the app"
+     *
+     * "figure out how we" is a trigger. "Determine ways to" is not. On a
+     * survey of twelve real dictations into Claude Code, the detector
+     * fired on one when reading the transcript and NONE when reading the
+     * cleaned text it is actually given.
+     *
+     * So it now decides from the transcript and applies to the output.
+     * Optional, and falls back to `text`, so a caller with only one
+     * string behaves as before.
+     */
+    spoken?: string
+  },
+): UltrathinkResult {
   if (!opts.enabled) return { text, applied: false, trigger: null }
   const input = text ?? ''
+  const source = (opts.spoken ?? input) || input
 
-  const match = explicitMatch(input)
+  // Already there — never stack a second copy, whichever route found it.
+  const present = new RegExp(`\\b${ULTRATHINK_KEYWORD}\\b`, 'i')
+  if (present.test(input)) return { text: input, applied: false, trigger: null }
+
+  const match = explicitMatch(source)
   if (match) {
-    // Emit the keyword in lowercase even at the start of a sentence: it
-    // is a magic token, not a word, and an exact match is worth more
-    // than correct-looking capitalisation.
-    const replaced =
-      input.slice(0, match.index) + ULTRATHINK_KEYWORD + input.slice(match.index + match[0].length)
-    // Collapse the double space left when the phrase was mid-sentence.
-    return { text: replaced.replace(/\s{2,}/g, ' ').trim(), applied: true, trigger: 'explicit' }
+    // Replace the phrase in place when the OUTPUT still contains it —
+    // that keeps the sentence reading naturally. After cleanup it usually
+    // does not, so the keyword goes on its own line at the top instead,
+    // which is where Claude Code wants it anyway.
+    const spokenPhrase = match[0]
+    const at = input.toLowerCase().indexOf(spokenPhrase.toLowerCase())
+    if (at !== -1) {
+      // Emit the keyword in lowercase even at the start of a sentence: it
+      // is a magic token, not a word, and an exact match is worth more
+      // than correct-looking capitalisation.
+      const replaced =
+        input.slice(0, at) + ULTRATHINK_KEYWORD + input.slice(at + spokenPhrase.length)
+      // Collapse the double space left when the phrase was mid-sentence.
+      return { text: replaced.replace(/\s{2,}/g, ' ').trim(), applied: true, trigger: 'explicit' }
+    }
+    return {
+      text: `${ULTRATHINK_KEYWORD}\n\n${input.trim()}`,
+      applied: true,
+      trigger: 'explicit',
+    }
   }
 
-  if (warrantsDeepReasoning(input)) {
-    // Already there — do not stack a second copy.
-    if (new RegExp(`\\b${ULTRATHINK_KEYWORD}\\b`, 'i').test(input)) {
-      return { text: input, applied: false, trigger: null }
-    }
+  if (warrantsDeepReasoning(source)) {
     return { text: `${ULTRATHINK_KEYWORD}\n\n${input.trim()}`, applied: true, trigger: 'reasoning' }
   }
 

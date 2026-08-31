@@ -71,10 +71,24 @@ export default function OnboardingApp() {
     onEnterRef.current = fn
   }, [])
 
-  useEffect(() => {
-    setReady(false)
-    onEnterRef.current = null
-  }, [step])
+  // NO RESET HERE, and this is load-bearing.
+  //
+  // There used to be a `useEffect(() => { setReady(false) }, [step])` on
+  // this component. React runs CHILD effects before PARENT effects, so the
+  // order on mount and on every step change was:
+  //
+  //   1. the step's useAdvanceOnEnter fires   → setReady(true)
+  //   2. this reset fires                     → setReady(false)
+  //
+  // The shell won every time. `ready` was permanently false, Enter never
+  // fired, and the cue never appeared — and since the Continue buttons had
+  // just been removed in favour of Enter, the flow was a dead end from the
+  // first screen.
+  //
+  // The reset was redundant as well as harmful: useAdvanceOnEnter already
+  // clears on unmount, and `<main key={step}>` guarantees the outgoing step
+  // unmounts. React destroys the old tree's effects before creating the new
+  // one's, so the sequence is already false-then-true without help.
 
   // ONE Enter listener for the whole flow, not one per step. Nine
   // listeners would each still be mounted during the outgoing step's exit

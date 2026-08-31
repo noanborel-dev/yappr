@@ -29,6 +29,7 @@ import { MODELS, BUILTIN_DICTIONARY, DICTIONARY_ALIASES, IDE_EDITORS, AGENTIC_AI
 import type { AppCategory, DictationResult, Settings, Strictness } from '../shared/types'
 import { isRewriteEntry, spokenText } from '../shared/history-entry'
 import { selectionLikelyStale } from './rewrite-guard'
+import { applySelfCorrection } from '../shared/correction-pass'
 import { applyNearMissTerms } from '../shared/near-miss'
 import type { FocusedApp } from './focused-app'
 import type { TranscriptionProvider, CleanupProvider } from './providers/types'
@@ -401,90 +402,6 @@ function registerFor(focused: FocusedApp, category: AppCategory): Register {
 function applyQuickFixes(text: string): string {
   let out = text
   for (const [re, replacement] of QUICK_FIXES) {
-    out = out.replace(re, replacement)
-  }
-  return out
-}
-
-// Deterministic self-correction: drop the "wrong half" of a "<value>,
-// <marker> <value>" pivot where both <value>s look like the same kind
-// of thing (number, time, single name, short path/identifier).
-//
-// This is the safety net for two failure modes:
-//   1. Local-only mode has no LLM — needs the regex to do it.
-//   2. The 8B Groq cleanup model still keeps both halves of the
-//      correction ~40% of the time despite the SELF_CORRECTION prompt.
-//
-// We're deliberately CONSERVATIVE here: we only fire when the
-// pre-correction and post-correction spans are short and "shaped like"
-// the same thing. This avoids rewriting hedging uses ("I mean, it's fast"
-// — no comma+value+marker+value pattern) or rhetorical pivots ("I was
-// going to say X, actually let me tell you Y" — too long).
-//
-// Each entry below matches: `<value>, <marker> <value>` and rewrites to
-// just `<value>` (the second one). The leading comma is REQUIRED — it
-// distinguishes mid-sentence pivots from sentence-opener hedges.
-
-// Helper builders. Each "value" pattern is a small enumeration of
-// shapes that real corrections take.
-//
-// IMPORTANT: the value regex is built WITHOUT the case-insensitive
-// flag — only the marker words (i mean, actually, wait, sorry) are
-// matched case-insensitively, via inline (?i:...) groups. This is
-// because the NAME shape `[A-Z][a-z]+` only works as intended when
-// case-sensitive; with /i, [A-Z] matches lowercase too, which means
-// "at six" matches NAME and we end up eating the leading preposition.
-const NUM = '\\d{1,5}(?::\\d{2})?\\s*(?:am|pm)?'  // 6, 7, 3:15, 4pm
-const WORD_NUM_ANY = '(?:[Oo]ne|[Tt]wo|[Tt]hree|[Ff]our|[Ff]ive|[Ss]ix|[Ss]even|[Ee]ight|[Nn]ine|[Tt]en|[Ee]leven|[Tt]welve|[Tt]hirteen|[Ff]ourteen|[Ff]ifteen|[Ss]ixteen|[Ss]eventeen|[Ee]ighteen|[Nn]ineteen|[Tt]wenty|[Tt]hirty|[Ff]orty|[Ff]ifty)'
-const NAME = '[A-Z][a-z]{1,15}(?:\\s+[A-Z][a-z]{1,15})?'  // "Bob", "Alice Smith"
-const PATHY = '[\\w-]{1,15}[/.@][\\w/.@-]{1,30}'         // "/var/log", "jane@x.com", "src/main.ts"
-
-// PRE side: must be a number, sentence-positioned word-number,
-// capitalized name, or path-y string — NOT a bare lowercase word
-// (so we don't gobble "at", "to", "in").
-const PRE_VALUE = `(?:${NUM}|${WORD_NUM_ANY}|${NAME}|${PATHY})`
-// POST side: same shapes.
-const POST_VALUE = PRE_VALUE
-// "actually" doubles as a contrastive/emphatic adverb ("I love Paris,
-// actually Rome is better"), so the NAME-vs-NAME shape over-fires and
-// deletes a real clause ("I love Rome is better"). Restrict the
-// "actually" rule to numbers, times, and paths — where "actually"
-// almost always signals a correction ("at 6, actually 7", "port 3000,
-// actually 8080"). NAME corrections still get the unambiguous markers
-// (I mean / sorry / wait / scratch that / never mind) and the LLM
-// SELF_CORRECTION prompt.
-const ACTUALLY_VALUE = `(?:${NUM}|${WORD_NUM_ANY}|${PATHY})`
-
-// Helper: spell each letter as a [Aa] character class so the marker
-// matches both cases without using the /i flag (which would break the
-// case-sensitive NAME pattern).
-function ci(s: string): string {
-  return s.split('').map(c => {
-    if (/[a-zA-Z]/.test(c)) return `[${c.toLowerCase()}${c.toUpperCase()}]`
-    if (c === ' ') return '\\s+'
-    return c
-  }).join('')
-}
-
-const CORRECTION_REWRITES: Array<[RegExp, string]> = [
-  // "<value>, I mean <value>"   → "<value2>"
-  [new RegExp(`\\b(${PRE_VALUE})\\s*,\\s*${ci('i mean')}\\s+(${POST_VALUE})\\b`), '$2'],
-  // "<value>, actually <value>" → "<value2>" — numbers/times/paths only
-  // (NAME excluded; see ACTUALLY_VALUE note above).
-  [new RegExp(`\\b(${ACTUALLY_VALUE})\\s*,\\s*${ci('actually')}\\s+(${ACTUALLY_VALUE})\\b`), '$2'],
-  // "<value>, wait, <value>"    → "<value2>"
-  [new RegExp(`\\b(${PRE_VALUE})\\s*,\\s*${ci('wait')}\\s*,\\s*(${POST_VALUE})\\b`), '$2'],
-  // "<value>, sorry, <value>"   → "<value2>"
-  [new RegExp(`\\b(${PRE_VALUE})\\s*,\\s*${ci('sorry')}\\s*,\\s*(${POST_VALUE})\\b`), '$2'],
-  // "<value>, scratch that, <value>" → "<value2>"
-  [new RegExp(`\\b(${PRE_VALUE})\\s*,\\s*${ci('scratch that')}\\s*,?\\s*(${POST_VALUE})\\b`), '$2'],
-  // "<value>, never mind, <value>"   → "<value2>"
-  [new RegExp(`\\b(${PRE_VALUE})\\s*,\\s*${ci('never mind')}\\s*,?\\s*(${POST_VALUE})\\b`), '$2'],
-]
-
-function applySelfCorrection(text: string): string {
-  let out = text
-  for (const [re, replacement] of CORRECTION_REWRITES) {
     out = out.replace(re, replacement)
   }
   return out
@@ -1287,6 +1204,10 @@ export async function runDictationPipeline(
   // and to explicit intent — never inferred from how big the request is.
   const ultrathink = applyUltrathink(cleaned, {
     enabled: isUltrathinkSurface(detectedAiCli),
+    // Decide from what was SAID, not from what cleanup produced. The
+    // shaped prompt is a paraphrase, and the phrases this looks for are
+    // exactly the ones cleanup normalises away. See applyUltrathink.
+    spoken: transcript,
   })
   if (ultrathink.applied) {
     cleaned = ultrathink.text
