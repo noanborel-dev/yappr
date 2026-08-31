@@ -11,7 +11,9 @@ lands at the cursor.
 > `mv` plus `git worktree repair`; nothing in the repo depends on it.
 
 > **Not open source.** Yappr is closed-source. Never describe it as OSS,
-> MIT-licensed, auditable, self-hostable, or forkable.
+> MIT-licensed, auditable, self-hostable, or forkable. The differentiation
+> is the product — this used to say "BYOK transparency", which is gone
+> along with the key.
 
 > **Source of truth: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).** Read
 > it before answering anything about the business model, pricing, or where

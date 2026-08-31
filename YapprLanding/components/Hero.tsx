@@ -21,7 +21,9 @@ const SHAPED: PromptLine[] = [
   { kind: "blank" },
   { kind: "heading", text: "## Tasks" },
   { kind: "item", text: "Refactor the polish pipeline to stream chunks as they arrive." },
-  { kind: "item", text: "Fall back to local whisper.cpp when Groq returns 429." },
+  // Vendor name out. This is a demo of a prompt someone dictates, but it
+  // is on our page under our name, and a reader takes it as ours.
+  { kind: "item", text: "Fall back to the local model when the API rate-limits." },
   { kind: "blank" },
   { kind: "heading", text: "## Constraints" },
   { kind: "bullet", text: "Don't touch the tests." },

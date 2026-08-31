@@ -105,8 +105,33 @@ that stops being true: *your audio never leaves your Mac — transcription
 runs on-device. The text is sent for cleanup and is never stored or
 trained on.*
 
-Do not quietly reword the approved copy. Raise it, get a decision, then
-change the FAQ, `YapprLanding/CLAUDE.md` and `CLAUDE.md` together.
+**Decided 2026-08-30.** The site now says the strong true thing and stops:
+*your voice never leaves your Mac.* It no longer claims our servers are
+out of the path, and it does not volunteer that text passes through us.
+The standing rule is **never write the opposite of what is true** — if
+something stops being true, remove the claim rather than soften it.
+
+Two consequences already applied to the site:
+
+- **No model names.** "What runs the cleanup?" is deleted, and Groq,
+  Whisper and Parakeet are gone from the FAQ, the persistent-context demo
+  and the hero. Nobody buying a dictation app is choosing a transcription
+  model, and naming one dates the page — that FAQ answer was still
+  advertising a Whisper tier the product had retired.
+- **The footer's "Built with Llama" stays.** It is required by the Llama 3
+  Community License § 5(a), not a sales point. See
+  `docs/legal-audit-2026-05-17.md`.
+
+**Two commitments the copy now makes that the proxy has to honour.** The
+FAQ says the text is *"never stored, never sold, never used to train
+anything."* Under BYOK that was the provider's promise to the user.
+Through a proxy it becomes ours: do not persist transcripts server-side,
+and confirm the inference provider's terms match. If either cannot hold,
+the copy changes before the proxy ships.
+
+**The legal audit predates this.** `docs/legal-audit-2026-05-17.md` reads
+"no proxy" as part of a genuinely strong posture. That assumption expires
+with this change and the audit should be revisited.
 
 ---
 

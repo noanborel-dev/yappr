@@ -14,17 +14,26 @@ import { ScrollExpand } from "./ScrollExpand";
 // project" is an abstract promise until you can see the two things it
 // remembers written down.
 
+// The setup lines are demo content, but they are shown under the Yappr
+// name on a public page, so they doubled as an architecture disclosure —
+// naming the inference vendor and, until now, a transcription model the
+// product had already retired. Both are the sort of detail that dates the
+// page and that no visitor is here to evaluate.
+//
+// They still have to read like something a developer would actually say,
+// or the demo stops being convincing. Specific about the WORK, silent
+// about the suppliers.
 const PREAMBLE = [
   "I'm building Yappr, a macOS dictation app.",
-  "Stack is Electron + TypeScript, Groq for inference.",
-  "Transcription runs locally on whisper-large-v3-turbo.",
+  "Stack is Electron and TypeScript.",
+  "Transcription runs on-device.",
   "The polish pipeline lives in src/main/pipeline.ts.",
   "I'm working with Søren on the streaming refactor.",
 ];
 
-const ASK = "The pipeline drops chunks when Groq 429s — why?";
+const ASK = "The pipeline drops chunks under load — why?";
 
-const STACK = ["TypeScript", "Electron", "Groq", "macOS"];
+const STACK = ["TypeScript", "Electron", "macOS"];
 
 type Phase = "full" | "striking" | "collapsed";
 
@@ -112,7 +121,7 @@ export function PersistentContext() {
                 <span className="px-card-label">What you&rsquo;re building</span>
                 <p className="px-proj-name">Yappr</p>
                 <p className="px-proj-desc">
-                  macOS dictation app. Transcription on-device, polish on Groq.
+                  macOS dictation app. Transcription runs on-device.
                 </p>
                 <div className="px-stack">
                   {STACK.map((t) => (

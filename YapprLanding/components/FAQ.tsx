@@ -10,12 +10,22 @@ const ITEMS: Array<{ q: React.ReactNode; a: React.ReactNode }> = [
     a: "It reorganizes them. Your ramble comes out as Goal, Context, Tasks, Constraints, Done when — with every file name, error code, condition and \"don't touch X\" you spoke still in there. It never summarizes. If you said eight things, eight things land.",
   },
   {
+    // Says the strong true thing and stops. It used to add "only text
+    // goes out for cleanup" and, in CLAUDE.md, "our servers are not in
+    // the path" — a claim that stops being true the moment cleanup runs
+    // through Yappr rather than through the user's own key. The rule now
+    // is: never write the opposite of what is true. Audio staying on the
+    // machine is real, and it is the part people are actually asking
+    // about.
     q: "Does Yappr store my audio?",
-    a: "No. Transcription runs locally on your Mac, so the audio doesn't leave the machine at all. Only text goes out for cleanup, and none of it is stored or trained on. Transcripts stay on your Mac as recent history.",
+    a: "No — your voice never leaves your Mac. It's turned into text on your own machine, so there's no recording for us to keep. The text is cleaned up and then it's gone: never stored, never sold, never used to train anything. Your history stays on your Mac.",
   },
   {
+    // "Reads the macOS accessibility tree" is how it works, not what it
+    // does for you. Same answer, without asking the reader to know what
+    // an accessibility tree is.
     q: "Can it see my screen?",
-    a: "No. Yappr reads the macOS accessibility tree to know which app you're in and what text you've selected. It never takes screenshots.",
+    a: "No, and it never takes screenshots. It only needs two things: which app you're typing in, and what you've highlighted. That's how the same sentence comes out differently in iMessage and in a pull request.",
   },
   {
     q: (
@@ -29,15 +39,18 @@ const ITEMS: Array<{ q: React.ReactNode; a: React.ReactNode }> = [
     q: "What do I actually get for free?",
     a: "Unlimited dictation with cleanup — fillers, stutters and false starts removed — plus the dev dictionary and all three hotkey behaviors. No word cap, no card. Pro adds prompt shaping, select-and-rewrite, persistent context, and per-app polish.",
   },
-  {
-    q: "What runs the cleanup?",
-    // Parakeet, not Whisper. The whisper tiers (base / small /
-    // large-v3-turbo) were retired when parakeet-tdt-0.6b-v3 matched them
-    // on English and removed the auto-elevation machinery — see the app's
-    // CLAUDE.md. This line kept naming a model the product no longer ships,
-    // which is the kind of claim someone checks.
-    a: "Parakeet runs locally for transcription — on-device, so your audio never leaves your Mac. Cleanup runs on Groq's Llama. No OpenAI dependency.",
-  },
+  // "What runs the cleanup?" is gone. It answered with model names —
+  // which transcriber, whose LLM, which vendor we do not depend on.
+  //
+  // Nobody buying a dictation app is choosing between transcription
+  // models, and naming them costs twice: it dates the page every time the
+  // stack changes (this line was still advertising a Whisper tier the
+  // product had already retired), and it invites the reader to evaluate
+  // our plumbing instead of what the thing does for them.
+  //
+  // The Llama attribution in the footer is NOT this and must stay — it is
+  // required by the Llama 3 Community License § 5(a), not a sales point.
+  // See docs/legal-audit-2026-05-17.md.
   {
     q: "Windows or Linux?",
     a: "macOS is GA. Windows is in private beta. Linux (PipeWire) is coming.",

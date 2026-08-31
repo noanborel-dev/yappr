@@ -6,7 +6,7 @@ This file is auto-loaded every session. It tells you how to work in this repo. *
 
 ## What this is
 
-The marketing site for **Yappr** — a macOS voice-dictation app that polishes your speech per destination (iMessage, Slack, Gmail, etc.) and pastes the cleaned result. **Closed-source commercial product** — do NOT describe as open source / MIT / auditable / forkable / "source is public." The differentiation angle is *more creative, BYOK transparency, audio never proxied through us* — not OSS. The product lives one directory up at `/Users/noanborel/Yappr`. This landing page is its own project.
+The marketing site for **Yappr** — a macOS voice-dictation app that polishes your speech per destination (iMessage, Slack, Gmail, etc.) and pastes the cleaned result. **Closed-source commercial product** — do NOT describe as open source / MIT / auditable / forkable / "source is public." The differentiation angle is *what the product does* — not OSS, and no longer BYOK (see "NOT open source" below). The product lives one directory up at `/Users/noanborel/Yappr`. This landing page is its own project.
 
 Primary goal: **macOS downloads**. Single dominant CTA. The page should sell by showing the product working, not describing it.
 
@@ -57,7 +57,23 @@ If a section starts growing bullet lists, paragraphs, or feature grids — rebui
 
 ### 5. NOT open source — strip every OSS reference
 
-Yappr is closed-source. Never write "open source", "MIT-licensed", "view source", "audit reproduces it", "self-host", "fork it", "star on GitHub", or any contributor/stars framing. The differentiation angle is **creative product + BYOK transparency**, not OSS. The privacy story is "audio goes mic → your provider directly, our servers are not in the path" — no source-availability claim.
+Yappr is closed-source. Never write "open source", "MIT-licensed", "view source", "audit reproduces it", "self-host", "fork it", "star on GitHub", or any contributor/stars framing.
+
+**The differentiation is the product, not the plumbing.** It used to be
+written here as "BYOK transparency". That is gone: Yappr is a subscription
+and users do not bring a key, so there is no key to be transparent about.
+What sells is what it does — a ramble becomes a structured prompt, you
+rewrite a selection by voice, it remembers your project.
+
+**The privacy line is now: your audio never leaves your Mac.** That is
+true, it is the thing people actually ask about, and it survives the move
+to a subscription because transcription is on-device.
+
+It replaces "audio goes mic → your provider directly, our servers are not
+in the path", which stops being true once cleanup runs through Yappr
+instead of the user's own key. **Never write the opposite of what is
+true.** If text does route through us, say nothing about it rather than
+claiming it does not. See `docs/ARCHITECTURE.md` in the app repo.
 
 ### 6. Logos
 
@@ -124,8 +140,20 @@ endorsement they never gave, however aspirational the art direction.
 **Deleted:** `ThreeBehaviors`, `Dictionary`, `LocalMode`, `AiCoding`, `Privacy`
 (as a section). Dictionary and hotkey behaviors survive as Free-tier lines in
 pricing; the hotkey gestures also survive as the animated row under the demo.
-Privacy copy lives in the FAQ — **that wording is approved verbatim, don't
-reword it.**
+Privacy copy lives in the FAQ. It was marked "approved verbatim, don't
+reword it"; **that was superseded on 2026-08-30** when the model moved to a
+subscription, because the approved wording claimed our servers were not in
+the path and that stops being true. Rewritten then, and the standing rule
+is the one above: say the audio stays on the Mac, and never write the
+opposite of what is true about the text.
+
+**No model names anywhere on the site.** Which transcriber, whose LLM,
+which vendor we do not depend on — none of it belongs in front of a
+customer. It dates the page every time the stack changes (the FAQ was
+still advertising a Whisper tier the product had retired) and it invites
+the reader to audit our plumbing instead of buying the thing. The one
+exception is the footer's "Built with Llama" credit, which is required by
+the Llama 3 Community License § 5(a) and must stay.
 
 ### Mockups must look like the real app
 
