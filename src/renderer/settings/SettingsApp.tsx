@@ -31,10 +31,19 @@ const ICONS: Record<Tab, NavIconName> = {
   Settings: 'settings',
 }
 
-const GROUPS: Array<{ label: string | null; tabs: Tab[] }> = [
+// `foot` pins the group to the BOTTOM of the rail and dims it.
+//
+// Settings was already last in this list, but the nav is a plain column,
+// so "last" only ever meant "directly under Dictionary" — it sat in the
+// same block as the voice pages and read as one of them. It is not one of
+// them: it configures the machine, not the writing, and it is the entry
+// you visit least. Now it is held against the bottom edge with the rest
+// of the rail's height between, and drawn a step quieter than the pages
+// above it.
+const GROUPS: Array<{ label: string | null; tabs: Tab[]; foot?: true }> = [
   { label: null, tabs: ['Dashboard'] },
   { label: 'Voice', tabs: ['Hotkey', 'Polish', 'AI', 'Dictionary'] },
-  { label: null, tabs: ['Settings'] },
+  { label: null, tabs: ['Settings'], foot: true },
 ]
 
 export default function SettingsApp() {
@@ -63,9 +72,18 @@ export default function SettingsApp() {
           <YapprMark lockup="bare" tone="white" size="button" />
         </div>
 
-        <nav className="flex flex-col gap-4">
+        <nav className="flex flex-col gap-4 flex-1 pb-4">
           {GROUPS.map((group, gi) => (
-            <div key={gi} className="flex flex-col gap-0.5">
+            <div
+              key={gi}
+              className={[
+                'flex flex-col gap-0.5',
+                // mt-auto eats the leftover height, so this group sits on
+                // the bottom edge however tall the window is. The hairline
+                // is what stops it reading as a stray row down there.
+                group.foot ? 'mt-auto pt-4 border-t border-white/[0.07]' : '',
+              ].join(' ')}
+            >
               {group.label && (
                 <div className="text-[11px] text-white/40 px-2.5 pb-1.5">
                   {group.label}
@@ -87,12 +105,20 @@ export default function SettingsApp() {
                       // ever did on cream.
                       'text-left px-2.5 py-[7px] rounded-[9px] text-[13px] font-medium transition-colors duration-150',
                       on
+                        // Selected looks the same wherever it is — a
+                        // second selected style would read as a bug, not
+                        // as a category.
                         ? 'bg-paper text-ink'
-                        : 'text-white/70 hover:text-white hover:bg-white/[0.06]',
+                        : group.foot
+                          // A step quieter. The difference is small on
+                          // purpose: enough to say "not one of the voice
+                          // pages", not enough to look disabled.
+                          ? 'text-white/45 hover:text-white/80 hover:bg-white/[0.05]'
+                          : 'text-white/70 hover:text-white hover:bg-white/[0.06]',
                     ].join(' ')}
                   >
                     <span className="inline-flex items-center gap-2.5">
-                      <span className={on ? 'text-ink' : 'text-white/45'}>
+                      <span className={on ? 'text-ink' : group.foot ? 'text-white/30' : 'text-white/45'}>
                         <NavIcon name={ICONS[t]} />
                       </span>
                       {t}

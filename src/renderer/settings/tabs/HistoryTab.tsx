@@ -423,7 +423,10 @@ function WhereItGoes({ apps }: { apps: AppShare[] }) {
 // spacing, which is the house style for a caption but reads as jargon
 // when it is the only thing describing a headline figure.
 function Headline({ stats }: { stats: DictationStats }) {
-  const saved = stats.minutesSavedThisMonth
+  // All time, not this month. The number moved with the label — a
+  // headline reading "total" over a monthly figure under-reports silently,
+  // and worst for the people who have used it longest.
+  const saved = stats.minutesSavedTotal
   return (
     <div className="mb-8">
       {/* The photo is the hero's BACKGROUND, not a box above it.
@@ -456,11 +459,11 @@ function Headline({ stats }: { stats: DictationStats }) {
               {saved === null ? '—' : compactNumber(saved)}
             </div>
             <div className="font-display italic text-[30px] leading-none text-white/75 pb-2">
-              minutes saved
+              total minutes saved
             </div>
           </div>
           <p className="text-[12.5px] text-white/55 mt-4">
-            this month, against typing at {TYPING_WPM} words a minute
+            against typing at {TYPING_WPM} words a minute
           </p>
         </div>
       </div>

@@ -95,6 +95,17 @@ export interface DictationStats {
    * instantaneous and inflate the figure. Null when nothing is timed.
    */
   minutesSavedThisMonth: number | null
+  /**
+   * The same figure over ALL time, on the same terms: only records with a
+   * duration count, and it is clamped at zero.
+   *
+   * Added because the dashboard headline stopped being a monthly number.
+   * The label there now says "total minutes saved", and a label that says
+   * total over a figure that means this-month is the kind of wrong nobody
+   * catches — it just quietly under-reports, most visibly to the users who
+   * have been here longest.
+   */
+  minutesSavedTotal: number | null
 }
 
 const dayKey = (d: Date): string => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
@@ -176,6 +187,11 @@ export function aggregate(
       // Clamped at zero: someone who speaks slower than they type has not
       // "lost" time in any sense worth showing them a negative number for.
       ? Math.max(0, Math.round(monthWords / TYPING_WPM - monthMs / 60_000))
+      : null,
+    // Same sum over the timed records the speaking rate already uses, so
+    // the two headline figures are drawn from one population.
+    minutesSavedTotal: timedMs > 0
+      ? Math.max(0, Math.round(timedWords / TYPING_WPM - timedMs / 60_000))
       : null,
   }
 }

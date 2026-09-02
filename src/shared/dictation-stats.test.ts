@@ -157,3 +157,39 @@ describe('minutesSavedThisMonth', () => {
     expect(aggregate([rec({ ms: 0 })], NOW).minutesSavedThisMonth).toBeNull()
   })
 })
+
+// The figure the dashboard headline actually shows. It says "total
+// minutes saved", so it has to be a total — a label reading total over a
+// monthly number under-reports silently, and worst for the users who have
+// been here longest.
+describe('minutesSavedTotal', () => {
+  it('matches the monthly figure when everything is this month', () => {
+    const s = aggregate([rec({ w: 400, ms: 120_000 })], NOW)
+    expect(s.minutesSavedTotal).toBe(8)
+    expect(s.minutesSavedTotal).toBe(s.minutesSavedThisMonth)
+  })
+
+  // The one that matters: the month cut-off must NOT apply here.
+  it('counts earlier months too', () => {
+    const lastMonth = new Date(2026, 6, 15, 12).getTime()
+    const s = aggregate(
+      [rec({ w: 400, ms: 120_000 }), rec({ w: 400, ms: 120_000, t: lastMonth })],
+      NOW,
+    )
+    expect(s.minutesSavedThisMonth).toBe(8)
+    expect(s.minutesSavedTotal).toBe(16)
+  })
+
+  it('ignores records with no duration', () => {
+    const s = aggregate([rec({ w: 400, ms: 120_000 }), rec({ w: 9999, ms: 0 })], NOW)
+    expect(s.minutesSavedTotal).toBe(8)
+  })
+
+  it('never goes negative', () => {
+    expect(aggregate([rec({ w: 5, ms: 600_000 })], NOW).minutesSavedTotal).toBe(0)
+  })
+
+  it('is null when nothing is timed', () => {
+    expect(aggregate([rec({ ms: 0 })], NOW).minutesSavedTotal).toBeNull()
+  })
+})
