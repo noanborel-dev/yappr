@@ -19,6 +19,8 @@ export interface LocalModelProgress {
 
 export interface LocalModelStatus {
   readiness: LocalModelReadiness
+  /** The one model the app runs. Decided in main, never in a renderer. */
+  active: LocalModelId
   progress: LocalModelProgress[]
   downloaded: Record<LocalModelId, boolean>
 }
