@@ -45,25 +45,48 @@ describe('compounds', () => {
   })
 })
 
-describe('sequences that are not cardinal numbers', () => {
-  // A YEAR, read in pairs. As arithmetic it is 19 + 80 + 4 = 103, which
-  // is not what anybody said — so the run is refused rather than summed.
-  // Reading years is a different feature; emitting 103 would be a wrong
-  // answer dressed as a right one.
-  it('refuses a year read in pairs', () => {
-    expect(d('back in nineteen eighty four')).toBe('back in nineteen eighty four')
+// All three of these shipped broken. The transcripts are verbatim from
+// yappr-history.json, alongside what was actually pasted.
+describe('the three shapes seen live', () => {
+  // Was: unchanged. The first parser summed a year to 19 + 60 + 4 = 103
+  // and so refused the shape outright, which meant dictating a year did
+  // nothing at all.
+  it('reads a year in pairs', () => {
+    expect(d('Nineteen sixty four.')).toBe('1964.')
+    expect(d('Nineteen sixty five.')).toBe('1965.')
+    expect(d('back in nineteen eighty four')).toBe('back in 1984')
   })
 
-  it('refuses a teen after a tens word', () => {
-    expect(d('twenty fifteen')).toBe('twenty fifteen')
+  it('reads a year in the twenty-somethings', () => {
+    expect(d('twenty fifteen')).toBe('2015')
+    expect(d('shipped in twenty twenty five')).toBe('shipped in 2025')
   })
 
-  it('refuses two units in a row', () => {
-    expect(d('five six')).toBe('five six')
+  // Was: unchanged. Someone reading out a code wants the digits, not the
+  // words, and certainly not their sum.
+  it('joins a string of spoken digits', () => {
+    expect(d('One two eight nine three four.')).toBe('128934.')
+    expect(d('One zero three four five eight.')).toBe('103458.')
   })
 
-  it('refuses two tens in a row', () => {
-    expect(d('twenty thirty')).toBe('twenty thirty')
+  // Was: "One, 2, 3, 4, 5, 6, 7." — every number but the first, which
+  // reads as broken rather than careful. The commas split the run, so the
+  // leading number is judged alone and hits the pronoun guard.
+  it('converts a leading "one" when counting', () => {
+    expect(d('One, two, three, four, five, six, seven.')).toBe('1, 2, 3, 4, 5, 6, 7.')
+  })
+})
+
+describe('sequences that are still refused', () => {
+  // A scale word means the run is a cardinal or it is nothing — no year or
+  // digit-string reading applies, so an impossible sequence aborts.
+  it('refuses a malformed cardinal', () => {
+    expect(d('nineteen eighty four thousand')).toBe('nineteen eighty four thousand')
+  })
+
+  // Three groups that are not all single digits have no safe reading.
+  it('refuses three mixed groups', () => {
+    expect(d('twenty thirty forty')).toBe('twenty thirty forty')
   })
 })
 
@@ -79,6 +102,11 @@ describe('the pronoun guard', () => {
 
   it('leaves a hyphenated idiom alone', () => {
     expect(d('it was a one-off')).toBe('it was a one-off')
+  })
+
+  // The counting exception is narrow: a number has to come straight after.
+  it('does not convert "one" before an ordinary word', () => {
+    expect(d('one more time')).toBe('one more time')
   })
 
   // But inside a real number it converts like anything else.
@@ -137,6 +165,12 @@ describe('evaluateRun', () => {
   })
 
   it('counts zero as a number', () => {
-    expect(evaluateRun(['zero'])).toBe(0)
+    expect(evaluateRun(['zero'])).toBe('0')
+  })
+
+  // A digit string keeps its leading zero, which is the whole point of
+  // reading one out digit by digit.
+  it('keeps a leading zero in a digit string', () => {
+    expect(evaluateRun(['zero', 'four', 'seven'])).toBe('047')
   })
 })
