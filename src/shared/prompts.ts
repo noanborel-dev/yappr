@@ -408,6 +408,28 @@ The intro phrase ("I need to pick up", "the things to do are", "we should bring"
 // frequent ones deterministically, but the LLM catches the long tail).
 const TECH_CORRECTIONS = `Fix obvious Whisper mishearings of brand names when the context is clearly tech (Claude, ChatGPT, OpenAI, TypeScript, Next.js, GitHub, VS Code, Copilot). Leave non-tech uses alone ("cloud computing" stays).`
 
+// NUMERALS ARE NOT IN THE PROMPT, on purpose.
+//
+// Writing spoken numbers as digits is handled entirely by
+// shared/spoken-numbers.ts, and there is deliberately no matching rule
+// here. Two reasons, and the second is the real one:
+//
+//   1. That pass runs AFTER cleanup, on the model's output, so it has the
+//      last word regardless of what the prompt says. A rule here could
+//      only agree with it.
+//   2. It costs tokens on the hottest path. A four-line version pushed the
+//      agentic prompt 436 characters past the ceiling in
+//      prompt-size.test.ts — which is not housekeeping, it is the 8,000
+//      TPM limit that has already produced 429s and silently pasted raw
+//      transcripts on this user's machine. Even trimmed to one line it
+//      landed 33 characters over.
+//
+// The test's own comment warns the ceiling was "raised, not defended" the
+// last time something grew into it. Paying for a rule that cannot change
+// the output would have been exactly that. If the deterministic pass ever
+// needs the model's help — years, "one hundred and twenty" — buy the
+// space by cutting something, not by raising the ceiling.
+
 
 // Where the reformatted prompt is going. These REPLACE the generic
 // "(Claude Code chat, Cursor AI chat, ChatGPT, ...)" hedge in the

@@ -30,6 +30,7 @@ import type { AppCategory, DictationResult, Settings, Strictness } from '../shar
 import { isRewriteEntry, spokenText } from '../shared/history-entry'
 import { selectionLikelyStale } from './rewrite-guard'
 import { applySelfCorrection } from '../shared/correction-pass'
+import { digitsForSpokenNumbers } from '../shared/spoken-numbers'
 import { applyNearMissTerms } from '../shared/near-miss'
 import type { FocusedApp } from './focused-app'
 import type { TranscriptionProvider, CleanupProvider } from './providers/types'
@@ -1161,6 +1162,15 @@ export async function runDictationPipeline(
   // kind of thing (number, time, name, path). Conservative on purpose
   // — see CORRECTION_REWRITES.
   cleaned = applySelfCorrection(cleaned)
+
+  // Spoken numbers as digits: "make it twenty pixels" → "20 pixels".
+  //
+  // There is a prompt rule for this as well, but it cannot be the only
+  // one — anything under eight words skips the LLM entirely, and a bare
+  // quantity is usually a short dictation. Deterministic, so it holds on
+  // the fast path and in local-only mode too. See shared/spoken-numbers.ts
+  // for what it deliberately refuses to touch.
+  cleaned = digitsForSpokenNumbers(cleaned)
 
   // The next two passes are DESTRUCTIVE for code — they rewrite content
   // that is legitimate in a coding/AI-prompt surface — so we skip them
