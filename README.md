@@ -70,6 +70,4 @@ By design. Under 8 words there's nothing worth restructuring, so Yappr pastes yo
 
 Yappr is a proprietary commercial product. See [LICENSE](LICENSE) for terms and [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for the open-source components incorporated under their respective licenses.
 
-Built with Llama. Llama 3 is licensed under the Llama 3 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.
-
-Slack, Gmail, iMessage, Notion, Cursor, ChatGPT, Claude, Groq, Llama, NVIDIA, Parakeet, and Whisper are trademarks of their respective owners. Yappr is not affiliated with or endorsed by these companies.
+Slack, Gmail, iMessage, Notion, Cursor, ChatGPT, Claude, Groq, OpenAI, NVIDIA, Parakeet, and Whisper are trademarks of their respective owners. Yappr is not affiliated with or endorsed by these companies.

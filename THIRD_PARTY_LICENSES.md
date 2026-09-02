@@ -10,19 +10,35 @@ Yappr itself is proprietary; see [LICENSE](LICENSE).
 
 ## Required attributions
 
-### Built with Llama
+### Inference models
 
-The Llama 3 family of models is used (via Groq's hosted inference) for the
-text-cleanup ("polish") step of Yappr's dictation pipeline.
+Yappr's text-cleanup ("polish") and prompt-shaping steps call
+**`openai/gpt-oss`** via Groq's hosted inference. gpt-oss is released by
+OpenAI under the **Apache License 2.0**.
 
-> Built with Llama. Llama 3 is licensed under the Llama 3 Community License,
-> Copyright © Meta Platforms, Inc. All Rights Reserved.
+Full license: <https://www.apache.org/licenses/LICENSE-2.0>
 
-Full license: <https://www.llama.com/llama3_3/license/>
+> **Llama is no longer used, and the "Built with Llama" notice has been
+> removed.** It was required while the pipeline called
+> `llama-3.1-8b-instant`. Groq then decommissioned the entire llama-3.x
+> line — the model began returning 404 and every cleanup fell back to the
+> raw transcript — and the pipeline moved to `openai/gpt-oss-20b` (see
+> `MODELS` in `src/shared/constants.ts`).
+>
+> The Llama 3 Community License § 5(a) attaches to products whose outputs
+> derive from Llama. Nothing here derives from Llama any more, so the
+> notice was not merely unnecessary: displaying "Built with Llama" while
+> using a different model is a false statement, which is worse than the
+> omission it was added to fix.
+>
+> Apache 2.0 carries no equivalent "Built with" branding requirement — its
+> notice obligations attach to redistribution of the work, and Yappr calls
+> the model over an API rather than shipping it. **Worth a second opinion
+> before release**, but there is nothing to display today.
 
 ### Trademark notice
 
-Slack, Gmail, iMessage, Notion, Cursor, ChatGPT, Claude, Groq, Llama, and
+Slack, Gmail, iMessage, Notion, Cursor, ChatGPT, Claude, Groq, OpenAI, and
 Whisper are trademarks or registered trademarks of their respective owners.
 Yappr uses these names solely to identify the corresponding products and
 services with which Yappr interoperates. Yappr is not affiliated with,

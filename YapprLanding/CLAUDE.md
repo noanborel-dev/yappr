@@ -151,9 +151,15 @@ opposite of what is true about the text.
 which vendor we do not depend on — none of it belongs in front of a
 customer. It dates the page every time the stack changes (the FAQ was
 still advertising a Whisper tier the product had retired) and it invites
-the reader to audit our plumbing instead of buying the thing. The one
-exception is the footer's "Built with Llama" credit, which is required by
-the Llama 3 Community License § 5(a) and must stay.
+the reader to audit our plumbing instead of buying the thing.
+
+There is no longer an exception. The footer carried a "Built with Llama"
+credit, required by the Llama 3 Community License § 5(a) while the
+pipeline called llama-3.1-8b-instant. Groq decommissioned that line and
+the pipeline moved to `openai/gpt-oss`, so the credit was naming a model
+the product does not use — a false attribution, which is worse than the
+missing one it was added to fix. gpt-oss is Apache-2.0 and carries no
+equivalent branding requirement. The trademark line stays.
 
 ### Mockups must look like the real app
 

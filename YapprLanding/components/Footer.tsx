@@ -99,18 +99,18 @@ export function Footer() {
             className="text-[11px] leading-[1.55] max-w-[820px] m-0"
             style={{ color: "#6a6859" }}
           >
-            Built with Llama. Llama 3 is licensed under the{" "}
-            <a
-              href="https://www.llama.com/llama3_3/license/"
-              className="underline underline-offset-2 hover:text-cream"
-              style={{ color: "#8a8779" }}
-            >
-              Llama 3 Community License
-            </a>
-            , Copyright © Meta Platforms, Inc. All Rights Reserved. Slack, Gmail,
-            iMessage, Notion, Cursor, ChatGPT, Claude, Groq, Llama, and Whisper
-            are trademarks of their respective owners. Yappr is not
-            affiliated with or endorsed by these companies.
+            {/* The "Built with Llama" credit that stood here is gone.
+                It was required by the Llama 3 Community License § 5(a)
+                while the pipeline called llama-3.1-8b-instant. Groq then
+                decommissioned the llama-3.x line and the pipeline moved
+                to openai/gpt-oss — so the notice was not just unnecessary,
+                it was claiming a model the product does not use. A false
+                attribution is worse than the missing one it replaced.
+                gpt-oss is Apache-2.0, which has no equivalent branding
+                requirement. See THIRD_PARTY_LICENSES.md. */}
+            Slack, Gmail, iMessage, Notion, Cursor, ChatGPT, Claude, Groq,
+            OpenAI, and Whisper are trademarks of their respective owners.
+            Yappr is not affiliated with or endorsed by these companies.
           </p>
         </div>
       </div>

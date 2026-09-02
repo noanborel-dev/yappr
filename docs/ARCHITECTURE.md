@@ -118,9 +118,15 @@ Two consequences already applied to the site:
   and the hero. Nobody buying a dictation app is choosing a transcription
   model, and naming one dates the page — that FAQ answer was still
   advertising a Whisper tier the product had retired.
-- **The footer's "Built with Llama" stays.** It is required by the Llama 3
-  Community License § 5(a), not a sales point. See
-  `docs/legal-audit-2026-05-17.md`.
+- **The "Built with Llama" credit was removed** (2026-09-02) — from the
+  footer, the README and `THIRD_PARTY_LICENSES.md`. It was required while
+  the pipeline called `llama-3.1-8b-instant`; Groq decommissioned the
+  llama-3.x line, the model started returning 404, and cleanup moved to
+  `openai/gpt-oss-20b`. Displaying it after that was claiming a model the
+  product does not use. gpt-oss is Apache-2.0, whose notice obligations
+  attach to redistributing the work — Yappr calls it over an API — so
+  there is no equivalent line to display. Worth a second opinion before
+  release. The trademark notice stays, with OpenAI in place of Llama.
 
 **Two commitments the copy now makes that the proxy has to honour.** The
 FAQ says the text is *"never stored, never sold, never used to train

@@ -48,9 +48,11 @@ const ITEMS: Array<{ q: React.ReactNode; a: React.ReactNode }> = [
   // product had already retired), and it invites the reader to evaluate
   // our plumbing instead of what the thing does for them.
   //
-  // The Llama attribution in the footer is NOT this and must stay — it is
-  // required by the Llama 3 Community License § 5(a), not a sales point.
-  // See docs/legal-audit-2026-05-17.md.
+  // The footer's trademark notice is NOT this and stays — it is a legal
+  // disclaimer, not a sales point. The "Built with Llama" credit that sat
+  // beside it was removed on 2026-09-02: the pipeline moved off Llama to
+  // openai/gpt-oss, so the credit named a model the product does not use.
+  // See THIRD_PARTY_LICENSES.md.
   {
     q: "Windows or Linux?",
     a: "macOS is GA. Windows is in private beta. Linux (PipeWire) is coming.",
