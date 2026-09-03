@@ -15,6 +15,7 @@ import { KeyStep } from './KeyStep'
 import { NotchStep } from './NotchStep'
 import { PolishStep } from './PolishStep'
 import { PracticeStep } from './PracticeStep'
+import { ContextStep } from './ContextStep'
 import { OnboardingNavProvider, useAdvanceOnEnter, useOnboardingNav } from './nav'
 import { EnterCue } from './EnterCue'
 
@@ -38,11 +39,22 @@ import { EnterCue } from './EnterCue'
 // moment it is given, so `finish()` has nothing left to write but the
 // first-run flag.
 
-// 'Context' is gone. It was a textarea headed "What are you working on?"
-// asking the user to type a paragraph about themselves — a form, in a
-// flow whose whole method is that you learn this by doing it. Practice,
-// two screens later, already has them hold the key and talk, and context
-// memory fills itself from real dictations anyway.
+// 'Context' is back, in a different shape.
+//
+// The version 318d82a removed was a textarea headed "What are you working
+// on?" asking the user to type a paragraph about themselves — a form, in a
+// flow whose whole method is that you learn by doing. That judgement
+// stands: nobody writes their own profile at first run.
+//
+// What replaced it was moving the import to Settings → AI, and that is the
+// part that did not work. Persistent context is one of the four things Pro
+// sells, and it starts empty for every user who never opens that tab. The
+// step now asks for two keystrokes and no prose — copy a prompt, paste
+// what the model says back — so it is a thing you do, not a form you fill.
+//
+// It sits AFTER Practice because it sends you out of the app and back, and
+// it is the one screen Enter can skip on an empty box: unlike the mic or
+// the hotkey, nothing downstream breaks without it.
 const STEPS = [
   'Welcome',
   'Mic',
@@ -51,6 +63,11 @@ const STEPS = [
   'Notch',
   'Polish',
   'Practice',
+  // Last before Done, and the only skippable screen. It asks the user to
+  // leave the app, visit an AI and come back — which is exactly the shape
+  // 318d82a removed from the earlier steps, so it belongs after the
+  // hands-on lesson rather than inside it.
+  'Context',
   'Done',
 ] as const
 
@@ -178,7 +195,8 @@ export default function OnboardingApp() {
           {step === 4 && <NotchStep onNext={next} />}
           {step === 5 && <PolishStep onNext={next} />}
           {step === 6 && <PracticeStep onNext={next} />}
-          {step === 7 && <Done onFinish={finish} />}
+          {step === 7 && <ContextStep />}
+          {step === 8 && <Done onFinish={finish} />}
         </main>
         <EnterCue visible={ready} />
       </OnboardingNavProvider>
