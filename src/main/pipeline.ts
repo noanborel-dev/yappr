@@ -1055,6 +1055,12 @@ export async function runDictationPipeline(
     // Now also carries this project's facts — and only this project's.
     const contextBlock = buildContextBlock({
       enabled: settings.useContextMemory,
+      // A shaped prompt is going to an agent that knows none of this, so
+      // the context has to be carried INTO the output. Cleanup wants the
+      // opposite and gets the anti-echo framing. Passing the wrong one
+      // here is what made shaped prompts never mention the context layer
+      // despite ~2,400 characters of it being injected every time.
+      mode: willReformat ? 'prompt' : 'cleanup',
       projectKey: dictationProjectKey(focusedApp),
     })
     const systemPrompt = buildCleanupPrompt(
@@ -1616,6 +1622,10 @@ async function cleanupAsDictation(
     || (category === 'email' && countWords(transcript) >= EMAIL_COMPOSE_MIN_WORDS)
   const contextBlock = buildContextBlock({
     enabled: settings.useContextMemory,
+    // This path cannot do AI-CLI routing, but the category can still be
+    // ai_prompt from the URL router — and then the output is a shaped
+    // prompt and wants the shaping framing like any other.
+    mode: category === 'ai_prompt' ? 'prompt' : 'cleanup',
     projectKey,
   })
   const systemPrompt = buildCleanupPrompt(

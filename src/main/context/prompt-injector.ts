@@ -41,7 +41,11 @@ export function buildContextBlock(opts: {
     : ''
 
   const { global, project } = getFactsFor(opts.projectKey ?? null)
-  const facts = formatFactsBlock({ global, project, projectKey: opts.projectKey })
+  // Same mode as the overview: the two blocks sit in one prompt and must
+  // not disagree about whether the model may surface what it is told.
+  const facts = formatFactsBlock({
+    global, project, projectKey: opts.projectKey, mode: opts.mode ?? 'cleanup',
+  })
 
   return who + facts
 }
