@@ -209,3 +209,77 @@ export function shapeMetrics(notchWidth: number, leftWing: number, rightWing: nu
     offsetFromCenter: -(notchWidth / 2 + leftWing),
   }
 }
+
+// ---------------------------------------------------------------------------
+// Black bleed — keeping colour off the housing
+// ---------------------------------------------------------------------------
+
+/**
+ * How far true black extends past each edge of the notch band, in points.
+ *
+ * Sized against the width estimate's own error bar. notchWidthPt() is one
+ * calibration point, and the aspect constant above has already been walked
+ * 5.79 -> 5.35 -> 5.55, which at a 33pt bar spans 191 -> 177 -> 183pt. So
+ * the estimate is good to roughly +-8pt, and 14 clears that with room.
+ *
+ * It is a floor, not a guess: black wider than the housing is invisible
+ * (black on black), while black narrower than it is a bright seam along
+ * the cutout. The asymmetry means erring wide is free.
+ */
+export const NOTCH_BLACK_BLEED_PT = 14
+
+/**
+ * The run of true black across the shape, in points from its left edge.
+ *
+ * The bug this exists to kill: the wing gradient used PERCENTAGE stops
+ * (`#000 32%` to `#000 68%`) while the notch is a fixed absolute width in
+ * the middle. The wings animate per state, so 32% slid around in real
+ * pixels while the hardware did not. At narrow wings it landed inside the
+ * cutout and charcoal showed against the housing.
+ *
+ * Resizing could never fix it either: notchWidthOverride scales bandWidth,
+ * and the percentages scaled with it, so the un-blacked fraction of the
+ * notch stayed constant at every override value.
+ *
+ * Anchoring to the band in points makes the black cover the notch plus
+ * `bleed` on each side at every wing width and every override.
+ */
+export function blackSpan(
+  leftWing: number,
+  bandWidth: number,
+  rightWing: number,
+  bleed: number = NOTCH_BLACK_BLEED_PT,
+): { start: number; end: number; total: number } {
+  const total = Math.max(0, leftWing + bandWidth + rightWing)
+  return {
+    start: Math.max(0, leftWing - bleed),
+    end: Math.min(total, leftWing + bandWidth + bleed),
+    total,
+  }
+}
+
+/**
+ * The wing gradient as a CSS value, with absolute stops.
+ *
+ * Ramp proportions are carried over from the percentage version it
+ * replaces (abyss sat 0.44 of the way out on the left, 0.56 on the right),
+ * so the shape reads the same — only its anchoring changed.
+ */
+export function wingGradient(opts: {
+  leftWing: number
+  bandWidth: number
+  rightWing: number
+  charcoal: string
+  abyss: string
+  bleed?: number
+}): string {
+  const { start, end, total } = blackSpan(
+    opts.leftWing, opts.bandWidth, opts.rightWing, opts.bleed,
+  )
+  if (total <= 0) return '#000'
+  const leadIn = Math.round(start * 0.44)
+  const leadOut = Math.round(end + (total - end) * 0.56)
+  return `linear-gradient(90deg, ${opts.charcoal} 0px, ${opts.abyss} ${leadIn}px, `
+    + `#000 ${Math.round(start)}px, #000 ${Math.round(end)}px, `
+    + `${opts.abyss} ${leadOut}px, ${opts.charcoal} ${Math.round(total)}px)`
+}

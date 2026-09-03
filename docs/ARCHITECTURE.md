@@ -146,7 +146,8 @@ with this change and the audit should be revisited.
 Live decision (2026-07-29, see `docs/pricing-and-economics.md` for the
 economics and the history):
 
-- **Free** — unlimited dictation with cleanup. No word cap, no card. Keeps
+- **Free** — unlimited dictation. Cleanup is capped at **2,000 words a
+  week**; over the cap it degrades, it does not stop. No card. Keeps
   **prompt shaping** and **three remembered facts**; no overview paragraph.
 - **Pro — $9/mo.** Gates *features*, not volume: **select and rewrite**,
   **per-app polish**, and **unlimited persistent context** — every fact plus
@@ -155,7 +156,32 @@ economics and the history):
   it on.
 - No Lifetime tier. No card required to try Pro.
 
-**Amended 2026-09-03 — Free keeps a taste, it is no longer a hard gate.**
+**Amended 2026-09-03 (b) — Free is metered again at 2,000 words/week.**
+This reinstates the pre-2026-07-29 cap that "unlimited" replaced. The
+economics that removed it are unchanged and the cap is *not* a cost
+control — cleanup is ~$0.002-$0.14/user/mo, so it saves pennies. What
+changed is the other side of the trade: Free now also carries prompt
+shaping and three facts (see below), and unlimited volume on top of that
+left little reason to pay. The cap restores a recurring moment where
+upgrading is the obvious move.
+
+**Over the cap is a downgrade, not a wall.** Dictation continues;
+cleanup falls back to `createLocalCleanupProvider()` plus the
+deterministic passes in `text-passes.ts`, which still fix brand names,
+the dictionary, self-corrections and question marks. `pricing-and-
+economics.md` already described this shape — "over-cap Free users degrade
+gracefully to local-transcript + regex (still usable), that gap is the
+upgrade incentive". A blocked hotkey would just read as a broken app.
+
+Unlike the fact cap, **this one is server-enforceable**: the proxy
+already sees the transcript on its way to cleanup, so it counts words and
+discards them without storing anything. Weeks bucket by ISO week
+server-side so a client clock cannot buy extra words.
+
+That header block in `pricing-and-economics.md` still says "no weekly
+word cap" and is now stale; this file wins.
+
+**Amended 2026-09-03 (a) — Free keeps a taste, it is no longer a hard gate.**
 The four features previously flipped fully off below Pro. Free now keeps
 prompt shaping and three facts, because this file's own reason for
 rejecting the hard paywall (`docs/pricing-and-economics.md`: users convert

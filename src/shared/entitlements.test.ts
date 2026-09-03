@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { entitlementsFor, limitFacts, FREE_FACT_LIMIT, type Plan } from './entitlements'
+import {
+  entitlementsFor, limitFacts, weeklyAllowance,
+  FREE_FACT_LIMIT, FREE_WEEKLY_WORD_LIMIT, type Plan,
+} from './entitlements'
 import type { StoredFact } from './types'
 
 function fact(id: number, createdAt: number): StoredFact {
@@ -16,6 +19,7 @@ describe('entitlementsFor', () => {
     expect(e.perAppPolish).toBe(false)
     expect(e.contextOverview).toBe(false)
     expect(e.factLimit).toBe(FREE_FACT_LIMIT)
+    expect(e.weeklyWordLimit).toBe(FREE_WEEKLY_WORD_LIMIT)
     // Deliberately still on: shaping works on Free, just with less
     // context behind it, so the upgrade is felt rather than described.
     expect(e.promptShaping).toBe(true)
@@ -28,6 +32,7 @@ describe('entitlementsFor', () => {
       perAppPolish: true,
       contextOverview: true,
       factLimit: null,
+      weeklyWordLimit: null,
     })
   })
 
@@ -74,5 +79,34 @@ describe('limitFacts', () => {
   it('caps a real Free store at three', () => {
     const many = Array.from({ length: 12 }, (_, i) => fact(i, i * 10))
     expect(limitFacts(many, FREE_FACT_LIMIT)).toHaveLength(3)
+  })
+})
+
+describe('weeklyAllowance', () => {
+  it('never caps a paid plan', () => {
+    expect(weeklyAllowance(999_999, null)).toEqual({ cleanupAllowed: true, remaining: null })
+  })
+
+  it('counts down inside the cap', () => {
+    expect(weeklyAllowance(1847, FREE_WEEKLY_WORD_LIMIT)).toEqual({
+      cleanupAllowed: true,
+      remaining: 153,
+    })
+  })
+
+  it('closes exactly at the cap, not one word after', () => {
+    // Off-by-one here is user-visible twice: the gate and the counter.
+    expect(weeklyAllowance(1999, 2000).cleanupAllowed).toBe(true)
+    expect(weeklyAllowance(2000, 2000).cleanupAllowed).toBe(false)
+  })
+
+  it('reports zero remaining rather than a negative overshoot', () => {
+    // A request can straddle the cap, so used may land above it. The
+    // counter must read "0 left", never "-40 left".
+    expect(weeklyAllowance(2040, 2000).remaining).toBe(0)
+  })
+
+  it('treats a corrupt negative count as unused', () => {
+    expect(weeklyAllowance(-5, 2000).remaining).toBe(2000)
   })
 })

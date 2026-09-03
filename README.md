@@ -21,7 +21,7 @@
 
 ## How it works
 
-Your audio goes **mic → on-device model → your cursor**. Yappr's servers are never in the path.
+Your audio goes **mic → on-device model → your cursor**. Your voice never leaves your Mac.
 
 Transcription runs locally. The optional cleanup pass — the step that strips filler, fixes casing and matches the tone of the app you're writing in — is a single call to your own API key, and it's skipped entirely for short dictations.
 

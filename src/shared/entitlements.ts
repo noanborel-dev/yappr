@@ -37,7 +37,30 @@ export interface Entitlements {
   contextOverview: boolean
   /** Remembered facts injected into cleanup. null means unlimited. */
   factLimit: number | null
+  /** Words of LLM cleanup per week. null means unlimited. */
+  weeklyWordLimit: number | null
 }
+
+// Free is metered again, at the pre-2026-07-29 figure.
+//
+// That earlier decision removed the cap on the arithmetic that cleanup is
+// ~$0.002-$0.14/user/mo, so metering "was costing conversion without
+// saving meaningful money". The arithmetic has not changed and the cap is
+// still not a cost control. What changed is the other side of the trade:
+// Free now also carries prompt shaping and three facts, so unlimited
+// volume on top of that left little to buy. The cap restores a recurring
+// moment where upgrading is the obvious move.
+//
+// Over-cap is a DOWNGRADE, not a wall. The user keeps dictating; cleanup
+// falls back to createLocalCleanupProvider() and the deterministic passes
+// in text-passes.ts, which still fix brand names, the dictionary,
+// self-corrections and question marks. That gap is the upgrade incentive
+// — a blocked hotkey would just be a broken app.
+//
+// Unlike the fact cap, this one IS server-enforceable: the proxy already
+// sees the transcript on its way to cleanup, so it can count words and
+// discard them without storing anything.
+export const FREE_WEEKLY_WORD_LIMIT = 2000
 
 // Free keeps three facts rather than zero.
 //
@@ -65,6 +88,7 @@ const FREE: Entitlements = {
   perAppPolish: false,
   contextOverview: false,
   factLimit: FREE_FACT_LIMIT,
+  weeklyWordLimit: FREE_WEEKLY_WORD_LIMIT,
 }
 
 const FULL: Entitlements = {
@@ -73,6 +97,7 @@ const FULL: Entitlements = {
   perAppPolish: true,
   contextOverview: true,
   factLimit: null,
+  weeklyWordLimit: null,
 }
 
 export function entitlementsFor(plan: Plan): Entitlements {
@@ -100,4 +125,27 @@ export function limitFacts(
   if (limit === null) return [...facts]
   if (limit <= 0) return []
   return [...facts].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit)
+}
+
+export interface Allowance {
+  /** False once the weekly cap is spent — cleanup degrades, never blocks. */
+  cleanupAllowed: boolean
+  /** Words left this week, or null when uncapped. */
+  remaining: number | null
+}
+
+/**
+ * How much cleanup this user has left this week.
+ *
+ * Drives both the gate and the "1,847 / 2,000 words" counter, so the
+ * number the user reads and the number that decides are the same one —
+ * a counter that disagrees with the gate is worse than no counter.
+ *
+ * The week boundary is the caller's: the proxy buckets by ISO week so a
+ * client clock cannot buy extra words by changing timezone.
+ */
+export function weeklyAllowance(wordsUsed: number, limit: number | null): Allowance {
+  if (limit === null) return { cleanupAllowed: true, remaining: null }
+  const used = Math.max(0, wordsUsed)
+  return { cleanupAllowed: used < limit, remaining: Math.max(0, limit - used) }
 }
