@@ -1,8 +1,56 @@
 # Dictation history: retention and browsing — requirements
 
 **Date:** 2026-09-04
-**Status:** requirements draft. Open questions at the end must be
-answered before implementation.
+**Status: DECLINED 2026-09-04.** Kept as a record of what was measured,
+because the numbers are the useful part and re-deriving them costs more
+than reading them.
+
+**The decision: leave history on `electron-store` at the 1000-entry cap
+(~40 days at the observed 25 dictations/day).** No SQLite, no 12-month
+retention, no date-grouped view.
+
+### Why
+
+The thing that made 12 months look necessary is real but small at the
+current cap. `store.set()` serialises the whole store on every write, so
+appending one dictation rewrites all of them — but at 1000 entries that
+is ~638KB and 5–15ms, not worth a migration. At the 9,150 entries twelve
+months implies it becomes ~5.7MB per dictation on the release→paste path,
+which is what would have forced the change.
+
+**It costs no tokens.** History never leaves the machine. The only part
+that reaches the API is a fixed sample — `HISTORY_SAMPLE = 30` for the
+overview, `.slice(0, 50)` in the compactor — and those do not grow with
+the store. This was the premise worth correcting: storage size and API
+spend are unrelated here.
+
+Twelve months would also have forced UI work independent of storage:
+`HistoryTab` renders every row unvirtualized and ships the whole store
+over IPC on tab open. That is fine at 141 entries and would hang the
+settings window at 9,150.
+
+### The residual risk, accepted knowingly
+
+The cap is a COUNT, and a count cap evicts by volume rather than by age —
+a busy week can silently drop a quiet month. That is exactly what
+destroyed 186 dictations between 2026-08-22 and 2026-08-28 while the cap
+was 50. At 1000 it is far less likely, but the failure mode has not been
+removed, only made rarer.
+
+### What would change the answer
+
+- Wanting history older than ~40 days.
+- Sustained usage well above 25/day, which shortens the window.
+- Another silent loss like August's.
+
+A working SQLite implementation was written and discarded rather than
+merged; the design is below and in the git history of this branch name
+(`feat/history-sqlite`, deleted). Rebuilding it is a day, not a
+discovery.
+
+---
+
+## Original requirements (not implemented)
 
 ## Why this is being rewritten
 
