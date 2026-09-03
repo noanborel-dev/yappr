@@ -33,7 +33,7 @@ export interface StandingPreference {
 // first-person SINGULAR: "we always use zod" is a team/codebase
 // convention and belongs to the project, not the person.
 const FIRST_PERSON_PREFERENCE_RE =
-  /\b(?:i)\s+(?:always|never|usually|generally|typically|tend to|like to|prefer|hate|avoid|don't like|do not like)\b/i
+  /\b(?:i)\s+(?:always|never|usually|generally|typically|tend to|like to|prefer|hate|avoid|don'?t like|do not like|don'?t want|do not want)\b/i
 
 const MY_PREFERENCE_RE = /\bmy\s+(?:preference|style|convention|default|rule)\b/i
 
@@ -53,10 +53,44 @@ const DURABILITY_RE =
 const CONVENTION_VERB_RE =
   /\b(?:use|uses|used|using|prefer|prefers|preferred|write|writes|written|format|formats|name|names|naming|indent|avoid|avoids|stick to|go with|default to|structure|style|test|tests|import|imports|export|exports|type|types|lint|run)\b/i
 
+// Prohibitions — "no static animations", "stop using X", "get rid of X".
+//
+// These are standing rules, but they carry NEITHER of the two markers the
+// gate below requires: "I don't want any static animations on my website"
+// has no durability word and no convention verb, so it fell straight
+// through. That is the most natural way to state a negative rule and it
+// was the one shape the detector could not see.
+//
+// A prohibition is inherently durable — forbidding something is not a
+// request for right now — so matching this satisfies the durability and
+// convention requirements on its own.
+const PROHIBITION_RE =
+  /\b(?:don'?t|do not|doesn'?t|does not)\s+want\b|\bno\s+more\b|\bstop\s+(?:using|adding|putting|writing)\b|\bget\s+rid\s+of\b|\bnever\s+again\b/i
+
 // Statements about a person's feelings or experience rather than a
 // working convention. These carry durability markers but are not rules.
+// `get` is here for "I always get an error", but it also swallowed
+// "GET RID OF the drop shadows" — a directive, not a symptom. The
+// lookahead is the whole difference between a complaint and an
+// instruction that happens to share a verb.
 const NOT_A_RULE_RE =
-  /\b(?:get|gets|getting|got|see|sees|saw|seeing|happens?|happened|breaks?|broke|fails?|failed|crash(?:es|ed)?|forget|forgets|forgot)\b/i
+  /\b(?:get(?!\s+rid\s+of)|gets|getting|got|see|sees|saw|seeing|happens?|happened|breaks?|broke|fails?|failed|crash(?:es|ed)?|forget|forgets|forgot)\b/i
+
+/**
+ * Is this sentence a prohibition that states a CONVENTION rather than a
+ * one-off intention?
+ *
+ * "I don't want to finish this today" is about the speaker's plans;
+ * "I don't want any static animations" is about the work. The tell is
+ * "want to" + a verb: declining an action you might take once is not a
+ * standing rule, unless the verb is itself a convention verb — "I don't
+ * want to use static animations" is a rule again.
+ */
+function isProhibitionRule(sentence: string): boolean {
+  if (!PROHIBITION_RE.test(sentence)) return false
+  if (/\bwant\s+to\b/i.test(sentence)) return CONVENTION_VERB_RE.test(sentence)
+  return true
+}
 
 /**
  * Which tier a fact belongs to. Defaults to `project` — see the note at
@@ -91,8 +125,11 @@ function sentences(text: string): string[] {
 export function extractStandingPreferences(dictation: string): StandingPreference[] {
   const out: StandingPreference[] = []
   for (const sentence of sentences(dictation ?? '')) {
-    if (!DURABILITY_RE.test(sentence)) continue
-    if (!CONVENTION_VERB_RE.test(sentence)) continue
+    // A prohibition clears both gates on its own — see PROHIBITION_RE.
+    if (!isProhibitionRule(sentence)) {
+      if (!DURABILITY_RE.test(sentence)) continue
+      if (!CONVENTION_VERB_RE.test(sentence)) continue
+    }
     // "I always get an error" has both markers but states a symptom.
     if (NOT_A_RULE_RE.test(sentence)) continue
     // A question is asking about a convention, not declaring one.
