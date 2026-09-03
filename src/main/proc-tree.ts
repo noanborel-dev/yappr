@@ -151,3 +151,47 @@ export function findAiCliInTree(rows: ProcRow[], rootPids: number[], opts: { max
 
   return { isAiCli: false }
 }
+
+// ---------------------------------------------------------------------------
+// Project roots — the shells that tell us where a project lives
+// ---------------------------------------------------------------------------
+
+// The project KEY comes from a window title and is a name, not a path
+// ("yappr"), so nothing in the app knows where a project actually lives.
+// A shell running in an editor's integrated terminal does: its cwd is the
+// project root. That is the only reliable source we have — the editor's
+// own argv carries just the binary path, and the AI CLI's cwd resolves to
+// a daemon temp dir, not the repo. Both were checked before landing this.
+const SHELL_BINS: ReadonlySet<string> = new Set(['zsh', 'bash', 'fish', 'sh', 'dash'])
+
+/**
+ * Pids of shell processes. A login shell shows as `-zsh`, so the leading
+ * dash is stripped before matching.
+ */
+export function findShellPids(rows: readonly ProcRow[], limit = 16): number[] {
+  const out: number[] = []
+  for (const r of rows) {
+    if (out.length >= limit) break
+    const first = (r.args.trim().split(/\s+/)[0] ?? '').replace(/^-/, '')
+    if (SHELL_BINS.has(base(first))) out.push(r.pid)
+  }
+  return out
+}
+
+/**
+ * Directories from `lsof -Fn` output.
+ *
+ * -F is the machine-readable mode: one field per line, prefixed by its
+ * type. We asked for cwd only, so every `n` line is a directory. Parsing
+ * the human format instead would break on any path containing a space,
+ * which on macOS is most of them.
+ */
+export function parseLsofCwds(stdout: string): string[] {
+  const seen = new Set<string>()
+  for (const line of stdout.split('\n')) {
+    if (line.charCodeAt(0) !== 110 /* 'n' */) continue
+    const path = line.slice(1).trim()
+    if (path.startsWith('/')) seen.add(path)
+  }
+  return [...seen]
+}

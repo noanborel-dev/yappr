@@ -45,6 +45,7 @@ import {
   PROJECT_FACTS_SYSTEM,
   GLOBAL_PREFS_SYSTEM,
 } from './project-facts'
+import { readProjectProfiles } from './project-roots'
 
 const THRESHOLD = 50
 
@@ -423,6 +424,35 @@ async function mineProjectFacts(apiKey: string): Promise<void> {
         logError(`[compactor] project-fact mining failed for ${projectKey}`, err)
       }
     }
+    // A second fact source: the project itself.
+    //
+    // PROJECT_FACTS_SYSTEM forbids inference — "if the dictations do not
+    // say it, it is not a fact" — which is right for a model reading
+    // transcripts and leaves a gap: Yappr only knows a project uses
+    // Framer Motion if the user once said so. So "make me a sidebar"
+    // shapes into a generic prompt with nothing to make it specific.
+    //
+    // Reading dependency names closes that without weakening the rule:
+    // nothing here is inferred, only observed.
+    //
+    // Gated on `projects` — the keys this compaction actually saw in
+    // dictations. A shell can be open in any directory, and profiling one
+    // Yappr has never heard of would CREATE a bucket from a stray cwd.
+    // The governing rule from project-key.ts holds: never guess.
+    try {
+      const profiles = await readProjectProfiles()
+      let profiled = 0
+      for (const projectKey of projects) {
+        for (const text of profiles.get(projectKey) ?? []) {
+          if (addFact({ scope: 'project', projectKey, text })) profiled++
+        }
+      }
+      if (profiled > 0) logInfo('[compactor] project profiles stored', { stored: profiled })
+    } catch (err) {
+      // Never fatal: a missing profile is a missing nicety.
+      logError('[compactor] project profiling failed', err)
+    }
+
     logInfo('[compactor] project facts mined', { projects: projects.length, stored })
   } catch (err) {
     logError('[compactor] project-fact mining threw', err)

@@ -77,6 +77,30 @@ reads at a URL nobody visits does not do any better.
 - **Audit §G's log disclosure still stands.** The 60-character transcript
   excerpt is local-only but undisclosed, and must be named.
 
+## Amendment 2026-09-04 — project profiling
+
+A second fact source now reads the user's project and stores facts from
+it (`context/project-profile.ts`). Facts are injected into cleanup
+prompts, so this is a new category of data leaving the machine and it
+belongs in the disclosure.
+
+The boundary is deliberately narrow and enforced in code:
+
+- **Read:** dependency NAMES from `package.json`, nothing else.
+- **Never:** file contents, source code, paths, dotfiles, or anything
+  outside that one file.
+
+What leaves the machine is therefore a handful of sentences naming public
+open-source packages — "An Electron desktop app. Styled with Tailwind
+CSS." That is the least revealing thing that is still useful, and it is
+capped at four facts (`MAX_PROFILE_FACTS`).
+
+The disclosure line: *Yappr reads the dependency names in your project's
+package.json to describe your stack. It never reads your source code.*
+
+Widening this is a privacy-notice decision first and a code change
+second.
+
 ## Decision
 
 Ship the beta with the in-app + invitation disclosure. Do not block the

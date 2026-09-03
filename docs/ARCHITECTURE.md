@@ -223,6 +223,14 @@ afterwards, so skipping cleanup never skips correctness.
 prompt, rebuilt by `context/compactor.ts` when the machine is idle. Facts
 are bucketed per project; `GLOBAL_SCOPE` exists for cross-project rules.
 
+Facts come from three sources: the onboarding paste, standing preferences
+detected live in dictations (`context/fact-scope.ts`), and — added
+2026-09-04 — the project's own `package.json`
+(`context/project-profile.ts`). That third one puts dependency names into
+prompts that route through the proxy, so it is bounded to dependency
+NAMES and never source code; see
+`docs/decisions/2026-09-03-privacy-notice-beta.md`.
+
 **The indicator is the product's face.** It hangs from the notch. Its
 centre stays true black so it disappears into the camera housing — only the
 wings may carry colour. That constraint is not negotiable.
