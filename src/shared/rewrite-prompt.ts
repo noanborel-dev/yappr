@@ -272,6 +272,57 @@ export function looksLikeSignoff(line: string): boolean {
   return SIGNOFF_RE.test(line)
 }
 
+// A greeting line — "Hi Jeff,", "Hello,", "Dear Dr Smith,".
+//
+// No sentence punctuation allowed inside it, so a real first sentence
+// that happens to open with "Hi Jeff, thanks for the note." is not
+// mistaken for a bare greeting and stripped.
+const GREETING_RE =
+  /^\s*(?:hi|hello|hey|dear|good\s+(?:morning|afternoon|evening))\b[^.!?]*,?\s*$/i
+
+/**
+ * How many characters of actual BODY a composed email has — what is left
+ * once the greeting and the sign-off block are removed.
+ *
+ * Exists because of a live failure: the brief "Write an email with all of
+ * the architecture of my app, plus asking my friend Jeff if he wants to
+ * be an investor" came back as the complete string
+ *
+ *   "Hi Jeff,\n\nBest,\nNoan"
+ *
+ * Twenty characters, pasted straight into Gmail. Nothing caught it. The
+ * pipeline's length guard only runs on transcripts of 300+ characters,
+ * because it is calibrated for CLEANUP, where output tracks input. A
+ * composed email inverts that: the input is a short brief and the output
+ * should be several times longer, so a short brief is exactly the case
+ * the guard skips and exactly the case that fails.
+ *
+ * Counting the body rather than the whole string is what separates a
+ * hollow shell from a terse but real email — both are short, and only one
+ * of them is a failure.
+ */
+export function composedEmailBodyChars(text: string): number {
+  const lines = (text ?? '').replace(/\r\n/g, '\n').split('\n')
+  let start = 0
+  let end = lines.length
+
+  while (start < end && lines[start].trim() === '') start++
+  if (start < end && GREETING_RE.test(lines[start])) start++
+
+  while (end > start && lines[end - 1].trim() === '') end--
+  // The sign-off may sit above a short signature block, so look back a
+  // few lines rather than only at the last one.
+  for (let i = end - 1; i >= start && i >= end - 1 - SIGNATURE_TAIL_LINES; i--) {
+    if (looksLikeSignoff(lines[i])) {
+      end = i
+      break
+    }
+  }
+  while (end > start && lines[end - 1].trim() === '') end--
+
+  return lines.slice(start, end).join('\n').trim().length
+}
+
 // Words a model reaches for when it decides to REPORT on the text instead
 // of returning it. Anchored and whole-string: a rewrite that legitimately
 // ends up being the single word "same" is not something to guard against,
