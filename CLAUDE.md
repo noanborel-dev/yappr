@@ -113,14 +113,30 @@ self-correction, spelled-name collapse, question marks.
 
 | register | behaviour | when |
 |---|---|---|
-| REFORMAT (`ai_prompt`) | restructures into a markdown prompt | primary AI app, readable `AXTextArea`, or detected AI CLI with ≥12 words |
+| REFORMAT (`ai_prompt`) | restructures into a markdown prompt | primary AI app, readable `AXTextArea`, or detected AI CLI with ≥8 words — ≥5 when the text opens with an imperative verb |
 | FAITHFUL_AI | LLM runs, must not restructure | spoken AI cue, or AI CLI with a short dictation |
 | POLISHED | normal cleanup | messaging / email / docs / other |
 | verbatim | no LLM | code, or under 8 words |
 
 `classifyCodeSurface` in `ai-intent.ts` is pure and adversarially tested.
-Note the thresholds were set independently and do not reconcile: <8 words no
-LLM, ≥12 words reformat, and 8–11 is a faithful dead zone.
+The word thresholds now reconcile, and did not always. Reformat once
+required 12 words while the LLM was skipped under 8, leaving an 8–11
+"faithful dead zone" that paid a full round-trip to return the text
+almost unchanged. `MIN_REFORMAT_WORDS` is 8, matching
+`SHORT_UTTERANCE_MAX_WORDS`, so nothing lands in between.
+
+One deliberate exception, added 2026-09-04: with an AI CLI detected, text
+that OPENS with an imperative verb reformats from 5 words
+(`MIN_ACTIONABLE_REFORMAT_WORDS`). Without it the floor was a cliff
+meaning could not see — "build a landing page about my app" (7) came back
+near-identical while "build ME a landing page about my app" (8) got
+shaped. It keys on `hasImperativeOpener`, NOT `isActionableRequest`: the
+latter also fires on "let's", which would drag "let's see how quick this
+is" into reformat — the phrase that 429'd and cost 6.5s.
+
+A transcript bound for reformat also bypasses the short-utterance skip
+(`cleanupSkipReason`'s `willReformat`), for the same reason compose does:
+it is a brief, not the output, so skipping it pastes the brief.
 
 ### Rate limits
 

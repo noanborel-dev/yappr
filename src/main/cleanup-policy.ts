@@ -59,7 +59,29 @@ function hasDisfluency(transcript: string): boolean {
     || CORRECTION_RE.test(transcript)
 }
 
-export function cleanupSkipReason(transcript: string, category: AppCategory): SkipReason {
+export interface SkipOptions {
+  /**
+   * The surface classifier has routed this to REFORMAT.
+   *
+   * Outranks length for exactly the reason compose does: the transcript
+   * is a BRIEF, not the output. Skipping it pastes the brief — the user
+   * said "build a landing page about my app" and got those seven words
+   * in their terminal instead of a shaped prompt.
+   *
+   * Passed explicitly rather than inferred from `category === 'ai_prompt'`
+   * because the URL router sets that category from the host alone, before
+   * the classifier has judged anything. Inferring it would send every
+   * five-word aside in a browser AI surface to the LLM — the precise
+   * regression the short-utterance rule exists to prevent.
+   */
+  willReformat?: boolean
+}
+
+export function cleanupSkipReason(
+  transcript: string,
+  category: AppCategory,
+  opts: SkipOptions = {},
+): SkipReason {
   // A stumble needs the LLM regardless of length or category — pasting
   // the "um" is worse than the round-trip saved.
   if (hasDisfluency(transcript)) return 'none'
@@ -77,6 +99,12 @@ export function cleanupSkipReason(transcript: string, category: AppCategory): Sk
   // output and cleanup only polishes it. Compose is the one register
   // where the transcript is a brief, so skipping cannot be a no-op.
   if (asksForEmailComposition(transcript)) return 'none'
+
+  // A prompt bound for shaping outranks length, for the same reason.
+  // Every other skip is safe because the transcript IS the intended
+  // output; reformat and compose are the two registers where it is a
+  // brief, so skipping cannot be a no-op there.
+  if (opts.willReformat) return 'none'
 
   // Short-utterance bypass, before any category rule.
   //
@@ -101,8 +129,12 @@ export function cleanupSkipReason(transcript: string, category: AppCategory): Sk
   return 'none'
 }
 
-export function canSkipCleanup(transcript: string, category: AppCategory): boolean {
-  return cleanupSkipReason(transcript, category) !== 'none'
+export function canSkipCleanup(
+  transcript: string,
+  category: AppCategory,
+  opts: SkipOptions = {},
+): boolean {
+  return cleanupSkipReason(transcript, category, opts) !== 'none'
 }
 
 // --- Groq rate-limit handling -------------------------------------------
