@@ -146,10 +146,36 @@ with this change and the audit should be revisited.
 Live decision (2026-07-29, see `docs/pricing-and-economics.md` for the
 economics and the history):
 
-- **Free** — unlimited dictation with cleanup. No word cap, no card.
-- **Pro — $9/mo.** Gates *features*, not volume: prompt shaping, select and
-  rewrite, persistent context, per-app polish.
+- **Free** — unlimited dictation with cleanup. No word cap, no card. Keeps
+  **prompt shaping** and **three remembered facts**; no overview paragraph.
+- **Pro — $9/mo.** Gates *features*, not volume: **select and rewrite**,
+  **per-app polish**, and **unlimited persistent context** — every fact plus
+  the compacted overview. Prompt shaping runs on Free too, on the
+  three-fact layer, so Pro makes it visibly better rather than switching
+  it on.
 - No Lifetime tier. No card required to try Pro.
+
+**Amended 2026-09-03 — Free keeps a taste, it is no longer a hard gate.**
+The four features previously flipped fully off below Pro. Free now keeps
+prompt shaping and three facts, because this file's own reason for
+rejecting the hard paywall (`docs/pricing-and-economics.md`: users convert
+when they *experience* a feature "rather than just reading a feature
+list") argues against zero as much as it argued against metering. Zero
+context is invisible absence, and absence does not sell; a visible
+"3 / 3 remembered" does. Three is deliberately reachable in week one.
+
+The tier table is implemented once, in `src/shared/entitlements.ts`, and
+tested against this section. Nothing else may branch on plan name.
+
+**The context cap is client-side and cannot be otherwise.** Remembered
+facts live in local SQLite and are assembled into the prompt by
+`context/prompt-injector.ts`. For the proxy to enforce a cap it would have
+to receive the user's fact store, which contradicts the "never stored"
+commitment above. The proxy therefore rejects only what it can see cheaply
+— select-and-rewrite is a distinct request mode — and the fact cap is
+enforced in the client. Someone who unpacks `app.asar` can lift it. That
+is accepted on the same arithmetic that stopped us metering Free: the leak
+is worth cents per month, and closing it would cost a privacy promise.
 
 The subscription model above sits on top of this; it changes **who supplies
 the inference key**, not the tiers.

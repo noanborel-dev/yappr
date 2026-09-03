@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import { appendFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
+import { redact, redactString } from './redact'
 
 // Persistent log in userData so users (and we) can inspect failures after
 // the fact without keeping a terminal open. Kept append-only and small.
@@ -13,17 +14,22 @@ const LOG_PATH = (() => {
 function fmt(level: string, msg: string, data?: unknown): string {
   const stamp = new Date().toISOString()
   const extra = data ? ` ${safeStringify(data)}` : ''
-  return `${stamp} [${level}] ${msg}${extra}\n`
+  return `${stamp} [${level}] ${redactString(msg)}${extra}\n`
 }
 
+// Everything here goes through redact() first. The log file is shared
+// with us by users when something breaks, so it is effectively public;
+// see src/main/redact.ts for why both nets are needed.
 function safeStringify(v: unknown): string {
   if (v instanceof Error) {
-    return JSON.stringify({ message: v.message, stack: v.stack })
+    // An SDK error's message often quotes the failing request, so the
+    // message needs scrubbing as much as any structured payload does.
+    return JSON.stringify(redact({ message: v.message, stack: v.stack }))
   }
   try {
-    return JSON.stringify(v)
+    return JSON.stringify(redact(v))
   } catch {
-    return String(v)
+    return redactString(String(v))
   }
 }
 
