@@ -176,10 +176,19 @@ blocker, not an optimisation.**
   under a subscription, and per ARCHITECTURE.md user-facing copy names
   no models or providers.
 - `CLAUDE.md` — already updated 2026-09-03.
-- `YapprLanding/CLAUDE.md` — still carries *"our servers are not in the
-  path"*, marked **approved verbatim**. False behind the proxy. The
-  standing rule is to remove a claim that stops being true, not soften
-  it.
+- `YapprLanding/CLAUDE.md` and `FAQ.tsx` — **already correct.** Both
+  record the removal of *"our servers are not in the path"* and now say
+  *"your voice never leaves your Mac"* (2026-08-30). No action.
+- `README.md:24` — **fixed 2026-09-03.** Carried *"Yappr's servers are
+  never in the path"*, true today and false behind the proxy. Replaced
+  with the audio claim, which holds in both worlds.
+- `README.md` otherwise — tagline *"Bring your own API key"*, the
+  paste-a-Groq-key setup step, the *"How much does BYOK actually
+  cost?"* section, and a reference to `llama-3.1-8b-instant`, which
+  Groq decommissioned. Deliberately NOT fixed: CLAUDE.md records the
+  BYOK gap as tracked, not accidental. Lands with the client cutover.
+- `YapprLanding/docs/specs/landing-page-design-spec.md:327` — stale FAQ
+  answer describing the BYOK flow. Same treatment, same time.
 - `docs/legal-audit-2026-05-17.md` — reads "no proxy" as part of a
   strong posture. That assumption expires here.
 

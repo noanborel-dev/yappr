@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { YapprMark, BRAND_WING, BRAND_CHARCOAL } from '../shared/ui/YapprMark'
+import { YapprMark, BRAND_CHARCOAL, BRAND_ABYSS } from '../shared/ui/YapprMark'
+import { wingGradient } from '../../shared/notch-geometry'
 import {
   resolve,
   fromPipelineState,
@@ -619,15 +620,32 @@ export default function NotchIndicator() {
           // the glow off centre and onto the wings.
           //
           // The wings carry the brand's charcoal blue rather than the old
-          // #0A0B0F. That is a bigger lift than before, so the ramp runs
-          // out to 30% instead of 34%, keeping the whole transition clear
-          // of the housing: the colour must already be black BEFORE the
+          // #0A0B0F, and the colour must already be black BEFORE the
           // hardware starts, not at its edge.
+          //
+          // The stops are ABSOLUTE, anchored to the band. They used to be
+          // percentages of the whole shape (BRAND_WING, still correct for
+          // the static lockups in NotchMark) — but the notch is a fixed
+          // width in the middle and the wings animate, so 32% slid around
+          // in real pixels while the hardware did not. At narrow wings it
+          // landed inside the cutout and charcoal showed against the
+          // housing. Resizing could not fix it: notchWidthOverride scaled
+          // bandWidth and the percentages scaled with it, so the
+          // un-blacked fraction was constant at every override value.
+          // See blackSpan() for the invariant and its regression tests.
           //
           // Fully transparent at idle: anything drawn here persists as a
           // visible black slab during Spaces transitions, where the real
           // notch is composited away and ours is left hanging.
-          background: v.isIdle ? 'transparent' : BRAND_WING,
+          background: v.isIdle
+            ? 'transparent'
+            : wingGradient({
+                leftWing: v.leftWing,
+                bandWidth,
+                rightWing: v.rightWing,
+                charcoal: BRAND_CHARCOAL,
+                abyss: BRAND_ABYSS,
+              }),
           overflow: 'hidden',
           willChange: 'height',
           boxShadow: v.isIdle
