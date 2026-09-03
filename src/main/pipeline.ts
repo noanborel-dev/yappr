@@ -865,6 +865,10 @@ export async function runDictationPipeline(
   // of the routing block because the ultrathink mapping (spec §2) needs
   // it after cleanup, and it is gated on Claude Code specifically.
   let detectedAiCli: string | undefined
+  // Whether the classifier routed to REFORMAT. Hoisted because the skip
+  // policy needs it further down: a shaping-bound transcript is a brief,
+  // and the short-utterance bypass would otherwise paste the brief.
+  let willReformat = false
   // The classifier is normally only consulted on code surfaces and the
   // dedicated AI apps. An explicit "make me a prompt" has to widen that:
   // the request stands on its own, and the user asking for it from a
@@ -907,6 +911,7 @@ export async function runDictationPipeline(
 
     if (surface.register === 'reformat') {
       effectiveCategory = 'ai_prompt'
+      willReformat = true
       // App-builders own a project they can read, edit and deploy, so they
       // get the agentic shaping even though they run in a browser. A chat
       // assistant gets told it can do none of that.
@@ -976,7 +981,7 @@ export async function runDictationPipeline(
     : Promise.resolve('')
 
   const effectiveStrictness = strictnessFor(focusedApp, settings)
-  const skipReason = cleanupSkipReason(transcript, effectiveCategory)
+  const skipReason = cleanupSkipReason(transcript, effectiveCategory, { willReformat })
   let cleanupUnavailable = false
   if (settings.pauseCleanup) {
     // User-controlled hard bypass. Skip the LLM entirely. The

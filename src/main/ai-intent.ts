@@ -180,10 +180,16 @@ const DIRECTIVE_PHRASE_RE = new RegExp([
 // Verbs that, when they OPEN a clause, are an instruction.
 const IMPERATIVE_VERBS = [
   'add', 'build', 'change', 'check', 'clean', 'create', 'debug', 'delete',
-  'document', 'find', 'fix', 'generate', 'give', 'go', 'implement', 'improve',
-  'install', 'look', 'make', 'migrate', 'move', 'open', 'optimize', 'refactor',
-  'remove', 'rename', 'replace', 'rewrite', 'run', 'set', 'show', 'split',
-  'start', 'stop', 'switch', 'take', 'tell', 'turn', 'update', 'use', 'write',
+  // design/draft/plan/sketch are how design and planning work get asked
+  // for, and their absence made "design a landing page" read as prose
+  // while "build a landing page" read as a request. They are safe here
+  // because CLAUSE_OPENER_RE only fires at a clause opening: "the design
+  // is wrong" and "I plan to rewrite it" do not match.
+  'design', 'document', 'draft', 'find', 'fix', 'generate', 'give', 'go',
+  'implement', 'improve', 'install', 'look', 'make', 'migrate', 'move',
+  'open', 'optimize', 'plan', 'refactor', 'remove', 'rename', 'replace',
+  'rewrite', 'run', 'set', 'show', 'sketch', 'split', 'start', 'stop',
+  'switch', 'take', 'tell', 'turn', 'update', 'use', 'write',
 ]
 const CLAUSE_OPENER_RE = new RegExp(
   // Start of text, after sentence punctuation, after a COMMA, or after
@@ -197,6 +203,25 @@ const CLAUSE_OPENER_RE = new RegExp(
   IMPERATIVE_VERBS.join('|') + String.raw`)\b`,
 )
 
+/**
+ * Does the text OPEN with an imperative verb — "build a landing page",
+ * "fix the login bug"?
+ *
+ * Narrower than isActionableRequest on purpose, and the difference is
+ * load-bearing where it is used. isActionableRequest also fires on
+ * "let's", "please", "can you" and "should", which are enough to call
+ * something a request at length but are NOT enough to call a six-word
+ * aside a prompt: "let's see how quick this is" satisfies it, and that
+ * exact phrase is the one that went to the LLM, 429'd and took 6.5s (see
+ * the ordering note in cleanup-policy.ts).
+ *
+ * A verb of action in the opening position is the stronger signal, and
+ * it is what the reduced word floor keys on.
+ */
+export function hasImperativeOpener(transcript: string): boolean {
+  return CLAUSE_OPENER_RE.test(stripQuotedSpans(transcript.toLowerCase()))
+}
+
 export function isActionableRequest(transcript: string): boolean {
   const text = stripQuotedSpans(transcript.toLowerCase())
   if (DIRECTIVE_PHRASE_RE.test(text)) return true
@@ -204,9 +229,31 @@ export function isActionableRequest(transcript: string): boolean {
   return false
 }
 
-export function hasPromptSubstance(transcript: string): boolean {
-  return transcript.trim().split(/\s+/).filter(Boolean).length >= MIN_REFORMAT_WORDS
+function wordCount(transcript: string): number {
+  return transcript.trim().split(/\s+/).filter(Boolean).length
 }
+
+export function hasPromptSubstance(transcript: string): boolean {
+  return wordCount(transcript) >= MIN_REFORMAT_WORDS
+}
+
+// A lower floor, for text that is unmistakably a request.
+//
+// MIN_REFORMAT_WORDS is a PROXY for "is there enough substance to shape".
+// isActionableRequest measures the same thing directly, so where it fires
+// the proxy can relax. Without this the floor was a cliff that meaning
+// could not see: "build a landing page about my app" (7) took the
+// faithful path and came back near-identical, while "build ME a landing
+// page about my app" (8) got shaped. One semantically empty word decided
+// it.
+//
+// Five, not lower: "fix the login bug" (4) is already clear and short
+// enough that shaping invents structure nobody asked for.
+//
+// Deliberately scoped to the AI-CLI route. The other reformat routes keep
+// the 8-word floor, so the 2026-07-29 latency measurement that set it is
+// not reopened across the board.
+export const MIN_ACTIONABLE_REFORMAT_WORDS = 5
 
 export interface CodeSurfaceInput {
   category: AppCategory
@@ -308,11 +355,24 @@ export function classifyCodeSurface(input: CodeSurfaceInput): CodeSurfaceResult 
   // of "2+ sentences", so anything shorter has no business there — it takes
   // the cheap faithful path instead, which still fixes "cloud"→"Claude".
   if (input.terminalAiCli?.isAiCli) {
-    if (!substantial) return { register: 'faithful_ai', reason: 'ai-cli-detected-short' }
-    // Substantial, but only shape it if it actually asks for something.
-    // Describing what you did is not a task list, and forcing it into one
-    // invents work nobody requested — as well as taking the slow model.
-    return isActionableRequest(input.transcript)
+    // Only shape it if it actually asks for something. Describing what you
+    // did is not a task list, and forcing it into one invents work nobody
+    // requested — as well as taking the slow model.
+    const actionable = isActionableRequest(input.transcript)
+    // An imperative OPENER carries the substance the word floor stands in
+    // for, so it clears a lower bar. Deliberately hasImperativeOpener and
+    // not isActionableRequest: the latter also fires on "let's", which
+    // would drag "let's see how quick this is" (6 words) into reformat —
+    // the phrase that 429'd and cost 6.5s. Everything else keeps the full
+    // floor, where both outcomes are faithful anyway and the two reasons
+    // differ only in the logs.
+    const floor = hasImperativeOpener(input.transcript)
+      ? MIN_ACTIONABLE_REFORMAT_WORDS
+      : MIN_REFORMAT_WORDS
+    if (wordCount(input.transcript) < floor) {
+      return { register: 'faithful_ai', reason: 'ai-cli-detected-short' }
+    }
+    return actionable
       ? { register: 'reformat', reason: 'ai-cli-detected', destination: 'agentic' }
       : { register: 'faithful_ai', reason: 'ai-cli-descriptive' }
   }
