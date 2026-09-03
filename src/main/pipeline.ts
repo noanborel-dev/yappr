@@ -10,6 +10,7 @@ import {
   looksLikeMetaReply,
 } from '../shared/rewrite-prompt'
 import { buildContextBlock } from './context/prompt-injector'
+import { composedEmailBodyChars } from '../shared/rewrite-prompt'
 import { getUserOverview } from './context/store'
 import { extractProjectKey, canonicalProjectKey } from './context/project-key'
 import { extractStandingPreferences } from './context/fact-scope'
@@ -207,6 +208,13 @@ async function withCleanupRetry<T>(fn: () => Promise<T>): Promise<T> {
 // length, treat that as a summarization failure." Catches the 4%
 // and 1% production cases without false-positiving on normal
 // filler removal (~85-95% retention is typical).
+// Below this many characters of BODY, a composed email is a shell rather
+// than a terse email. The two live successes on the same day ran to ~880
+// characters of body; the failure had zero. Forty is about one short
+// sentence -- low enough that a genuinely brief reply survives, high
+// enough that a greeting and a sign-off alone do not.
+const COMPOSED_EMAIL_MIN_BODY_CHARS = 40
+
 const LENGTH_GUARD_MIN_INPUT_CHARS = 300
 const LENGTH_GUARD_MIN_RATIO = 0.4
 function buildDictionary(settings: Settings): string[] {
@@ -1083,6 +1091,34 @@ export async function runDictationPipeline(
       // window the user is about to send from.
       if (composingEmail) {
         cleaned = normalizeComposedEmail(cleaned, senderFirstName())
+      }
+      // A composed email with a greeting, a sign-off, and nothing between.
+      //
+      // Observed live: the brief "Write an email with all of the
+      // architecture of my app, plus asking my friend Jeff if he wants to
+      // be an investor" came back as the complete string
+      // "Hi Jeff,\n\nBest,\nNoan" -- 20 characters, pasted into Gmail.
+      //
+      // The length guard below could not catch it. That guard needs a
+      // 300-character transcript before it runs, because it is calibrated
+      // for CLEANUP where output tracks input. Compose inverts the
+      // relationship: the input is a short brief and the output should be
+      // several times longer, so a short brief is precisely the case the
+      // guard skips and precisely the case that fails. This brief was 123
+      // characters. Had the guard run, 20 < 123 * 0.4 would have caught it.
+      //
+      // Falling back to the transcript is the same thing every other
+      // failure here does, and it is the safer of two bad outputs: a brief
+      // in a compose window is visibly not an email, while a hollow shell
+      // looks finished enough to send.
+      if (composingEmail && composedEmailBodyChars(cleaned) < COMPOSED_EMAIL_MIN_BODY_CHARS) {
+        logError('Composed email has no body — falling back to raw transcript', {
+          transcriptChars: transcript.length,
+          cleanedChars: cleaned.length,
+          bodyChars: composedEmailBodyChars(cleaned),
+          cleanedPreview: cleaned.slice(0, 100),
+        })
+        cleaned = transcript
       }
       // The 8B cleanup model occasionally ignores LENGTH_PRESERVATION
       // and summarizes long dictations down to a sentence. ai_prompt
