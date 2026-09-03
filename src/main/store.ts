@@ -2,6 +2,7 @@ import ElectronStore from 'electron-store'
 import type { Settings, Strictness } from '../shared/types'
 import { DEFAULT_HOTKEYS, DEFAULT_DEV_MODE_APPS, MODELS } from '../shared/constants'
 import { DEFAULT_LOCAL_MODEL } from './local-models'
+import { lockTranscriptionLocal } from './provider-lock'
 
 const defaults: Settings = {
   firstRun: true,
@@ -105,8 +106,9 @@ export function getSettings(): Settings {
   // Deliberately not persisted back: leaving the user's old values in the
   // file costs nothing, and rewriting them would make this irreversible
   // for anyone we later hand a build with the picker restored.
-  merged.provider.provider = 'local'
-  merged.provider.localModel = DEFAULT_LOCAL_MODEL
+  // Extracted to provider-lock.ts so it is testable — see the tests
+  // there, which also assert this call site still exists.
+  merged.provider = lockTranscriptionLocal(merged.provider, DEFAULT_LOCAL_MODEL)
 
   // Merge in any new devModeApps bundle IDs that didn't exist when the
   // user first persisted their settings. Without this, users upgrading
