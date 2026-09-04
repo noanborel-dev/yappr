@@ -137,6 +137,42 @@ This message is going into Slack / Discord / Teams. Use sentence case (capitaliz
   return ''
 }
 
+// Lets a short request expand when Yappr actually knows something.
+//
+// The ai_prompt template says: "For very short prompts (a single short
+// question or single command), output flat prose with NO sections." That
+// rule is right when there is no context — "run the tests" does not need
+// five headings — and it is exactly wrong here.
+//
+// Measured on a live dictation. "Please build me a sidebar within the
+// app." routed to reformat, was handed 3,520 characters of context, and
+// came back as "Build a sidebar within the app." — 31 characters. The
+// template did what it was told: stripped the courtesy word, made it
+// imperative, emitted flat prose. No sections means nowhere for the
+// context to go, so fixing the context block's framing (ba9f214) could
+// not have been enough on its own.
+//
+// A short command is the case that MOST needs expanding: the receiving
+// agent knows nothing about the project, and four spoken words are not
+// four words of instruction once the stack and the standing rules are
+// attached.
+//
+// The no-invention guard is restated here because this is the one place
+// the model is being told to ADD, and the template's core promise is
+// that it never adds work.
+const SHORT_PROMPT_WITH_CONTEXT = `
+
+# OVERRIDE — short requests, when project context is present
+The "very short prompts get flat prose" rule above does NOT apply when USER CONTEXT or KNOWN CONTEXT appears in this prompt. Ignore it.
+
+A short command like "build me a sidebar" is precisely the case that needs expanding, because the AI receiving it knows nothing about this project. Output:
+- ## Goal — the request, in one sentence.
+- ## Context — the stack, framework and conventions from the context above that BEAR ON this request.
+- ## Constraints — the user's standing rules that apply, one per bullet.
+
+Include only what is relevant to what was asked. Do not dump the whole profile.
+Add NO tasks the user did not ask for. One request stays one request: you are supplying the setting, never the work.`
+
 export function buildCleanupPrompt(
   category: AppCategory,
   appName: string,
@@ -174,6 +210,13 @@ export function buildCleanupPrompt(
     .replace('{strictness_block}', STRICTNESS_BLOCK[strictness])
     .replace('{emoji_block}', category === 'messaging' && emojiInMessages ? EMOJI_BLOCK : '')
     .replace('{destination_block}', DESTINATION_BLOCK[destination].replace('{app_name}', appName))
+  // A short command still gets sections when there is context to put in
+  // them. Appended AFTER the template on purpose: the context block is
+  // spliced in BEFORE it, so the template's flat-prose rule was later in
+  // the prompt and won.
+  if (category === 'ai_prompt' && contextBlock.trim().length > 0) {
+    prompt += SHORT_PROMPT_WITH_CONTEXT
+  }
   // ai_prompt is included deliberately. The reformat route sets
   // effectiveCategory='ai_prompt', so gating on 'code' alone meant the
   // one register aimed at AI chat surfaces could never emit "@auth.tsx" —

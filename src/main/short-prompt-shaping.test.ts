@@ -49,10 +49,18 @@ describe('short prompts to a detected AI CLI', () => {
       .toBe('faithful_ai')
   })
 
-  it('does not shape below the reduced floor', () => {
-    // "fix the login bug" is already clear; shaping invents structure.
-    expect(surfaceFor('fix the login bug').register).toBe('faithful_ai')
-    expect('fix the login bug'.split(' ').length).toBeLessThan(MIN_ACTIONABLE_REFORMAT_WORDS)
+  it('shapes the four-word case this feature exists for', () => {
+    // "build me a sidebar" is the canonical example, and the floor sat at
+    // five, so it missed by one word. The shorter the request, the more
+    // the project context is doing.
+    expect(surfaceFor('build me a sidebar').register).toBe('reformat')
+    expect('build me a sidebar'.split(' ').length).toBe(MIN_ACTIONABLE_REFORMAT_WORDS)
+  })
+
+  it('does not shape below the floor', () => {
+    // Three-word commands are mostly "run the tests" / "open the file",
+    // where the agent needs no setting and sections would be noise.
+    expect(surfaceFor('run the tests').register).toBe('faithful_ai')
   })
 })
 
