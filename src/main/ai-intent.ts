@@ -247,13 +247,20 @@ export function hasPromptSubstance(transcript: string): boolean {
 // page about my app" (8) got shaped. One semantically empty word decided
 // it.
 //
-// Five, not lower: "fix the login bug" (4) is already clear and short
-// enough that shaping invents structure nobody asked for.
+// Four, because that is where the real case sits. "build me a sidebar"
+// is four words, and it is the canonical thing this feature exists for:
+// the shorter the request, the more the project context is doing. Five
+// excluded it by one word, which is the same off-by-one the eight-word
+// floor made before it.
+//
+// Not lower than four: three-word commands are mostly "run the tests" /
+// "open the file", where the receiving agent needs no setting and a
+// five-section document is noise.
 //
 // Deliberately scoped to the AI-CLI route. The other reformat routes keep
 // the 8-word floor, so the 2026-07-29 latency measurement that set it is
 // not reopened across the board.
-export const MIN_ACTIONABLE_REFORMAT_WORDS = 5
+export const MIN_ACTIONABLE_REFORMAT_WORDS = 4
 
 export interface CodeSurfaceInput {
   category: AppCategory
