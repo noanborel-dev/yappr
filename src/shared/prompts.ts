@@ -137,41 +137,60 @@ This message is going into Slack / Discord / Teams. Use sentence case (capitaliz
   return ''
 }
 
-// Lets a short request expand when Yappr actually knows something.
+// Lets a short request expand when Yappr actually knows something —
+// without telling an agent what it can already read.
 //
 // The ai_prompt template says: "For very short prompts (a single short
 // question or single command), output flat prose with NO sections." That
-// rule is right when there is no context — "run the tests" does not need
-// five headings — and it is exactly wrong here.
+// is right when there is no context and wrong when there is, so the
+// override below suppresses it. Measured: "Please build me a sidebar
+// within the app." routed to reformat with 3,520 characters of context
+// and still came back as 31 characters, because no sections meant nowhere
+// for the context to go.
 //
-// Measured on a live dictation. "Please build me a sidebar within the
-// app." routed to reformat, was handed 3,520 characters of context, and
-// came back as "Build a sidebar within the app." — 31 characters. The
-// template did what it was told: stripped the courtesy word, made it
-// imperative, emitted flat prose. No sections means nowhere for the
-// context to go, so fixing the context block's framing (ba9f214) could
-// not have been enough on its own.
+// WHAT goes in the sections then split by destination, on the second
+// report: "it just tells you the exact app architecture, which is
+// redundant because Claude Code already understands the architecture."
+// That is correct and it is a real distinction, not a matter of taste.
 //
-// A short command is the case that MOST needs expanding: the receiving
-// agent knows nothing about the project, and four spoken words are not
-// four words of instruction once the stack and the standing rules are
-// attached.
+//   agentic — has the repo, git, a shell. It can read package.json. The
+//             stack is the one thing it never needed to be told, and
+//             saying it spends the model's attention on noise.
+//   chat    — has none of that. The stack is exactly what it is missing.
 //
-// The no-invention guard is restated here because this is the one place
-// the model is being told to ADD, and the template's core promise is
-// that it never adds work.
-const SHORT_PROMPT_WITH_CONTEXT = `
+// What NEITHER can infer is the user's preferences: "fluid animations,
+// never static", "blue, not red". Those are worth carrying every time,
+// and they are what "remembering" means to the person dictating.
+function shortPromptOverride(destination: PromptDestination): string {
+  const common = `
 
 # OVERRIDE — short requests, when project context is present
-The "very short prompts get flat prose" rule above does NOT apply when USER CONTEXT or KNOWN CONTEXT appears in this prompt. Ignore it.
+The "very short prompts get flat prose" rule above does NOT apply when USER CONTEXT or KNOWN CONTEXT appears in this prompt. Ignore it.`
 
-A short command like "build me a sidebar" is precisely the case that needs expanding, because the AI receiving it knows nothing about this project. Output:
+  if (destination === 'agentic') {
+    return common + `
+
+The tool receiving this prompt CAN READ THE REPOSITORY. It already knows the stack, the framework, the dependencies and the file layout. Do NOT restate any of that — it is noise, and it costs the reader attention that belongs on the request.
+
+Carry only what it CANNOT read out of the code:
 - ## Goal — the request, in one sentence.
-- ## Context — the stack, framework and conventions from the context above that BEAR ON this request.
-- ## Constraints — the user's standing rules that apply, one per bullet.
+- ## Constraints — the user's standing preferences that apply to THIS request, one per bullet ("fluid animations, never static", "blue rather than red"). This is the section that matters.
+- ## Context — ONLY if something remains that a reader of the repo still would not know. If nothing does, omit this section entirely.
 
-Include only what is relevant to what was asked. Do not dump the whole profile.
-Add NO tasks the user did not ask for. One request stays one request: you are supplying the setting, never the work.`
+Match the length of the ask. A one-line request produces a few lines, not a document.
+Add NO tasks the user did not ask for.`
+  }
+
+  return common + `
+
+The assistant receiving this prompt CANNOT see the project. Give it what it is missing:
+- ## Goal — the request, in one sentence.
+- ## Context — the stack, framework and conventions that bear on this request.
+- ## Constraints — the user's standing preferences that apply, one per bullet.
+
+Include only what bears on this request. Do not dump the whole profile.
+Add NO tasks the user did not ask for.`
+}
 
 export function buildCleanupPrompt(
   category: AppCategory,
@@ -215,7 +234,7 @@ export function buildCleanupPrompt(
   // spliced in BEFORE it, so the template's flat-prose rule was later in
   // the prompt and won.
   if (category === 'ai_prompt' && contextBlock.trim().length > 0) {
-    prompt += SHORT_PROMPT_WITH_CONTEXT
+    prompt += shortPromptOverride(destination)
   }
   // ai_prompt is included deliberately. The reformat route sets
   // effectiveCategory='ai_prompt', so gating on 'code' alone meant the

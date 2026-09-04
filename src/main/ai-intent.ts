@@ -222,11 +222,33 @@ export function hasImperativeOpener(transcript: string): boolean {
   return CLAUSE_OPENER_RE.test(stripQuotedSpans(transcript.toLowerCase()))
 }
 
+// Explicit ways of ASKING. A hedge on top of one of these is politeness,
+// not uncertainty — "can you maybe take a look" is still a request.
+const EXPLICIT_REQUEST_RE =
+  /\b(?:can|could|would|will)\s+you\b|\bplease\b|\b(?:i|we)\s+(?:want|need|would\s+like)\b/i
+
+// Softeners that turn a requirement into a thought.
+//
+// Reported 2026-09-04: "sometimes I'll just be describing something and it
+// will give a full prompt." The live case was "We should probably make
+// sure the animation stays smooth", which became ## Goal / ## Context /
+// ## Tasks. It matched on `should` — and "any subject + should is a
+// requirement" is a good rule that this one word undoes. Musing aloud
+// about what would be nice is not assigning work.
+const HEDGED_RE =
+  /\b(?:probably|maybe|perhaps|i wonder|i was thinking|might want|might be worth|at some point|eventually)\b/i
+
 export function isActionableRequest(transcript: string): boolean {
   const text = stripQuotedSpans(transcript.toLowerCase())
-  if (DIRECTIVE_PHRASE_RE.test(text)) return true
+  // An imperative opener is an instruction however it is softened: "just
+  // fix the thing, maybe" is still someone telling you to fix the thing.
   if (CLAUSE_OPENER_RE.test(text)) return true
-  return false
+  // So is an explicit ask, hedged or not.
+  if (EXPLICIT_REQUEST_RE.test(text)) return true
+  // What remains reached this point through a WEAK signal — "should",
+  // "needs to", "let's" — and those are the ones a hedge cancels.
+  if (!DIRECTIVE_PHRASE_RE.test(text)) return false
+  return !HEDGED_RE.test(text)
 }
 
 function wordCount(transcript: string): number {
