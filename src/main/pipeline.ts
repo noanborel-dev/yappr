@@ -914,6 +914,9 @@ export async function runDictationPipeline(
       // the work; this just tells the classifier it is on one.
       browserAiRouted: effectiveCategory === 'ai_prompt'
         && !PRIMARY_AI_CHAT_BUNDLES.has(focusedApp.bundleId),
+      // Whether that surface BUILDS. Lovable and friends run the project
+      // they are handed; claude.ai answers a question about it.
+      browserIsAgentic: AGENTIC_AI_APP_NAMES.has(focusedApp.name),
       weakCueSettingOn: false,  // not yet exposed as a user setting
     })
 

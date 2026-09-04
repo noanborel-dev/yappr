@@ -38,10 +38,15 @@ describe('classifyCodeSurface', () => {
   const SUBSTANTIAL =
     'can you go through the auth module and fix the login redirect so it stops looping'
 
-  it('routes a primary AI app to reformat', () => {
+  it('does NOT shape in a chat app, however actionable the words are', () => {
+    // Reversed 2026-09-04. This asserted reformat, and that was the
+    // reported bug: "I was just talking about some random thing with
+    // Claude in the web and it made a whole vibe-coded prompt."
+    // Shaping is for surfaces that BUILD from the text; a conversation
+    // is not a work order.
     expect(
       classifyCodeSurface({ ...base, transcript: SUBSTANTIAL, isPrimaryAiBundle: true }).register
-    ).toBe('reformat')
+    ).toBe('faithful_ai')
   })
 
   it('routes a readable multi-line AXTextArea chat box in a code app to reformat', () => {
