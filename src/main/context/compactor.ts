@@ -35,7 +35,8 @@ import { getSettings } from '../store'
 import { compactionGate, shouldKeepRetrying, type GateInput } from './compaction-gate'
 import { logInfo, logError } from '../log'
 import { MODELS } from '../../shared/constants'
-import { addFact, hasAnyFacts } from './facts'
+import { addFact, hasAnyFacts, listBuckets, deleteFact } from './facts'
+import { SUPERSEDE_SYSTEM, buildSupersedePrompt, parseSupersededIds } from './supersede'
 import {
   groupByProject,
   eligibleProjects,
@@ -454,6 +455,8 @@ async function mineProjectFacts(apiKey: string): Promise<void> {
     }
 
     logInfo('[compactor] project facts mined', { projects: projects.length, stored })
+
+    await retireSupersededFacts(client)
   } catch (err) {
     logError('[compactor] project-fact mining threw', err)
   }
@@ -530,5 +533,65 @@ export async function bootstrapFactsIfEmpty(): Promise<void> {
     await mineProjectFacts(apiKey)
   } catch (err) {
     logError('[compactor] fact backfill failed', err)
+  }
+}
+
+
+/**
+ * Drop remembered rules a newer rule has replaced.
+ *
+ * Runs after mining so a fact stored moments ago can retire the one it
+ * contradicts, and runs here rather than at capture time because the
+ * judgement needs a model: "I prefer red themes" and "the landing page
+ * uses blue" are a general rule and a narrower one, not a reversal, and
+ * nothing cheaper than an LLM separates that from a real contradiction.
+ *
+ * ONE BUCKET AT A TIME, never across buckets. A global preference and a
+ * project fact that disagree are the system working as designed — the
+ * narrower one is meant to win where it applies — so comparing them would
+ * delete the very thing that makes per-project rules useful.
+ *
+ * This deletes text the user dictated, so every removal is logged with
+ * its content. A wrong call has to be visible and re-addable, not silent;
+ * this store is the trust surface and the user has already lost data once
+ * to a prune that said nothing.
+ */
+async function retireSupersededFacts(client: Groq): Promise<void> {
+  try {
+    let retired = 0
+    for (const bucket of listBuckets()) {
+      // Nothing can supersede anything in a bucket this small, and the
+      // fraction guard would refuse the pass anyway.
+      if (bucket.facts.length < 2) continue
+      try {
+        const response = await withRateLimitRetry(`supersede (${bucket.key})`, () =>
+          client.chat.completions.create({
+            model: backgroundModel(),
+            messages: [
+              { role: 'system', content: SUPERSEDE_SYSTEM },
+              { role: 'user', content: buildSupersedePrompt(bucket.facts) },
+            ],
+            temperature: 0,
+            max_tokens: 200,
+            ...(backgroundModel().startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
+          } as never, { timeout: 15000, maxRetries: 0 }))
+        const raw = response.choices[0]?.message?.content ?? ''
+        const ids = parseSupersededIds(raw, bucket.facts)
+        for (const id of ids) {
+          const fact = bucket.facts.find((f) => f.id === id)
+          if (!fact) continue
+          if (deleteFact(id)) {
+            retired++
+            logInfo('[compactor] retired superseded fact', { bucket: bucket.key, text: fact.text })
+          }
+        }
+      } catch (err) {
+        // One bucket failing must not stop the others.
+        logError(`[compactor] supersede failed for ${bucket.key}`, err)
+      }
+    }
+    if (retired > 0) logInfo('[compactor] superseded facts retired', { retired })
+  } catch (err) {
+    logError('[compactor] supersede pass threw', err)
   }
 }
