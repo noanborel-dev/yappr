@@ -63,9 +63,14 @@ const SCRIPT: Frame[] = [
 ]
 
 const CARDS: Array<{ g: Gesture; title: string; line: string }> = [
+  // Each line says what the gesture DOES, in the words someone would use
+  // to describe it afterwards. "the last one, again" was here for
+  // double-tap and never mentioned pasting, so the one gesture whose
+  // outcome you cannot guess from watching it was the one left unnamed —
+  // the practice drill below had always said it plainly.
   { g: 'hold', title: 'Hold', line: 'talk while it’s down' },
-  { g: 'tap', title: 'Tap', line: 'hands-free, tap to stop' },
-  { g: 'double', title: 'Double-tap', line: 'the last one, again' },
+  { g: 'tap', title: 'Tap', line: 'hands-free — tap again to stop' },
+  { g: 'double', title: 'Double-tap', line: 'pastes your last dictation' },
 ]
 
 // The step runs in three beats: pick the key, watch what it does, then do
