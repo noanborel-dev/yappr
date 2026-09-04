@@ -16,6 +16,7 @@ import { NotchStep } from './NotchStep'
 import { PolishStep } from './PolishStep'
 import { PracticeStep } from './PracticeStep'
 import { ContextStep } from './ContextStep'
+import { swallowsEnter } from '../../shared/enter-target'
 import { OnboardingNavProvider, useAdvanceOnEnter, useOnboardingNav } from './nav'
 import { EnterCue } from './EnterCue'
 
@@ -121,11 +122,12 @@ export default function OnboardingApp() {
     if (!ready) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Enter' || e.metaKey || e.ctrlKey || e.altKey) return
-      const el = document.activeElement
-      const tag = el?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || (el as HTMLElement | null)?.isContentEditable) {
-        return
-      }
+      // Not every <input> takes Enter. NotchStep's notch-width control is
+      // an <input type="range">, and skipping it here meant adjusting the
+      // slider and pressing Enter did nothing at all — focus was still on
+      // the slider, so the shell decided the user was typing. See
+      // shared/enter-target.ts.
+      if (swallowsEnter(document.activeElement as HTMLInputElement | null)) return
       e.preventDefault()
       const own = onEnterRef.current
       if (own) own()
