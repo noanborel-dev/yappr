@@ -298,6 +298,13 @@ export interface CodeSurfaceInput {
   isPrimaryAiBundle?: boolean
   // Focused browser tab resolved to an AI chat URL/host.
   browserAiRouted?: boolean
+  /**
+   * That browser surface is a BUILDER — Lovable, v0, Bolt, Replit — not a
+   * chat. It owns a project, runs the code and edits files, so a shaped
+   * prompt is what it wants. claude.ai and chatgpt.com are not, however
+   * capable the model behind them is.
+   */
+  browserIsAgentic?: boolean
   // User opted into the (lower-precision) weak-cue escalation.
   weakCueSettingOn?: boolean
 }
@@ -341,13 +348,33 @@ export function classifyCodeSurface(input: CodeSurfaceInput): CodeSurfaceResult 
     return { register: 'reformat', reason: 'explicit-prompt-request', destination: 'agentic' }
   }
   if (substantial) {
+    // A CHAT surface never gets shaped, however actionable the words are.
+    //
+    // Reported 2026-09-04: "I was just talking about some random thing
+    // with Claude in the web asking him questions and it made a whole
+    // vibe-coded prompt for no reason."
+    //
+    // Shaping earns its keep when the reader is going to BUILD from the
+    // text — an agent that will open files, run commands and be held to
+    // ## Constraints. Talking to an assistant is a conversation, and
+    // ## Goal / ## Tasks / ## Done when is a work order. Turning half of
+    // someone's chat into a work order is the failure being reported.
+    //
+    // Explicit requests still reach reformat: isExplicitPromptRequest is
+    // checked above this and is unaffected. Asking for a prompt in a chat
+    // window still gets you a prompt.
     if (input.isPrimaryAiBundle) {
-      return isActionableRequest(input.transcript)
-        ? { register: 'reformat', reason: 'primary-ai-app', destination: 'chat' }
-        : { register: 'faithful_ai', reason: 'primary-ai-descriptive' }
+      return { register: 'faithful_ai', reason: 'chat-app-no-shaping' }
     }
     if (input.browserAiRouted) {
-      return { register: 'reformat', reason: 'browser-ai-url', destination: 'chat' }
+      // Lovable, v0, Bolt, Replit own a project and build from what you
+      // give them. claude.ai does not.
+      if (!input.browserIsAgentic) {
+        return { register: 'faithful_ai', reason: 'browser-chat-no-shaping' }
+      }
+      return isActionableRequest(input.transcript)
+        ? { register: 'reformat', reason: 'browser-builder', destination: 'agentic' }
+        : { register: 'faithful_ai', reason: 'browser-builder-descriptive' }
     }
     if (input.category === 'code' && input.axRole === 'AXTextArea' && input.isAxReadable === true) {
       // Cursor / VS Code chat panes: agentic, they can see the repo.
