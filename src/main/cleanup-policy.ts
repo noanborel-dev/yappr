@@ -149,13 +149,41 @@ export function canSkipCleanup(
 // show short dictations taking 6.7s for exactly this reason.
 export const CLEANUP_RETRY_CAP_MS = 5000
 
+// Groq formats the wait with Go's time.Duration.String(), which switches
+// units on magnitude. Four shapes appear in yappr.log (counts over the
+// whole file, 2026-09-05):
+//
+//   "38.016s"             264   under a minute
+//   "18m38.016s"          296   a minute or more
+//   "1h12m10.367999999s"   42   an hour or more
+//   "229.999999ms"         22   under a second
+//
+// Only the first used to parse. The other 360 returned null, which
+// cleanupRetryDecision reads as "not a rate limit" and answers with a
+// 250ms fast retry — so 62 dictations retried into a window that was
+// minutes or hours wide and could not possibly have cleared. That is the
+// exact delay the cap below exists to prevent.
+//
+// The daily limit (TPD) is the one that matters here: it is always
+// reported in minutes or hours, so before this fix the wait cap was
+// effectively unreachable on the failure mode that fires most.
+const RATE_LIMIT_HINT_RE = /try again in\s+((?:\d+(?:\.\d+)?(?:ms|h|m|s))+)/i
+
+const UNIT_MS: Record<string, number> = { ms: 1, s: 1_000, m: 60_000, h: 3_600_000 }
+
 export function parseRateLimitDelayMs(err: unknown): number | null {
   if (!(err instanceof Error)) return null
-  const m = err.message.match(/Please try again in ([\d.]+)\s*s/i)
+  const m = err.message.match(RATE_LIMIT_HINT_RE)
   if (!m) return null
-  const seconds = parseFloat(m[1])
-  if (!Number.isFinite(seconds) || seconds <= 0) return null
-  return Math.ceil(seconds * 1000)
+  let total = 0
+  // Round per component rather than over the sum: "38.016s" * 1000 is
+  // 38016.000000000004 in float, and a stray ceil would add a phantom
+  // millisecond to every hint.
+  for (const [, value, unit] of m[1].matchAll(/(\d+(?:\.\d+)?)(ms|h|m|s)/g)) {
+    total += Math.round(parseFloat(value) * UNIT_MS[unit])
+  }
+  if (!Number.isFinite(total) || total <= 0) return null
+  return total
 }
 
 export interface RetryDecision {

@@ -122,6 +122,83 @@ describe('rate-limit retry decision', () => {
   })
 })
 
+// Regression, found 2026-09-05 in ~/Library/Application Support/yappr/yappr.log.
+//
+// The parser only ever understood a bare-seconds hint. Groq formats the
+// wait with Go's time.Duration.String(), which drops to compound units
+// the moment it exceeds a minute — and the DAILY token limit (TPD),
+// which is what actually bites this key, always reports minutes or
+// hours. All four of these shapes appear verbatim in the log:
+//
+//   "Please try again in 38.016s"           264 occurrences  parsed
+//   "Please try again in 18m38.016s"        296 occurrences  NOT parsed
+//   "Please try again in 1h12m10.367999999s" 42 occurrences  NOT parsed
+//   "Please try again in 229.999999ms"       22 occurrences  NOT parsed
+//
+// 360 of 624 hints (58%) fell through to null, which cleanupRetryDecision
+// reads as "not a rate limit" and answers with a 250ms fast retry. The
+// log shows the consequence 62 times: an 18-minute window, "attempt 1 —
+// retrying", then "attempt 2 — giving up" 298ms later. That retry cannot
+// succeed; it is exactly the pure user-visible delay the wait cap exists
+// to prevent (see the note above CLEANUP_RETRY_CAP_MS).
+describe('compound rate-limit windows (Go duration format)', () => {
+  // The caller supplies the whole duration token including its unit, so
+  // compound Go durations ("18m38.016s") can be expressed.
+  const rateLimitRaw = (d: string) =>
+    new Error(`429 {"error":{"message":"Rate limit reached ... Please try again in ${d}. Need more tokens?","code":"rate_limit_exceeded"}}`)
+
+  // Verbatim from the log, 2026-09-05T17:12:13.569Z — a TPD limit.
+  const TPD_18M = new Error(
+    '429 {"error":{"message":"Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01kpxttpexfdtrqn5y4hrnykj6` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 198701, Requested 3887. Please try again in 18m38.016s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}',
+  )
+
+  it('parses minutes and seconds', () => {
+    expect(parseRateLimitDelayMs(TPD_18M)).toBe(18 * 60_000 + 38_016)
+  })
+
+  it('parses hours, minutes and seconds', () => {
+    // 3_600_000 + 720_000 + 10_368
+    expect(parseRateLimitDelayMs(rateLimitRaw('1h12m10.367999999s'))).toBe(4_330_368)
+  })
+
+  it('parses a sub-second window given in milliseconds', () => {
+    // "229.999999ms" must not be read as 229 seconds.
+    expect(parseRateLimitDelayMs(rateLimitRaw('229.999999ms'))).toBe(230)
+    expect(parseRateLimitDelayMs(rateLimitRaw('150ms'))).toBe(150)
+  })
+
+  it('still parses the bare-seconds form', () => {
+    expect(parseRateLimitDelayMs(rateLimitRaw('38.016s'))).toBe(38_016)
+  })
+
+  // The bug, stated as behaviour: an 18-minute window must not produce a
+  // 250ms retry.
+  it('does not retry an 18-minute window', () => {
+    const d = cleanupRetryDecision(TPD_18M)
+    expect(d.retry).toBe(false)
+    expect(d.reason).toBe('window-too-long')
+    expect(d.waitMs).toBe(0)
+  })
+
+  it('does not retry an hour-long window', () => {
+    expect(cleanupRetryDecision(rateLimitRaw('1h12m9.504s')).reason).toBe('window-too-long')
+  })
+
+  // A genuine sub-second window is worth waiting out, and should be
+  // reported as the rate limit it is rather than as a network blip.
+  it('waits out a millisecond window and names it correctly', () => {
+    const d = cleanupRetryDecision(rateLimitRaw('750ms'))
+    expect(d.retry).toBe(true)
+    expect(d.reason).toBe('wait-and-retry')
+    expect(d.waitMs).toBe(750)
+  })
+
+  it('is unaffected by the other numbers in the message', () => {
+    // Limit/Used/Requested all precede the hint and must not be picked up.
+    expect(parseRateLimitDelayMs(TPD_18M)).not.toBe(200_000)
+  })
+})
+
 // Regression: these five transcripts are lifted verbatim from a real
 // session log where each one routed to faithful_ai (an AI CLI was
 // running in the editor), forced the LLM on, hit Groq's TPM limit and
