@@ -17,6 +17,10 @@
 #
 #   ./scripts/prune-context.sh          # dry run, shows what would go
 #   ./scripts/prune-context.sh --apply  # back up, then delete
+#
+# Measured on the store as it stood 2026-09-05: 44 global rules in, 22
+# meta-statements out, 22 real preferences kept. Every deletion was read
+# by hand against that snapshot before this list was fixed.
 set -euo pipefail
 
 DB="$HOME/Library/Application Support/yappr/context.db"
@@ -54,9 +58,35 @@ if [ "${1:-}" != "--apply" ]; then
   exit 0
 fi
 
+# Yappr must not be running.
+#
+# Two separate reasons, both real. The store keeps an in-process cache of
+# every bucket (the Map in src/main/context/facts.ts) and only drops it on
+# a write THROUGH the app, so rows deleted underneath it keep reaching
+# prompts until the next restart — you would delete them and see no
+# change. And the app holds the database open in WAL mode, so a write
+# from a second connection lands in a journal the running process is also
+# appending to.
+if command -v lsof >/dev/null 2>&1 && lsof "$DB" >/dev/null 2>&1; then
+  echo "Yappr has $DB open. Quit it first (Cmd-Q, or stop electron-vite dev),"
+  echo "then re-run. Deleting underneath the running app would not take"
+  echo "effect until a restart anyway — the fact cache is in-process."
+  exit 1
+fi
+
+# Back up with sqlite's own .backup, NOT cp.
+#
+# The database is WAL-mode, and the write-ahead log routinely holds more
+# than the main file does — 210KB of -wal against 57KB of context.db when
+# this was written. `cp context.db` captures the smaller half and silently
+# loses the rest, and restoring that file next to a live -wal is worse
+# than having no backup at all. .backup checkpoints and writes one
+# consistent file.
 BACKUP="$HOME/Desktop/context-backup-$(date +%Y%m%d-%H%M%S).db"
-cp "$DB" "$BACKUP"
-echo "backup: $BACKUP"
+sqlite3 "$DB" ".backup '$BACKUP'"
+echo "backup: $BACKUP  ($(wc -c < "$BACKUP" | tr -d ' ') bytes)"
+echo "  restore with:  cp '$BACKUP' '$DB' && rm -f '$DB-wal' '$DB-shm'"
+
 sqlite3 "$DB" "DELETE FROM context_facts WHERE $WHERE;"
 echo
 echo "=== after ==="
