@@ -235,8 +235,27 @@ const EXPLICIT_REQUEST_RE =
 // ## Tasks. It matched on `should` — and "any subject + should is a
 // requirement" is a good rule that this one word undoes. Musing aloud
 // about what would be nice is not assigning work.
-const HEDGED_RE =
-  /\b(?:probably|maybe|perhaps|i wonder|i was thinking|might want|might be worth|at some point|eventually)\b/i
+const HEDGED_RE = new RegExp([
+  // Softeners: musing about what would be nice.
+  /\b(?:probably|maybe|perhaps|i wonder|i was thinking|might want|might be worth|at some point|eventually)\b/.source,
+
+  // Comprehension checks. "So now you're saying that it will give me a
+  // greeting..." is the speaker repeating BACK what they were told to
+  // confirm they understood it. Shaping one into ## Goal / ## Tasks does
+  // not just add noise -- it inverts the meaning, turning a question
+  // about what the app does into an instruction to make it do that.
+  /\b(?:are\s+you|you'?re|you\s+are)\s+saying\b|\byou\s+mean\b/.source,
+
+  // Evaluative "should", not required "should".
+  //
+  // This is what actually broke. The live transcript ended "...even if
+  // there's like words and stuff like it should be good" -- a verbal tic
+  // meaning "that'd be fine". DIRECTIVE_PHRASE_RE matched `should`, and
+  // "any subject + should is a requirement" turned the whole question
+  // into a work order. A requirement says a thing should DO something;
+  // "it should be good" appraises rather than asks.
+  /\bshould\s+be\s+(?:good|fine|ok|okay|great|alright|all\s+right|enough)\b/.source,
+].join('|'), 'i')
 
 export function isActionableRequest(transcript: string): boolean {
   const text = stripQuotedSpans(transcript.toLowerCase())
