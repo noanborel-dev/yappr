@@ -12,6 +12,8 @@ import {
   looksLikeMetaReply,
 } from '../shared/rewrite-prompt'
 import { buildContextBlock } from './context/prompt-injector'
+import { getFactsFor } from './context/facts'
+import { appendConstraints } from '../shared/constraints-block'
 import { composedEmailBodyChars } from '../shared/rewrite-prompt'
 import { getUserOverview } from './context/store'
 import { extractProjectKey, canonicalProjectKey } from './context/project-key'
@@ -1105,6 +1107,21 @@ export async function runDictationPipeline(
       // placeholder the prompt forbids by name) and a body that simply
       // stopped, with no sign-off, reading as truncated in the compose
       // window the user is about to send from.
+      // A shaped prompt gets the user's standing preferences attached in
+      // CODE, not by asking the model to remember them.
+      //
+      // Five prompt-level attempts failed: rewording, a prompt-specific
+      // framing, a destination split, "## Constraints — REQUIRED" in
+      // capitals, and moving the context to sit immediately before the
+      // transcript. Measured on the build containing all of them, "I
+      // really want to build a landing page with a sidebar" came back as
+      // ## Goal and nothing else, with 3,432 characters of context
+      // attached. The model drops the judgement step every time, so the
+      // judgement stops being its job.
+      if (willReformat) {
+        const { global, project } = getFactsFor(dictationProjectKey(focusedApp))
+        cleaned = appendConstraints(cleaned, [...project, ...global])
+      }
       if (composingEmail) {
         cleaned = normalizeComposedEmail(cleaned, senderFirstName())
       } else if (effectiveCategory === 'email') {
