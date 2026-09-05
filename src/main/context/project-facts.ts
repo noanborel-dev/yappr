@@ -35,6 +35,7 @@ A durable fact is something that stays true about the project: its stack, its co
 
 NOT durable, never output these:
 - one-off tasks ("add a spinner to the settings page")
+- anything about the DICTATION APP ITSELF — how prompts should be shaped, what the context layer should include, how transcription or formatting should behave. Those are feature requests about the tool the user is speaking into, not facts about how they work or what they build. "I want context shown in engineered prompts" is not a preference; it is a bug report.
 - bug reports or symptoms ("the login button is broken")
 - questions
 - anything about the user's mood, schedule, or other people
@@ -54,6 +55,7 @@ A durable preference is a habit or standard that stays true across projects: lan
 NOT durable, never output these:
 - one-off tasks or requests
 - facts about one specific project (its stack, its name, its bugs)
+- anything about the DICTATION APP ITSELF — how prompts should be shaped, what the context layer should include, how transcription or formatting should behave. Those are feature requests about the tool the user is speaking into, not facts about how they work or what they build. "I want context shown in engineered prompts" is not a preference; it is a bug report.
 - bug reports, symptoms, questions
 - their schedule, mood, or other people
 - anything you inferred rather than read. If the dictations do not say it, it is not a preference.
