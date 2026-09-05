@@ -809,7 +809,11 @@ function applyDictionaryReplacements(text: string, terms: string[]): string {
  * five" is a number the user said, not prose to renumber, and a rewritten
  * selection is the user's own writing rather than a transcript of it.
  */
-function applyVocabularyPasses(text: string, settings: Settings): string {
+function applyVocabularyPasses(
+  text: string,
+  settings: Settings,
+  opts: { nearMiss: boolean },
+): string {
   // Deterministic brand-name fixes — runs after the LLM cleanup (which
   // usually catches them) AND on fast-path output where the LLM never ran.
   let out = applyQuickFixes(text)
@@ -846,6 +850,17 @@ function applyVocabularyPasses(text: string, settings: Settings): string {
   // nobody opted into, and letting those claim near neighbours would
   // start rewriting ordinary English across every dictation. See
   // shared/near-miss.ts for why the test is phonetic AND edit distance.
+  //
+  // OFF where there was no transcriber to be wrong. This is the only
+  // fuzzy pass in the group — the other three are exact or word-boundary
+  // anchored, and can only ever produce a spelling the user asked for.
+  // A phonetic match within one edit is a guess, and a guess is right
+  // only when the input is speech that may have been misheard. With
+  // "Noan" in the dictionary it turns `const nan = NaN;` into
+  // `const Noan = Noan;` — measured, not hypothetical — which is fine to
+  // risk on a transcript and not fine on a code surface or on a
+  // selection the user wrote themselves.
+  if (!opts.nearMiss) return out
   return applyNearMissTerms(out, settings.userDictionary ?? [])
 }
 
@@ -1274,7 +1289,7 @@ export async function runDictationPipeline(
     }
   }
 
-  cleaned = applyVocabularyPasses(cleaned, settings)
+  cleaned = applyVocabularyPasses(cleaned, settings, { nearMiss: effectiveCategory !== 'code' })
 
   // Deterministic self-correction safety net. The LLM should handle
   // "at 6, I mean 7" → "at 7" — but the 8B cleanup model still keeps
@@ -1647,7 +1662,7 @@ The selected text is plain prose. Output as plain prose. Do not introduce markdo
   // the passes that read their input as speech have no business here —
   // but a brand name or a dictionary term the model spelled wrong is
   // just as wrong in a rewrite as in a dictation.
-  const rewritten = applyVocabularyPasses(result, settings)
+  const rewritten = applyVocabularyPasses(result, settings, { nearMiss: false })
   const out = emailMode ? normalizeEmailRewrite(rewritten) : rewritten
 
   // The hollow-email guard, which the dictation path has had since
@@ -1806,7 +1821,7 @@ async function cleanupAsDictation(
   // until 2026-09-05 it ran NONE of that block — so a re-polish from
   // history handed back text with the user's own dictionary un-applied,
   // undoing a fix the original dictation had made.
-  const polished = applyVocabularyPasses(cleaned, settings)
+  const polished = applyVocabularyPasses(cleaned, settings, { nearMiss: category !== 'code' })
 
   return composingEmail ? normalizeComposedEmail(polished, senderFirstName()) : polished
 }

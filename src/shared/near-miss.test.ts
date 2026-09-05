@@ -93,3 +93,37 @@ describe('editDistance', () => {
     expect(editDistance('a', 'abcdefgh', 2)).toBeGreaterThan(2)
   })
 })
+
+// Why the CALLER has to decide whether this pass runs.
+//
+// Every other pass in the vocabulary group is exact-match or
+// word-boundary anchored, so it can only ever produce a spelling the
+// user asked for. This one is a guess: a phonetic match within one edit.
+// A guess is right only when the input is speech that may have been
+// misheard — and wrong when the input is code, or text the user wrote
+// themselves and asked to have rewritten.
+//
+// These are the measured cases behind the gate in pipeline.ts, which
+// skips this pass on `code` surfaces and on the select-and-rewrite path.
+describe('the guess this pass makes, stated plainly', () => {
+  const DICT = ['Noan', 'Yappr']
+
+  it('rewrites an identifier that merely sounds like a dictionary term', () => {
+    // The reason `code` surfaces must not run this.
+    expect(applyNearMissTerms('const nan = NaN;', DICT)).toBe('const Noan = Noan;')
+    expect(applyNearMissTerms('let noon = 12', DICT)).toBe('let Noan = 12')
+  })
+
+  it('is right on the input it was built for', () => {
+    // A transcriber mishearing the user's own name, which is the failure
+    // that justified the pass in the first place.
+    expect(applyNearMissTerms('my name is Noen', DICT)).toBe('my name is Noan')
+    expect(applyNearMissTerms('the yapper app', DICT)).toBe('the Yappr app')
+  })
+
+  it('leaves a word that is already correct, and one that is far away', () => {
+    expect(applyNearMissTerms('import { Yappr } from "./y"', DICT)).toBe('import { Yappr } from "./y"')
+    expect(applyNearMissTerms('a loan for the year', DICT)).toBe('a loan for the year')
+    expect(applyNearMissTerms('if (Number.isNaN(x))', DICT)).toBe('if (Number.isNaN(x))')
+  })
+})
