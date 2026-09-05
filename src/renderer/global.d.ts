@@ -60,14 +60,17 @@ declare global {
       getContextOverview: () => Promise<string>
       setContextOverview: (text: string) => Promise<void>
       refreshContextNow: () => Promise<{ ok: boolean; error?: string }>
-      // Spec §1.4 — read + delete only. There is deliberately no edit or
-      // merge call: the cards show what the user actually said, and the
-      // only correction offered is removal.
+      // Spec §1.4 — the cards. Read and delete first; correcting a store
+      // whose project KEYS can be wrong needed more than removal, so
+      // rename, edit and move followed. All of them change what is
+      // actually sent, so the card still mirrors the prompt.
       listContextFacts: () => Promise<FactBucket[]>
       deleteContextFact: (id: number) => Promise<boolean>
       deleteContextBucket: (key: string) => Promise<number>
       renameContextBucket: (from: string, to: string) => Promise<boolean>
       updateContextFact: (id: number, text: string) => Promise<boolean>
+      /** Resolves with how many facts actually changed bucket. */
+      moveContextFacts: (ids: number[], toKey: string) => Promise<number>
       importContext: (payload: OnboardingImport) => Promise<{ stored: number }>
       setIndicatorPreview: (on: boolean) => Promise<void>
       generateContext: (seed: string) => Promise<{ ok: boolean; error?: string; stored: number; overview?: string }>

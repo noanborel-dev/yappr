@@ -7,10 +7,17 @@
 //
 //   - Facts are shown VERBATIM, in the user's own words. Tidying them
 //     would mean the card no longer shows what is actually being sent.
-//   - View and delete only. No editing, no merging, no manual project
-//     creation, no drag-and-drop — all explicitly out of scope, and all
-//     of them would turn a mirror into an editor.
 //   - Deleting a whole bucket asks first, because it is not undoable.
+//
+// This was view-and-delete only, on the reasoning that an editor turns a
+// mirror into a rewrite. That held while the only way in was the user's
+// own words. It stopped holding once the project KEY could be wrong: a
+// rule filed under the wrong card is not something the user said, and
+// the only fix on offer was deleting a correct fact to correct its
+// label. So renaming, in-place editing, and now moving a selection to
+// another card all exist — each changes what IS sent, which keeps the
+// card a mirror rather than making it a dressed-up copy.
+// Still out of scope: manual project creation and drag-and-drop.
 
 import { useEffect, useState } from 'react'
 import { Card } from '../shared/ui/Card'
@@ -73,11 +80,19 @@ export function ProjectCards() {
   const [confirmingKey, setConfirmingKey] = useState<string | null>(null)
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editingFact, setEditingFact] = useState<number | null>(null)
+  // Selection spans cards on purpose: the move that matters is "these
+  // three are on the wrong card", and the facts you are comparing are
+  // sitting in two different ones while you decide.
+  const [selected, setSelected] = useState<Set<number>>(new Set())
   // Captured once per mount rather than read per row, so every card on
   // the screen dates from the same instant.
   const [now] = useState(() => Date.now())
 
   async function reload() {
+    // Ids are only meaningful against the list they came from, and a
+    // move rewrites rows. Clearing here covers every caller — including
+    // the move itself, whose selection is stale the moment it lands.
+    setSelected(new Set())
     try {
       setBuckets(await window.yappr.listContextFacts())
     } catch {
@@ -122,6 +137,21 @@ export function ProjectCards() {
     await reload()
   }
 
+  function toggleSelected(id: number) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+  }
+
+  async function moveSelected(toKey: string) {
+    // The placeholder option carries '' — picking it is not a move.
+    if (!toKey || selected.size === 0) return
+    await window.yappr.moveContextFacts([...selected], toKey)
+    await reload()
+  }
+
   if (buckets === null) return null
 
   // The empty state has to answer "is this broken?", because on a real
@@ -147,8 +177,54 @@ export function ProjectCards() {
     )
   }
 
+  // A card holding the WHOLE selection is not a destination — picking it
+  // would promise a move that resolves to nothing. (The main process
+  // treats it as a no-op either way and leaves the rows alone; this just
+  // stops the menu offering it.)
+  const spanned = buckets.filter(b => b.facts.some(f => selected.has(f.id))).map(b => b.key)
+  const noOp = spanned.length === 1 ? spanned[0] : null
+
+  // Everywhere is offered even when no global card exists yet. It is a
+  // fixed tier rather than a bucket that happens to have rows in it, and
+  // listBuckets only returns buckets that hold facts — so without this
+  // the first rule you want to promote could never be promoted.
+  const destinations = [GLOBAL_KEY, ...buckets.map(b => b.key).filter(k => k !== GLOBAL_KEY)]
+    .filter(key => key !== noOp)
+
   return (
     <div className="flex flex-col gap-3">
+      {/* Appears only while something is selected: with nothing checked
+          it would be permanent chrome explaining a state you are not in. */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 px-3 py-2 rounded-card border border-line bg-paper">
+          <span className="text-[12.5px] text-ink-60 tabular-nums">
+            {selected.size} selected
+          </span>
+          <select
+            value=""
+            aria-label="Move selected rules to"
+            onChange={(e) => void moveSelected(e.target.value)}
+            className="bg-paper border border-line rounded-input px-2 py-1 text-[12px] focus:outline-none focus:border-accent"
+          >
+            <option value="">Move to…</option>
+            {/* Reachable only when everything you own is on one card and
+                you selected from it: there is no other card to move to,
+                and creating one by hand is out of scope. */}
+            {destinations.length === 0 && (
+              <option value="" disabled>Nowhere else to put these</option>
+            )}
+            {destinations.map(key => (
+              <option key={key} value={key}>{bucketTitle(key)}</option>
+            ))}
+          </select>
+          <button
+            className="text-[11.5px] text-ink-60 hover:text-ink ml-auto"
+            onClick={() => setSelected(new Set())}
+          >
+            Clear
+          </button>
+        </div>
+      )}
       {buckets.map(bucket => (
         // A cobalt rail on the global card only. Same reason as the chip:
         // this is the bucket that reaches every dictation, and in a list of
@@ -227,7 +303,20 @@ export function ProjectCards() {
           <ul className="mt-3 flex flex-col gap-1.5">
             {bucket.facts.map(fact => (
               <li key={fact.id} className="flex items-start gap-2 group">
-                <span className="text-ink-45 select-none leading-5">·</span>
+                {/* In the bullet's slot, because the fact text is
+                    already a button that opens the editor — selecting by
+                    clicking the row would collide with editing it.
+                    Accent, not cobalt: cobalt means "reaches every
+                    dictation" everywhere else on this card, so a cobalt
+                    tick would read as a scope claim rather than a
+                    selection. */}
+                <input
+                  type="checkbox"
+                  checked={selected.has(fact.id)}
+                  onChange={() => toggleSelected(fact.id)}
+                  aria-label={`Select: ${fact.text}`}
+                  className="shrink-0 mt-1 w-3 h-3 accent-accent cursor-pointer"
+                />
                 {/* Editable in place. The card still shows what is
                     actually sent — the edit changes what IS sent, rather
                     than dressing up what was stored. */}

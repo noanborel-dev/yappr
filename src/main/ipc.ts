@@ -15,7 +15,7 @@ import {
 } from './local-download'
 import { HISTORY_LIMIT } from '../shared/constants'
 import { loadDictationStats, clearDictationStats } from './stats-store'
-import { renameBucket, updateFact } from './context/facts'
+import { renameBucket, updateFact, moveFacts } from './context/facts'
 import {
   loadPersistedHistory,
   persistHistoryEntry,
@@ -165,9 +165,11 @@ export function registerIpcHandlers(hooks: IpcHooks = {}): void {
   ipcMain.handle(IPC.CONTEXT_REFRESH_NOW, () => forceCompaction())
   ipcMain.handle(IPC.CONTEXT_STATUS_GET, () => getCompactionStatus())
 
-  // Spec §1.4. Read + delete only — deliberately no edit or merge
-  // handler, so there is no path by which the UI can rewrite what the
-  // user actually said.
+  // Spec §1.4. The cards started read + delete only, on the reasoning
+  // that an editor turns a mirror into a rewrite of what the user said.
+  // That held while the only way in was their own words; it stopped
+  // holding once the KEY could be wrong, so rename, edit and move
+  // followed. Each still shows exactly what will be sent.
   ipcMain.handle(IPC.CONTEXT_FACTS_LIST, () => listBuckets())
   ipcMain.handle(IPC.CONTEXT_FACT_DELETE, (_e, id: number) =>
     typeof id === 'number' ? deleteFact(id) : false)
@@ -175,6 +177,10 @@ export function registerIpcHandlers(hooks: IpcHooks = {}): void {
     typeof from === 'string' && typeof to === 'string' ? renameBucket(from, to) : false)
   ipcMain.handle(IPC.CONTEXT_FACT_UPDATE, (_e, id: number, text: string) =>
     typeof id === 'number' && typeof text === 'string' ? updateFact(id, text) : false)
+  // Per-element validation is planFactMove's job (fact-move.ts, pure and
+  // tested); this only checks the shapes, as the handlers above do.
+  ipcMain.handle(IPC.CONTEXT_FACT_MOVE, (_e, ids: number[], toKey: string) =>
+    Array.isArray(ids) && typeof toKey === 'string' ? moveFacts(ids, toKey) : 0)
 
   ipcMain.handle(IPC.CONTEXT_BUCKET_DELETE, (_e, key: string) =>
     typeof key === 'string' ? deleteBucket(key) : 0)

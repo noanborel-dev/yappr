@@ -236,8 +236,9 @@ export const IPC = {
   CONTEXT_REFRESH_NOW: 'context:refresh-now',
   CONTEXT_STATUS_GET: 'context:status:get',
   // Spec §1.4 — the project-cards trust surface. The user has to be able
-  // to see everything Yappr stored and remove anything wrong, so this is
-  // read + delete only: no editing, no merging, no manual creation.
+  // to see everything Yappr stored and correct anything wrong. It began
+  // read + delete only; correcting turned out to need more than removal,
+  // so editing and moving followed.
   CONTEXT_FACTS_LIST: 'context:facts:list',
   CONTEXT_FACT_DELETE: 'context:fact:delete',
   CONTEXT_BUCKET_DELETE: 'context:bucket:delete',
@@ -245,6 +246,11 @@ export const IPC = {
   // name needs correcting, not deleting.
   CONTEXT_BUCKET_RENAME: 'context:bucket:rename',
   CONTEXT_FACT_UPDATE: 'context:fact:update',
+  // Re-filing. A wrong KEY is fixed by renaming the card, but a rule
+  // filed under the wrong card is not — that needed delete-and-say-it-
+  // again until this existed. Takes a selection, because facts are
+  // misfiled in runs.
+  CONTEXT_FACT_MOVE: 'context:fact:move',
   // Spec §1.3 — the onboarding paste, split into buckets rather than
   // stored as one blob that loads for every project.
   CONTEXT_IMPORT: 'context:import',

@@ -13,6 +13,7 @@ import { logError, logInfo } from '../log'
 import type { FactScope, StoredFact, FactBucket } from '../../shared/types'
 import { normalizeFactText, MAX_FACTS_PER_BUCKET } from './facts-format'
 import { GLOBAL_SCOPE, UNSORTED_BUCKET } from './project-key'
+import { planFactMove } from './fact-move'
 
 interface FactRow {
   id: number
@@ -215,6 +216,77 @@ export function renameBucket(from: string, to: string): boolean {
   } catch (err) {
     logError('[context/facts] rename failed', err)
     return false
+  }
+}
+
+/**
+ * Move a selection of facts into another bucket. Returns how many rows
+ * actually left the bucket they were in.
+ *
+ * The same correction renameBucket exists for, one row at a time: a
+ * wrong KEY is fixable by typing, but a rule filed under the wrong
+ * project — or a personal preference that landed in a project card
+ * instead of Everywhere — could previously only be fixed by deleting it
+ * and saying it again. Multi-select because misfiling happens in runs:
+ * a whole session's facts go to the same wrong card.
+ *
+ * INSERT OR IGNORE then delete, exactly as renameBucket does: the unique
+ * index is (scope, project_key, text), so moving a fact whose text
+ * already exists in the destination would throw. The insert is ignored
+ * and the source row is deleted, which is the right outcome — the user
+ * asked for the fact to be in the destination and it is; keeping a
+ * second copy in the source would be a move that did not move.
+ *
+ * COUNTING: a deduped fact counts as moved. From the card's point of
+ * view it left the source and the destination now states it, which is
+ * exactly what was asked for; counting only fresh inserts would report
+ * "2 of 5 moved" for a merge that fully succeeded.
+ *
+ * The delete skips rows ALREADY at the destination. Their insert
+ * conflicts with themselves and is ignored, so an unguarded delete
+ * would remove the only copy and the fact would disappear instead of
+ * staying put. Those rows are correctly not counted: nothing moved.
+ *
+ * Deliberately does NOT prune to MAX_FACTS_PER_BUCKET. The cap bounds
+ * unattended capture; dropping facts the user just deliberately moved —
+ * oldest first, and moved rows keep their original created_at — would
+ * silently destroy the intent. renameBucket does not prune either.
+ */
+export function moveFacts(ids: number[], toKey: string): number {
+  const db = getDb()
+  if (!db) return 0
+  const plan = planFactMove(ids, toKey)
+  if (!plan) return 0
+  const holes = plan.ids.map(() => '?').join(',')
+  const { scope, projectKey } = plan.target
+  try {
+    // One transaction: insert-then-delete is only a move if both halves
+    // land. A failure between them would either duplicate every fact or
+    // lose it.
+    const run = db.transaction(() => {
+      db.prepare(
+        `INSERT OR IGNORE INTO context_facts (scope, project_key, text, created_at)
+         SELECT ?, ?, text, created_at FROM context_facts WHERE id IN (${holes})`,
+      ).run(scope, projectKey, ...plan.ids)
+      return db
+        .prepare(
+          `DELETE FROM context_facts
+            WHERE id IN (${holes}) AND NOT (scope = ? AND project_key = ?)`,
+        )
+        .run(...plan.ids, scope, projectKey).changes
+    })
+    const moved = run()
+    // Without this the next dictation is built from the pre-move
+    // buckets — the fact would still be injected into the project it was
+    // just taken out of.
+    invalidate()
+    logInfo('[context/facts] facts moved', { to: toKey, selected: plan.ids.length, moved })
+    return moved
+  } catch (err) {
+    // The transaction rolled back, so nothing changed and the cache is
+    // still true.
+    logError('[context/facts] move failed', err)
+    return 0
   }
 }
 
