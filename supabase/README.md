@@ -2,8 +2,12 @@
 
 Project ref: `nagrmlfkuubeipamxhoe` (from `.mcp.json`).
 
-Nothing here has been applied. These are the commands to run once, in
-order. Each is idempotent.
+**APPLIED 2026-09-05** to project `nagrmlfkuubeipamxhoe` via the Supabase
+MCP: all three migrations, and the `cleanup` Edge Function (version 1,
+`verify_jwt` on). Steps 2-4 below are still outstanding.
+
+The commands remain here for a rebuild or a second environment. Each is
+idempotent.
 
 ## 1. Schema
 
@@ -18,6 +22,8 @@ npx supabase db push
   and the sign-up triggers.
 - `0002_record_usage.sql` — the atomic counter increment the Edge
   Function calls.
+- `0003_revoke_trigger_execute.sql` — closes two SECURITY DEFINER trigger
+  functions that the security advisor found exposed on the REST API.
 
 ## 2. Auth
 
