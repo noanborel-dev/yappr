@@ -354,6 +354,45 @@ const GREETING_RE =
  * hollow shell from a terse but real email — both are short, and only one
  * of them is a failure.
  */
+/**
+ * Finish an email the user dictated whole.
+ *
+ * Reported 2026-09-05: "it just did the greeting. It did not say the
+ * goodbye or anything."
+ *
+ * Both previous behaviours were wrong in opposite directions. COMPOSE
+ * added a sign-off but rewrote the opening, so "Hey Bobo," came back as a
+ * generic "Hi," and the recipient's name was lost. CLEANUP keeps every
+ * word — which is its job — and therefore adds nothing, leaving an email
+ * that stops mid-air in a compose window the user is about to send from.
+ *
+ * What is wanted is neither: keep the words, finish the shape.
+ *
+ * Two guards, because appending a signature is only right for one kind of
+ * text:
+ *
+ *  - It must OPEN with a greeting. That is the evidence the user dictated
+ *    a whole email top to bottom. Without it this is a fragment, an inline
+ *    reply, or a sentence added to a draft, and signing those is worse
+ *    than leaving them alone.
+ *  - It must not already END with one, which normalizeComposedEmail
+ *    handles for the compose path.
+ */
+export function completeEmailSignoff(text: string, name: string | null | undefined): string {
+  const trimmed = (text ?? '').replace(/\r\n/g, '\n').trimEnd()
+  const who = (name ?? '').trim()
+  if (!trimmed || !who) return text
+
+  const lines = trimmed.split('\n')
+  if (!GREETING_RE.test(lines[0])) return text
+
+  // A sign-off may sit a line or two above a signature block.
+  for (let i = lines.length - 1; i >= Math.max(0, lines.length - 1 - SIGNATURE_TAIL_LINES); i--) {
+    if (looksLikeSignoff(lines[i])) return text
+  }
+  return `${trimmed}\n\nBest,\n${who}`
+}
+
 export function composedEmailBodyChars(text: string): number {
   const lines = (text ?? '').replace(/\r\n/g, '\n').split('\n')
   let start = 0
