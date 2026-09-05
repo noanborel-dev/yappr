@@ -26,19 +26,23 @@ describe('agentic destinations are not told what they can read', () => {
     expect(forDest('agentic')).toMatch(/Do NOT restate/)
   })
 
-  it('makes constraints the section that matters', () => {
-    // The preferences are the part an agent cannot infer from the code,
-    // and they are what "remembering" means to the person dictating.
-    expect(forDest('agentic')).toMatch(/## Constraints[\s\S]*This is the section that matters/)
+  it('makes Constraints REQUIRED, not a judgement call', () => {
+    // Reversed 2026-09-05. It used to say "the preferences that apply to
+    // THIS request", and the model resolved that as "none": six
+    // consecutive reformats carrying 3,432 characters of context produced
+    // 77-289 characters mentioning none of it.
+    expect(forDest('agentic')).toMatch(/## Constraints — REQUIRED/)
+    expect(forDest('agentic')).toMatch(/Do not judge whether they asked for them/)
   })
 
-  it('lets Context be omitted entirely', () => {
-    expect(forDest('agentic')).toMatch(/omit this section entirely/)
+  it('no longer offers a licence to omit the context', () => {
+    // "omit this section entirely" was an explicit permission slip, and
+    // it got used every time.
+    expect(forDest('agentic')).not.toMatch(/omit this section entirely/)
   })
 
-  it('asks for length matched to the ask', () => {
-    // "make this blue" should not produce a document.
-    expect(forDest('agentic')).toMatch(/A one-line request produces a few lines/)
+  it('names omission as the failure', () => {
+    expect(forDest('agentic')).toMatch(/Omitting them is the failure/)
   })
 })
 
@@ -60,6 +64,6 @@ describe('chat destinations still get the stack', () => {
 
 describe('both keep the no-invention guard', () => {
   it.each(['agentic', 'chat'] as const)('%s', (d) => {
-    expect(forDest(d)).toMatch(/Add NO tasks the user did not ask for/)
+    expect(forDest(d)).toMatch(/Add NO tasks/)
   })
 })

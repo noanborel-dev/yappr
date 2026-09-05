@@ -22,12 +22,26 @@ describe('short requests expand when there is context', () => {
     expect(prompt('ai_prompt', CTX)).toContain('does NOT apply when USER CONTEXT')
   })
 
-  it('comes AFTER the template, or the template wins on recency', () => {
-    // The context block is spliced in BEFORE the template, which is how
-    // the flat-prose rule ended up later in the prompt and winning.
+  it('comes after the flat-prose rule it overrides', () => {
     const p = prompt('ai_prompt', CTX)
     expect(p.indexOf('OVERRIDE — short requests'))
       .toBeGreaterThan(p.indexOf('output flat prose with NO sections'))
+  })
+
+  it('but BEFORE the dictated text, not after it', () => {
+    // Reversed 2026-09-05. Appending it landed the override at char
+    // 12,760 against a {text} slot at 12,750 -- a rule amending the
+    // section list, separated from that list by the whole dictation.
+    const p = prompt('ai_prompt', CTX)
+    expect(p.indexOf('OVERRIDE — short requests')).toBeLessThan(p.indexOf('{text}'))
+  })
+
+  it('puts the context beside the request it informs', () => {
+    // It used to sit 25% in, with 9,394 characters of "DO NOT SUMMARIZE
+    // / never add" after it.
+    const p = prompt('ai_prompt', CTX)
+    expect(p.indexOf('USER CONTEXT')).toBeGreaterThan(p.indexOf('THE OUTPUT TEMPLATE'))
+    expect(p.indexOf('USER CONTEXT')).toBeLessThan(p.indexOf('{text}'))
   })
 
   it('names the three sections the context goes into', () => {
