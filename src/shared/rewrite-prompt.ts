@@ -216,8 +216,15 @@ const SIGNATURE_PLACEHOLDER_RE = /^\[[^\]]*\]\s*$/
 // `### Subject: x`, `Subject - x`, `"Subject: x"`. The emphasis markers
 // can sit on either side of the colon (`**Subject:** x` is the common
 // one), so both positions are optional.
+// The separator must be a colon, or a dash with whitespace in front of
+// it. An unspaced hyphen used to qualify, so "Subject-matter experts
+// will review the draft" parsed as a subject line whose subject was
+// "matter experts will review the draft" — and once
+// composedEmailBodyChars started skipping subject lines, that sentence
+// became a body of zero characters and the rewrite carrying it was
+// discarded.
 const SUBJECT_LINE_RE =
-  /^\s*(?:#{1,6}\s*)?(?:\*{1,2}|_{1,2})?\s*subject\s*(?:\*{1,2}|_{1,2})?\s*[:\-–—]\s*(?:\*{1,2}|_{1,2})?\s*(.+?)\s*$/i
+  /^\s*(?:#{1,6}\s*)?(?:\*{1,2}|_{1,2})?\s*subject(?:\s*(?:\*{1,2}|_{1,2}))?(?:\s*:|\s+[-–—])\s*(?:\*{1,2}|_{1,2})?\s*(.+?)\s*$/i
 
 // Clean up whatever subject text the model produced: strip markdown
 // emphasis and wrapping quotes, collapse whitespace, drop a trailing
@@ -330,8 +337,12 @@ export function looksLikeSignoff(line: string): boolean {
 // No sentence punctuation allowed inside it, so a real first sentence
 // that happens to open with "Hi Jeff, thanks for the note." is not
 // mistaken for a bare greeting and stripped.
+// Nothing may follow the comma. Without that, the whole of
+// "Hi Jeff, sounds good to me" counted as a greeting — there is no
+// sentence punctuation in it — so a legitimate one-line reply measured
+// as a body of zero and was thrown away as a hollow email.
 const GREETING_RE =
-  /^\s*(?:hi|hello|hey|dear|good\s+(?:morning|afternoon|evening))\b[^.!?]*,?\s*$/i
+  /^\s*(?:hi|hello|hey|dear|good\s+(?:morning|afternoon|evening))\b[^,.!?]*,?\s*$/i
 
 /**
  * How many characters of actual BODY a composed email has — what is left
@@ -394,11 +405,22 @@ export function completeEmailSignoff(text: string, name: string | null | undefin
 }
 
 /**
- * The floor a composed email's body must clear. Shared by the dictation
- * path and the select-and-rewrite path so both agree on what "hollow"
- * means — they disagreed until 2026-09-05, and only one of them checked.
+ * The floor a composed email's body must clear.
+ *
+ * Was 40, chosen while the measurement below still counted a subject
+ * line toward the body. Subject lines are now stripped structurally, so
+ * the same number started cutting into real messages:
+ *
+ *   "Subject: Meeting / Hi Jeff, / Thursday works for me. / Best, Noan"
+ *
+ * measured 50 before the subject skip and 22 after, so a correct terse
+ * email was replaced by the raw transcript — the user's brief pasted
+ * into a compose window instead of their email. Twelve sits below any
+ * real sentence and above the fragments this is meant to catch. The
+ * failure it was built for measures zero, and isHollowEmail tests for
+ * exactly that.
  */
-export const COMPOSED_EMAIL_MIN_BODY_CHARS = 40
+export const COMPOSED_EMAIL_MIN_BODY_CHARS = 12
 
 export function composedEmailBodyChars(text: string): number {
   const lines = (text ?? '').replace(/\r\n/g, '\n').split('\n')

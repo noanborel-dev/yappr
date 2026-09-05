@@ -153,3 +153,28 @@ describe('keywords match at word starts, not anywhere', () => {
     expect(picked.map((f) => f.id)).toEqual([2])
   })
 })
+
+// Word-start matching (see above) dropped five real hits that bare
+// substring matching had caught by accident. Four are worth keeping.
+describe('keywords whose match sits mid-word', () => {
+  it('scores the tool names this codebase uses', () => {
+    for (const text of ['eslint must pass', 'vitest config needs updating', 'pytest for python']) {
+      expect(selectConstraints([f(1, text)])).toHaveLength(1)
+    }
+  })
+
+  it('scores a redesign', () => {
+    expect(selectConstraints([f(1, 'redesign it')])).toHaveLength(1)
+  })
+
+  it('still refuses the false positives the change was made for', () => {
+    for (const text of [
+      'the latest build',
+      'built to require guided fluid liquid',
+      'a unanimous decision',
+      'lifestyle brand',
+    ]) {
+      expect(selectConstraints([f(1, text)])).toEqual([])
+    }
+  })
+})

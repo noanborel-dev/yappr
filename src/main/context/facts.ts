@@ -251,6 +251,16 @@ export function renameBucket(from: string, to: string): boolean {
  * unattended capture; dropping facts the user just deliberately moved —
  * oldest first, and moved rows keep their original created_at — would
  * silently destroy the intent. renameBucket does not prune either.
+ *
+ * KNOWN LIMIT: that only DEFERS the risk, it does not remove it. The
+ * next addFact into an over-full destination calls pruneBucket, which
+ * drops oldest-first by created_at — and a moved row carries the
+ * created_at it always had, so it is near the front of the queue. Move
+ * ten old facts into a bucket already holding fifty and the next
+ * dictation into that project can silently drop them. Reachable only
+ * above MAX_FACTS_PER_BUCKET (50), which no real store has reached.
+ * Stamping created_at = now() on the insert would fix it, at the cost
+ * of reordering what capForInjection considers most recent.
  */
 export function moveFacts(ids: number[], toKey: string): number {
   const db = getDb()

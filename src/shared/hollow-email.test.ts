@@ -35,8 +35,8 @@ describe('composedEmailBodyChars', () => {
     // Both are short. Only one is a failure, which is why the guard counts
     // the body rather than the whole string.
     const terse = 'Hi Jeff,\n\nThursday at two works for me. See you then.\n\nBest,\nNoan'
-    expect(composedEmailBodyChars(terse)).toBeGreaterThan(40)
-    expect(composedEmailBodyChars(HOLLOW)).toBeLessThan(40)
+    expect(composedEmailBodyChars(terse)).toBeGreaterThan(COMPOSED_EMAIL_MIN_BODY_CHARS)
+    expect(composedEmailBodyChars(HOLLOW)).toBeLessThan(COMPOSED_EMAIL_MIN_BODY_CHARS)
   })
 
   it('handles a sign-off with no signature under it', () => {
@@ -144,9 +144,19 @@ describe('isHollowEmail', () => {
   // this email" legitimately returns very little, and keeping the long
   // original instead would be the opposite of what was asked.
   it('does NOT fire on a terse but real rewrite', () => {
+    // "shorten this email" legitimately returns very little, and keeping
+    // the long original instead would be the opposite of what was asked.
     const terse = 'Hi Jeff,\n\nThursday works.\n\nBest,\nNoan'
-    expect(composedEmailBodyChars(terse)).toBeLessThan(COMPOSED_EMAIL_MIN_BODY_CHARS)
+    expect(composedEmailBodyChars(terse)).toBe(15)
     expect(isHollowEmail(terse)).toBe(false)
+  })
+
+  it('is stricter than the compose floor, which is the point', () => {
+    // Zero fires here; the floor tolerates anything above a fragment.
+    // Both keep "Thursday works." — the 40-char floor this replaced did
+    // not, and threw the email away.
+    expect(15).toBeGreaterThan(COMPOSED_EMAIL_MIN_BODY_CHARS)
+    expect(isHollowEmail('Hi Jeff,\n\nBest,\nNoan')).toBe(true)
   })
 
   it('does not fire on prose that is not an email at all', () => {
@@ -160,6 +170,58 @@ describe('isHollowEmail', () => {
   })
 
   it('pins the shared compose-path floor', () => {
-    expect(COMPOSED_EMAIL_MIN_BODY_CHARS).toBe(40)
+    expect(COMPOSED_EMAIL_MIN_BODY_CHARS).toBe(12)
+  })
+})
+
+// Adversarial review, 2026-09-05. Three ways the guard threw away text
+// it should have kept. All measured against the shipped module; each
+// number below is the "before" it produced.
+describe('what the guard must NOT discard', () => {
+  it('keeps a terse email that carries a subject line', () => {
+    // body 50 before subject lines were skipped, 22 after — so the
+    // unchanged 40-char floor started replacing this with the raw
+    // transcript, i.e. pasting the brief instead of the email.
+    const terse = 'Subject: Meeting\n\nHi Jeff,\n\nThursday works for me.\n\nBest,\nNoan'
+    expect(composedEmailBodyChars(terse)).toBeGreaterThan(COMPOSED_EMAIL_MIN_BODY_CHARS)
+    expect(isHollowEmail(terse)).toBe(false)
+  })
+
+  it('keeps a one-line reply', () => {
+    // GREETING_RE allowed anything without sentence punctuation, so the
+    // WHOLE of this counted as a greeting and the body measured 0. On
+    // the rewrite path that silently discarded the rewrite.
+    expect(isHollowEmail('Hi Jeff, sounds good to me')).toBe(false)
+    expect(composedEmailBodyChars('Hi Jeff, sounds good to me')).toBeGreaterThan(20)
+  })
+
+  it('keeps a one-line reply under a subject line', () => {
+    const s = 'Subject: Re: Thursday\n\nHi Jeff, thanks — Thursday works for me'
+    expect(isHollowEmail(s)).toBe(false)
+  })
+
+  it('does not read "Subject-matter" as a subject line', () => {
+    // An unspaced hyphen used to act as the separator, so this whole
+    // sentence became the subject and the body measured 0.
+    const s = 'Subject-matter experts will review the draft before Friday and send notes.'
+    expect(composedEmailBodyChars(s)).toBeGreaterThan(40)
+    expect(isHollowEmail(s)).toBe(false)
+  })
+
+  // Still caught, with the greeting rule tightened.
+  it('still catches the shells', () => {
+    expect(isHollowEmail('Hi Jeff,\n\nBest,\nNoan')).toBe(true)
+    expect(isHollowEmail('Subject: Shipping address for mouse delivery\n\nHi,')).toBe(true)
+    expect(isHollowEmail('Hello,\n\nBest')).toBe(true)
+  })
+
+  // KNOWN LIMIT, accepted. A spaced dash is a real subject separator
+  // ("Subject - Shipping address" is a shape the model emits), so a
+  // sentence that opens "Subject - matter aside, ..." is still read as
+  // metadata. It fails safe: the rewrite is kept as the user's own
+  // selection rather than replaced, and the sentence is vanishingly
+  // rarer than the compound noun above.
+  it('documents the spaced-dash ambiguity it does not resolve', () => {
+    expect(isHollowEmail('Subject - matter aside, I think we should ship on Tuesday.')).toBe(true)
   })
 })

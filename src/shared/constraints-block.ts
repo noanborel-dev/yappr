@@ -39,6 +39,11 @@ const BUILD_RELEVANT = [
   'framework', 'language', 'typescript', 'javascript', 'react', 'tailwind',
   'css', 'accessib', 'test', 'lint', 'dark mode', 'light mode', 'outline',
   'polish', 'demo', 'slider', 'landing page', 'sidebar', 'onboarding',
+  // Word-start matching costs a handful of real hits that the old
+  // substring test caught by accident. These are the ones that matter
+  // here: the tool names this codebase actually uses, where the keyword
+  // sits in the middle ('es-LINT', 'vi-TEST', 'py-TEST'), and 're-DESIGN'.
+  'eslint', 'vitest', 'pytest', 'redesign',
 ]
 
 /** How many constraints to attach. */

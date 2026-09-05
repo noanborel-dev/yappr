@@ -108,9 +108,9 @@ dictations went to the LLM anyway, hit Groq's 6000 TPM limit, and took 6.5s.
 **Skipping cleanup never skips correctness.** A chain of deterministic
 passes always runs afterwards, in this order, at the end of
 `runDictationPipeline`: brand names, dictionary aliases, user dictionary,
-near-miss dictionary, self-correction, spoken numbers, spoken email
-addresses, then — on non-`code` surfaces only — spelled-name collapse and
-question marks.
+near-miss dictionary (non-`code` only), self-correction, spoken numbers,
+spoken email addresses, then — on non-`code` surfaces only —
+spelled-name collapse and question marks.
 
 **There is no `text-passes.ts`.** This file and `docs/ARCHITECTURE.md`
 both claimed there was until 2026-09-05. Five of those passes are private
@@ -121,11 +121,26 @@ unmerged branch `worktree-phase0a-correctness-bugs` (`1c91c29`), written
 2026-07-29 against a pipeline that has moved a long way since; treat it
 as a starting point, not a patch to apply.
 
-**The chain runs on the dictation path only.** `runCommandPipeline`
-(select-and-rewrite) and `repolishEntry` (re-polish from history) run
-none of it, so re-polishing an entry drops the brand-name, dictionary,
-self-correction and question-mark fixes the original dictation had. That
-is a known gap, not a design.
+**The chain is split by what its passes assume.** The VOCABULARY passes
+— brand names, dictionary aliases, the user dictionary, near-miss terms
+— fix a word that was got wrong and are correct on any text, so they run
+on the dictation, select-and-rewrite and history-re-polish paths alike
+(`applyVocabularyPasses`). Until 2026-09-05 the last two ran none of the
+chain at all, and a re-polish could hand back text with the user's own
+dictionary un-applied.
+
+The rest read their input AS SPEECH and stay on the speech paths:
+self-correction, spoken numbers, spoken email addresses, spelled-name
+collapse and question marks. "Twenty five" is a number the user said,
+not prose to renumber, and a rewritten selection is the user's own
+writing rather than a transcript of it.
+
+**Near-miss is a guess, and the caller decides whether it is wanted.**
+It is the only fuzzy pass — a phonetic match within one edit — so it is
+off on `code` surfaces and off on select-and-rewrite entirely. With
+"Noan" in the dictionary it turns `const nan = NaN;` into
+`const Noan = Noan;`. That is a fine risk on a transcript and not on
+code.
 
 ### Cleanup registers
 

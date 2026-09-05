@@ -126,7 +126,7 @@ reformat. The unit tests are good and the code is in the running bundle.
 constraints had been attached, so a success and a failure looked
 identical in the log — which is how five prompt-level attempts were each
 believed to have shipped. There is now a `Constraints` line carrying
-`shaped`, `candidates`, `attached`, `changed` and `addedChars`.
+`shaped`, `candidates`, `selected`, `changed` and `addedChars`.
 
 Scoring also had a real bug: keywords matched as bare substrings, so the
 two-letter `ui` fired inside req**ui**re, b**ui**lt, fl**ui**d, g**ui**ded
@@ -163,11 +163,28 @@ store is theirs to trigger.
 `noan.borel@gmail.com`, deterministically, so it survives the
 short-utterance fast path and a rate-limited key.
 
-The domain carries the guard, which is what answers the "meet me at
-Gmail's office" risk. Two bare name words are deliberately left alone —
-"Noan Borel at iCloud dot com" could mean three different addresses and
-stranding "Noan" in front of `borel@icloud.com` is the one answer that is
-certainly wrong.
+**It requires POSITIVE EVIDENCE of an address**, and that is the whole
+design. The first version fired on anything shaped `<word> at <domain>`
+and kept a stoplist of words that were never a local part. English
+supplies content nouns in front of "at" without limit, so that list
+could not be finished:
+
+    "You can find the docs at yappr.com" -> "the docs@yappr.com"
+    "See the README at github dot com"   -> "the readme@github.com"
+
+It passed a run over all 710 stored transcripts only because the user
+had not happened to dictate that shape. **Absence from one corpus is not
+a guard** — that is the lesson worth keeping from this one.
+
+Now one of four things must say it is an address: a dotted local part, an
+explicit "at sign", a known mail-provider domain, or a cue word in front
+("email noan at …"). And the word before the local part must be one that
+can precede a name rather than be part of one, which is what leaves
+"hey noan borel at gmail dot com" alone instead of stranding "noan".
+
+Accepted cost: "noan at yappr dot co dot uk" — a bare name at a custom
+domain — is left alone, because nothing distinguishes it from prose about
+a website.
 
 ### 4. Select-and-rewrite — observable and guarded
 
@@ -181,9 +198,17 @@ delivery\n\nHi,"` — scored 49 against a floor of 40 and sailed through.
 `composedEmailBodyChars` now skips a leading subject line, which fixes
 the same latent blindness on the compose path.
 
-The rewrite path uses a stricter rule than the compose path's 40-char
-floor: a body of exactly zero. "Shorten this email" legitimately returns
-very little, and discarding a terse success would undo what was asked.
+The rewrite path uses a stricter rule than the compose path's floor: a
+body of exactly zero. "Shorten this email" legitimately returns very
+little, and discarding a terse success would undo what was asked.
+
+Two follow-on corrections, both found by reviewing the branch rather than
+by a test. `GREETING_RE` matched any line without sentence punctuation,
+so the whole of "Hi Jeff, sounds good to me" counted as a greeting and a
+real one-line reply measured zero — silently discarded. And
+`COMPOSED_EMAIL_MIN_BODY_CHARS` was 40, calibrated when the subject line
+still counted toward the body; with subject lines now stripped the same
+number cut into real terse emails, so it is 12.
 
 ### 5. Email composition — fixed, worth knowing the shape
 
@@ -216,9 +241,15 @@ colliding with itself, so an unguarded `DELETE` destroys the only copy.
 ### 8. The deterministic chain does not fully reach two paths
 
 `runCommandPipeline` and `repolishEntry` ran **none** of it until
-2026-09-05. The vocabulary passes — brand names, dictionary aliases, the
-user dictionary, near-miss terms — now run on all three paths, because
-they are correct on any text.
+2026-09-05. The vocabulary passes — brand names, dictionary aliases and
+the user dictionary — now run on all three paths, because they are
+correct on any text.
+
+Near-miss is the exception among them. It is the only fuzzy pass, a
+phonetic match within one edit, so it runs only where a transcriber
+could have been wrong: not on `code` surfaces, and never on
+select-and-rewrite. With "Noan" in the dictionary it turns
+`const nan = NaN;` into `const Noan = Noan;`.
 
 The rest stay on the speech paths deliberately: self-correction, spoken
 numbers, spoken email addresses, spelled-name collapse and question marks

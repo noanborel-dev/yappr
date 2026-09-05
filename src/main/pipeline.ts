@@ -1206,12 +1206,15 @@ export async function runDictationPipeline(
         // — which is why five prompt-level attempts were each believed
         // to have shipped before anyone checked the pasted text.
         // 'shaped' false means the model returned flat prose and the
-        // append correctly declined; 'attached' 0 with 'shaped' true
-        // means nothing in the store scored as build-relevant.
+        // append correctly declined; 'selected' 0 with 'shaped' true
+        // means nothing in the store scored as build-relevant. Note
+        // 'selected' counts what SCORED, not what landed — a bullet the
+        // model already wrote is dropped as a duplicate — so 'changed'
+        // and 'addedChars' are the ones that say what the user got.
         logInfo('Constraints', {
           shaped: before.includes('##'),
           candidates: project.length + global.length,
-          attached: selectConstraints([...project, ...global]).length,
+          selected: selectConstraints([...project, ...global]).length,
           changed: cleaned !== before,
           addedChars: cleaned.length - before.length,
         })
