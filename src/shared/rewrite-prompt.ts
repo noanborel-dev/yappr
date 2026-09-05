@@ -75,6 +75,59 @@ const COMPOSE_ASK_WINDOW = 40
  * subject: people lead with what they want done, and refer back to other
  * things later.
  */
+// Instructing someone to SEND a message, without using the word "email".
+//
+// The compose trigger was `asksForEmailComposition(t) || (in Gmail && 12+
+// words)`, and that second clause assumes long means brief. It is
+// backwards for the common case: people dictate the email they want to
+// send, and an email is usually more than twelve words.
+//
+// Live failure, 2026-09-05. Twenty-three words into a Gmail compose box:
+//
+//   "Hey, I just copied my address below. That way you can send the
+//    mouse. Make sure that you include the room number specification."
+//
+// That is the message. It addresses the reader directly — "you can send",
+// "make sure that you include" — and there is nothing in it to compose
+// FROM. The model was asked to write an email from an email, and returned
+// "Hi,\n\nBest,\nNoan": a greeting and a sign-off around nothing.
+//
+// So the length path now needs a reason to believe a brief was spoken.
+// A brief instructs a third party about a message; a message speaks to
+// the recipient. The explicit forms are still handled above by
+// EMAIL_COMPOSE_RE and are unaffected.
+//
+// The asymmetry decides the default. Wrongly composing DESTROYS the
+// dictation — the user gets a hollow shell, or the raw transcript once
+// the body guard catches it. Wrongly cleaning merely leaves a brief
+// tidied up, which is legible and can be re-said. So absent evidence,
+// do not compose.
+const COMPOSE_INSTRUCTION_RE = new RegExp(
+  [
+    // "tell Sam I'm running late", "let Danielle know that..."
+    /\b(?:tell|remind)\s+\w+\s+(?:that\s+|about\s+|i|we|it|to\b)/.source,
+    /\blet\s+(?:\w+|them|him|her)\s+know\b/.source,
+    // "ask Jeff if Thursday works", "ask them about the invoice"
+    /\bask\s+(?:\w+|them|him|her)\s+(?:if|whether|about|to|for)\b/.source,
+    // "reply saying yes", "respond saying we'll take it"
+    /\b(?:reply|respond|write\s+back|get\s+back\s+to\s+\w+)\s+(?:saying|and\s+say|to\s+say)\b/.source,
+    // "thank them for", "apologise to Sam for"
+    /\b(?:thank|apologi[sz]e\s+to|congratulate|follow\s+up\s+with)\s+(?:\w+|them|him|her)\b/.source,
+  ].join('|'),
+  'i',
+)
+
+/**
+ * Does this dictation INSTRUCT that a message be written, rather than BE
+ * the message? Only consulted on the length path — an explicit "write an
+ * email to..." is handled by asksForEmailComposition and never reaches
+ * here.
+ */
+export function instructsMessageComposition(transcript: string): boolean {
+  const opening = (transcript ?? '').trimStart().slice(0, COMPOSE_ASK_WINDOW)
+  return COMPOSE_INSTRUCTION_RE.test(opening)
+}
+
 export function asksForEmailComposition(transcript: string): boolean {
   const opening = (transcript ?? '').trimStart().slice(0, COMPOSE_ASK_WINDOW)
   return EMAIL_COMPOSE_RE.test(opening)
