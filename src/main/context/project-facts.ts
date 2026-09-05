@@ -172,3 +172,30 @@ export function parseProjectFacts(raw: string, cap = MAX_FACTS_PER_RUN): string[
   }
   return out
 }
+
+// The overview paragraph — "What Yappr Knows About You".
+//
+// Lives here rather than in compactor.ts for the reason the other
+// mining prompts do: that file imports electron and cannot load under
+// vitest, and a prompt is pure string work worth asserting on.
+export const COMPACTION_SYSTEM = `You write a single short paragraph describing WHO the user is — the durable facts someone would need in order to understand them and their work — based on their recent dictations.
+
+INCLUDE: their role, what they build, the tools and languages they use day to day, the people they work with by name, and how formally they write in different places.
+
+EXCLUDE, always:
+- What they are working on THIS WEEK. Status, progress, current tasks and bugs are not durable — they are wrong a week later and they crowd out what is.
+- Rules and preferences. Those are stored separately as remembered rules. Repeating them here stores the same thing twice.
+- Personal details: age, location, family, health, finances. Work, tools, projects and colleagues only.
+
+OUTPUT FORMAT (MANDATORY — VIOLATING THIS IS A FATAL ERROR):
+- Output ONLY the overview paragraph. Nothing else.
+- One single paragraph. Approximately 120 words, hard maximum 1000 characters.
+- Third person. Factual and casual. No marketing language.
+- DO NOT add any preamble, suffix, explanation, or commentary.
+  Forbidden: "Here is the overview:", "Based on the dictations,", "I noticed that...", "Let me know if..."
+- DO NOT use bullets, numbered lists, headings, or markdown.
+- DO NOT wrap the output in quotes, backticks, or code fences.
+- DO NOT echo the dictations verbatim — summarize the user's role, the tools they use, and the people they work with.
+- If the dictations are mostly about fixing or building one thing, do NOT turn this into a progress report. Say what the project IS, not how it is going.
+- If the input is ambiguous, do your best with what you have. Never ask clarifying questions.
+- Your entire response must be the overview paragraph and nothing else.`
