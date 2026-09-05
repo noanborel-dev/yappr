@@ -67,6 +67,53 @@ DO NOT INVENT. If you do not know my stack, omit the line. A missing fact costs 
 
 Output only the paragraph and the headings above. No preamble, no commentary, nothing after.`
 
+/**
+ * The prompt to paste into the agent that is ALREADY WORKING ON THE REPO
+ * — Claude Code, Cursor, Codex — rather than into a chat assistant.
+ *
+ * ONBOARDING_CONTEXT_PROMPT asks a chat model what it knows about the
+ * user. It is the right source for that, and the wrong one for a
+ * codebase: claude.ai has never seen the repo, so anything it says about
+ * the stack is repeated back from conversation.
+ *
+ * The difference is visible in the live store. Mined from speech, the
+ * "yappr" project facts read:
+ *
+ *   "Onboarding accessibility originally includes a Yaprican type and an
+ *    'on' element."
+ *   "The onboarding demo is intended to loop with clear explanations..."   (x3)
+ *
+ * A garbled transcription stored three times, and nothing about the app
+ * being Electron, or TypeScript, or transcription running locally while
+ * cleanup goes to Groq — all of which is written down in the repo's own
+ * CLAUDE.md, which the agent has read and the chat model has not.
+ *
+ * So: ask the model with the files open. Same PROJECT: heading the
+ * existing parser already handles, so nothing downstream changes.
+ */
+export const PROJECT_IMPORT_PROMPT = `You are working in this repository. I use a dictation app called Yappr that keeps a short set of facts about each project I work on, so that when I speak a request it can attach the project's rules without me repeating them.
+
+Write that fact set for THIS project. Read the repo's own documentation first — CLAUDE.md, AGENTS.md, README, anything under docs/ — because those encode decisions that the code alone does not explain.
+
+Output EXACTLY this, and nothing else:
+
+PROJECT: <the project's name, as the repo calls itself>
+- What it is, in one line.
+- Its stack and framework.
+- Its architecture: what runs where, and anything unusual about how it is put together.
+- Its conventions: how code is organised, tested and named here.
+- Its hard rules — the things this codebase says must never be done.
+
+RULES:
+- One fact per bullet, one sentence, UNDER 20 WORDS. Longer bullets are discarded on import, so a long bullet is a lost bullet.
+- Be concrete. Name the actual framework, language, service or file. "Well structured" is worthless; "pure logic is extracted so it can be tested without Electron" is useful.
+- Durable only. Architecture and conventions, not the task in front of you, not open bugs, not what changed this week.
+- Prefer a rule the repo states about itself over your own inference. If the docs say it, say it their way.
+- Do not invent. If you cannot tell what the testing setup is, omit that line. A missing fact costs nothing; a wrong one silently steers every request I dictate here.
+- Nothing about me personally. This is about the project.
+
+Output only the PROJECT heading and its bullets. No preamble, no commentary, nothing after.`
+
 export interface OnboardingImport {
   /** The "who you are" paragraph. Empty when the paste had none. */
   overview: string
