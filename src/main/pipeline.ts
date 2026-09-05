@@ -790,6 +790,65 @@ function applyDictionaryReplacements(text: string, terms: string[]): string {
   return out
 }
 
+/**
+ * The VOCABULARY half of the deterministic chain: everything that fixes a
+ * word the transcriber or the model got wrong, and nothing that
+ * reinterprets what was said.
+ *
+ * Split out because it is the half that is correct on ANY text, not only
+ * on speech. Until 2026-09-05 the chain ran on the dictation path alone —
+ * re-polishing an entry from history and rewriting a selection ran none
+ * of it — so a user with "Noan" in their dictionary could re-polish a
+ * dictation and get "Noen" back, having just watched the original get it
+ * right. That is a re-polish making the text worse, which is the one
+ * thing it exists not to do.
+ *
+ * The rest of the chain stays on the speech paths deliberately.
+ * Self-correction, spoken numbers, spoken email addresses, spelled-name
+ * collapse and question marks all read their input AS SPEECH — "twenty
+ * five" is a number the user said, not prose to renumber, and a rewritten
+ * selection is the user's own writing rather than a transcript of it.
+ */
+function applyVocabularyPasses(text: string, settings: Settings): string {
+  // Deterministic brand-name fixes — runs after the LLM cleanup (which
+  // usually catches them) AND on fast-path output where the LLM never ran.
+  let out = applyQuickFixes(text)
+
+  // User-dictionary auto-replace. Built on top of the Whisper bias
+  // prompt: the bias makes Whisper *more likely* to produce the right
+  // spelling, but it's probabilistic. This pass guarantees that "open
+  // flow" → "Yappr", "type script" → "TypeScript", etc., for any
+  // term the user added to their dictionary. Case-insensitive, word-
+  // boundary anchored, multi-part-aware (see buildDictionaryReplacers).
+  // Aliases first: they fix mis-HEARD spellings ("Yapper" -> "Yappr"),
+  // which the replacer below cannot do because it only knows a term's own
+  // spelling and its spacing variants.
+  out = applyDictionaryAliases(out)
+
+  // BUILTIN_DICTIONARY belongs here, not just the user's terms. It used to
+  // reach the model only as whisper's bias PROMPT; Parakeet takes no
+  // prompt, so passing only settings.userDictionary meant the entire
+  // built-in vocabulary — every brand name in it — silently stopped being
+  // applied anywhere once the engine changed.
+  out = applyDictionaryReplacements(out, [
+    ...BUILTIN_DICTIONARY,
+    ...(settings.userDictionary ?? []),
+  ])
+
+  // Then the near misses — the words the transcriber got ALMOST right.
+  //
+  // The pass above is exact-match, so it only ever fixed casing. A user
+  // with "Noan" in their dictionary said their own name and got "Noen"
+  // pasted, over and over, and reasonably asked why it could not tell.
+  //
+  // USER TERMS ONLY, never BUILTIN_DICTIONARY. The user asked for their
+  // terms by adding them; the built-in list is a hundred brand names
+  // nobody opted into, and letting those claim near neighbours would
+  // start rewriting ordinary English across every dictation. See
+  // shared/near-miss.ts for why the test is phonetic AND edit distance.
+  return applyNearMissTerms(out, settings.userDictionary ?? [])
+}
+
 export async function runDictationPipeline(
   audioBuffer: Buffer,
   settings: Settings,
@@ -1215,43 +1274,7 @@ export async function runDictationPipeline(
     }
   }
 
-  // Always apply deterministic brand-name fixes — runs after the LLM
-  // cleanup (which usually catches them) AND on fast-path output where
-  // the LLM never ran.
-  cleaned = applyQuickFixes(cleaned)
-
-  // User-dictionary auto-replace. Built on top of the Whisper bias
-  // prompt: the bias makes Whisper *more likely* to produce the right
-  // spelling, but it's probabilistic. This pass guarantees that "open
-  // flow" → "Yappr", "type script" → "TypeScript", etc., for any
-  // term the user added to their dictionary. Case-insensitive, word-
-  // boundary anchored, multi-part-aware (see buildDictionaryReplacers).
-  // Aliases first: they fix mis-HEARD spellings ("Yapper" -> "Yappr"),
-  // which the replacer below cannot do because it only knows a term's own
-  // spelling and its spacing variants.
-  cleaned = applyDictionaryAliases(cleaned)
-  // BUILTIN_DICTIONARY belongs here, not just the user's terms. It used to
-  // reach the model only as whisper's bias PROMPT; Parakeet takes no
-  // prompt, so passing only settings.userDictionary meant the entire
-  // built-in vocabulary — every brand name in it — silently stopped being
-  // applied anywhere once the engine changed.
-  cleaned = applyDictionaryReplacements(cleaned, [
-    ...BUILTIN_DICTIONARY,
-    ...(settings.userDictionary ?? []),
-  ])
-
-  // Then the near misses — the words the transcriber got ALMOST right.
-  //
-  // The pass above is exact-match, so it only ever fixed casing. A user
-  // with "Noan" in their dictionary said their own name and got "Noen"
-  // pasted, over and over, and reasonably asked why it could not tell.
-  //
-  // USER TERMS ONLY, never BUILTIN_DICTIONARY. The user asked for their
-  // terms by adding them; the built-in list is a hundred brand names
-  // nobody opted into, and letting those claim near neighbours would
-  // start rewriting ordinary English across every dictation. See
-  // shared/near-miss.ts for why the test is phonetic AND edit distance.
-  cleaned = applyNearMissTerms(cleaned, settings.userDictionary ?? [])
+  cleaned = applyVocabularyPasses(cleaned, settings)
 
   // Deterministic self-correction safety net. The LLM should handle
   // "at 6, I mean 7" → "at 7" — but the 8B cleanup model still keeps
@@ -1620,7 +1643,12 @@ The selected text is plain prose. Output as plain prose. Do not introduce markdo
     return selectedText
   }
 
-  const out = emailMode ? normalizeEmailRewrite(result) : result
+  // Vocabulary only. A rewritten selection is the user's own writing, so
+  // the passes that read their input as speech have no business here —
+  // but a brand name or a dictionary term the model spelled wrong is
+  // just as wrong in a rewrite as in a dictation.
+  const rewritten = applyVocabularyPasses(result, settings)
+  const out = emailMode ? normalizeEmailRewrite(rewritten) : rewritten
 
   // The hollow-email guard, which the dictation path has had since
   // 2026-09-04 and this one did not. A live rewrite returned
@@ -1773,5 +1801,12 @@ async function cleanupAsDictation(
       expandsOutput: composingEmail,
     }))
 
-  return composingEmail ? normalizeComposedEmail(cleaned, senderFirstName()) : cleaned
+  // The vocabulary passes. This function's own docstring already warns it
+  // is "not a substitute for the block inside runDictationPipeline", but
+  // until 2026-09-05 it ran NONE of that block — so a re-polish from
+  // history handed back text with the user's own dictionary un-applied,
+  // undoing a fix the original dictation had made.
+  const polished = applyVocabularyPasses(cleaned, settings)
+
+  return composingEmail ? normalizeComposedEmail(polished, senderFirstName()) : polished
 }
