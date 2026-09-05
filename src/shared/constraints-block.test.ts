@@ -1,0 +1,103 @@
+import { describe, it, expect } from 'vitest'
+import { appendConstraints, selectConstraints, MAX_CONSTRAINTS } from './constraints-block'
+import type { StoredFact } from './types'
+
+const f = (id: number, text: string): StoredFact =>
+  ({ id, scope: 'global', projectKey: '', text, createdAt: id })
+
+// The user's real store, after five prompt-level attempts failed to get
+// any of it into a shaped prompt.
+const REAL = [
+  f(1, 'I want fluid animations in interfaces.'),
+  f(2, 'I require mobile-friendly designs.'),
+  f(3, 'I like the landing page to use a blue color scheme.'),
+  f(4, 'I dislike outlines around UI components and prefer them removed.'),
+  f(5, 'Wants direct, critical feedback, not validation.'),
+  f(6, 'I always enforce rate limiting at least per minute or per hour.'),
+  f(7, 'I always want prompts to include both context and constraints.'),
+]
+
+// The measured failure, verbatim, on the build containing every prompt fix.
+const SHAPED = '## Goal\nBuild a landing page with a sidebar that includes all features of the app.'
+
+describe('selectConstraints', () => {
+  it('picks the preferences that change how something is built', () => {
+    const picked = selectConstraints(REAL).map((x) => x.id)
+    expect(picked).toContain(1) // animations
+    expect(picked).toContain(2) // mobile
+    expect(picked).toContain(3) // colour
+  })
+
+  it('leaves out how to talk to the user', () => {
+    // "Wants direct, critical feedback" describes conversation, not
+    // construction, and belongs nowhere near a prompt for an agent.
+    expect(selectConstraints(REAL).map((x) => x.id)).not.toContain(5)
+  })
+
+  it('ranks build-relevance above recency', () => {
+    // Recency alone is how a week of debugging notes filled the budget
+    // while "fluid animations" sat below the cut.
+    const noise = f(99, 'I always want prompts to include context.')
+    const picked = selectConstraints([...REAL, noise])
+    expect(picked[0].id).not.toBe(99)
+  })
+
+  it('is capped', () => {
+    const many = Array.from({ length: 40 }, (_, i) => f(i + 100, `I prefer animation style ${i}.`))
+    expect(selectConstraints(many)).toHaveLength(MAX_CONSTRAINTS)
+  })
+
+  it('returns nothing when nothing is relevant', () => {
+    expect(selectConstraints([f(1, 'Plain tone, short answers, no em dashes.')])).toEqual([])
+  })
+})
+
+describe('appendConstraints', () => {
+  it('adds the section the model omitted', () => {
+    // THE bug. This exact output, with this exact store, produced nothing.
+    const out = appendConstraints(SHAPED, REAL)
+    expect(out).toContain('## Constraints')
+    expect(out).toContain('fluid animations')
+    expect(out).toContain('mobile-friendly')
+  })
+
+  it('keeps the model’s own Goal intact', () => {
+    expect(appendConstraints(SHAPED, REAL)).toContain(SHAPED)
+  })
+
+  it('merges into a Constraints section the model already wrote', () => {
+    const withSection = '## Goal\nBuild it.\n\n## Constraints\n- Use TypeScript.'
+    const out = appendConstraints(withSection, REAL)
+    expect(out.match(/## Constraints/g)).toHaveLength(1)
+    expect(out).toContain('- Use TypeScript.')
+    expect(out).toContain('fluid animations')
+  })
+
+  it('inserts before the following heading, not at the end', () => {
+    const doc = '## Goal\nBuild it.\n\n## Constraints\n- Use TypeScript.\n\n## Done when\n- It ships.'
+    const out = appendConstraints(doc, REAL)
+    expect(out.indexOf('fluid animations')).toBeLessThan(out.indexOf('## Done when'))
+  })
+
+  it('does not repeat a bullet the model already wrote', () => {
+    const dup = '## Goal\nBuild it.\n\n## Constraints\n- I require mobile-friendly designs.'
+    const out = appendConstraints(dup, REAL)
+    expect(out.match(/mobile-friendly/gi)).toHaveLength(1)
+  })
+
+  it('leaves flat prose alone', () => {
+    // A short request that came back as a sentence stays a sentence.
+    // Turning "run the tests" into a document would be its own bug.
+    const flat = 'Run the tests.'
+    expect(appendConstraints(flat, REAL)).toBe(flat)
+  })
+
+  it('leaves the output alone when nothing is relevant', () => {
+    expect(appendConstraints(SHAPED, [f(1, 'Plain tone, short answers.')])).toBe(SHAPED)
+  })
+
+  it('survives an empty store and empty output', () => {
+    expect(appendConstraints(SHAPED, [])).toBe(SHAPED)
+    expect(appendConstraints('', REAL)).toBe('')
+  })
+})
