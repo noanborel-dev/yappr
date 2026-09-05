@@ -40,6 +40,7 @@ import { isRewriteEntry, spokenText } from '../shared/history-entry'
 import { selectionLikelyStale } from './rewrite-guard'
 import { applySelfCorrection } from '../shared/correction-pass'
 import { digitsForSpokenNumbers } from '../shared/spoken-numbers'
+import { applySpokenEmails } from '../shared/spoken-email'
 import { applyNearMissTerms } from '../shared/near-miss'
 import type { FocusedApp } from './focused-app'
 import type { TranscriptionProvider, CleanupProvider } from './providers/types'
@@ -1269,6 +1270,18 @@ export async function runDictationPipeline(
   // the fast path and in local-only mode too. See shared/spoken-numbers.ts
   // for what it deliberately refuses to touch.
   cleaned = digitsForSpokenNumbers(cleaned)
+
+  // Spoken email addresses: "noan dot borel at gmail dot com" is an
+  // address, not a sentence. Nine of the 355 stored dictations carry one
+  // and none came out as an address, including where cleanup succeeded —
+  // so this is not something the LLM does when it is available, and it
+  // has to be deterministic for the same reason spoken numbers are.
+  //
+  // Runs on code surfaces too, unlike the two passes below, because it
+  // only ever rewrites a SPOKEN form. An address already written out is
+  // left byte-for-byte alone, so there is nothing here that can disturb
+  // a config file, a decorator or a scoped package name.
+  cleaned = applySpokenEmails(cleaned)
 
   // The next two passes are DESTRUCTIVE for code — they rewrite content
   // that is legitimate in a coding/AI-prompt surface — so we skip them
