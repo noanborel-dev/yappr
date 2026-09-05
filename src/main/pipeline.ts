@@ -13,7 +13,7 @@ import {
 } from '../shared/rewrite-prompt'
 import { buildContextBlock } from './context/prompt-injector'
 import { getFactsFor } from './context/facts'
-import { appendConstraints } from '../shared/constraints-block'
+import { appendConstraints, selectConstraints } from '../shared/constraints-block'
 import {
   COMPOSED_EMAIL_MIN_BODY_CHARS,
   composedEmailBodyChars,
@@ -1123,7 +1123,23 @@ export async function runDictationPipeline(
       // judgement stops being its job.
       if (willReformat) {
         const { global, project } = getFactsFor(dictationProjectKey(focusedApp))
+        const before = cleaned
         cleaned = appendConstraints(cleaned, [...project, ...global])
+        // Log it, because otherwise this fix is invisible in the one
+        // artefact worth debugging from. The failure it replaces looked
+        // identical in the log to a success — 'Cleaned' fired either way
+        // — which is why five prompt-level attempts were each believed
+        // to have shipped before anyone checked the pasted text.
+        // 'shaped' false means the model returned flat prose and the
+        // append correctly declined; 'attached' 0 with 'shaped' true
+        // means nothing in the store scored as build-relevant.
+        logInfo('Constraints', {
+          shaped: before.includes('##'),
+          candidates: project.length + global.length,
+          attached: selectConstraints([...project, ...global]).length,
+          changed: cleaned !== before,
+          addedChars: cleaned.length - before.length,
+        })
       }
       if (composingEmail) {
         cleaned = normalizeComposedEmail(cleaned, senderFirstName())

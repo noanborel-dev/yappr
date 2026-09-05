@@ -101,3 +101,55 @@ describe('appendConstraints', () => {
     expect(appendConstraints('', REAL)).toBe('')
   })
 })
+
+// Regression, 2026-09-05. score() used raw substring matching, so the
+// two-letter 'ui' keyword fired inside req-UI-re, b-UI-lt, fl-UI-d,
+// g-UI-ded and liq-UI-d. Measured against the user's own store (71
+// facts), six were affected and one scored ONLY on a spurious match:
+//
+//   "I always require prompts to include all relevant context and
+//    constraints."
+//
+// which is a bug report about Yappr — the exact thing this module's
+// doc comment says it exists to keep out of a build prompt. It stayed
+// out of the top six only because five other facts happened to score
+// higher, which is a property of today's store and not of the design.
+describe('keywords match at word starts, not anywhere', () => {
+  it('does not admit a bug report on "ui" inside "require"', () => {
+    const bugReport = f(1, 'I always require prompts to include all relevant context and constraints.')
+    expect(selectConstraints([bugReport])).toEqual([])
+  })
+
+  it('does not score "ui" inside built, fluid, guided or liquid', () => {
+    // Each of these still scores, but on its REAL keyword only.
+    expect(selectConstraints([f(1, 'Built with a guided flow.')])).toEqual([])
+  })
+
+  it('still matches a keyword that opens a word', () => {
+    // anim -> animations, design -> designs, style -> styled,
+    // outline -> outlines, component -> components. Prefix matching is
+    // the point of the shorter entries and must survive.
+    for (const text of [
+      'I want fluid animations in interfaces.',
+      'I require mobile-friendly designs.',
+      'Styled with Tailwind CSS.',
+      'I dislike outlines around UI components and prefer them removed.',
+      'Accessibility matters to me.',
+      'I care about typography.',
+    ]) {
+      expect(selectConstraints([f(1, text)])).toHaveLength(1)
+    }
+  })
+
+  it('still matches "ui" as a word of its own', () => {
+    expect(selectConstraints([f(1, 'The onboarding UI displays a slider.')])).toHaveLength(1)
+  })
+
+  it('keeps the real store\'s top pick above the bug report', () => {
+    const picked = selectConstraints([
+      f(1, 'I always require prompts to include all relevant context and constraints.'),
+      f(2, 'I want fluid animations in interfaces.'),
+    ])
+    expect(picked.map((f) => f.id)).toEqual([2])
+  })
+})

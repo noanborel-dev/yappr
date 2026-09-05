@@ -44,9 +44,33 @@ const BUILD_RELEVANT = [
 /** How many constraints to attach. */
 export const MAX_CONSTRAINTS = 6
 
+/**
+ * Does the keyword appear at the START of a word?
+ *
+ * The shorter entries above are prefixes on purpose — 'anim' has to
+ * reach "animations", 'accessib' has to reach "accessibility" — so this
+ * cannot be a whole-word test. But it must not be a bare substring test
+ * either: 'ui' is two letters and sits inside require, built, fluid,
+ * guided and liquid. Measured against the user's 71 stored facts, that
+ * inflated six scores and admitted one fact on nothing else —
+ *
+ *   "I always require prompts to include all relevant context and
+ *    constraints."
+ *
+ * — which is a bug report about Yappr, i.e. precisely what the comment
+ * above says this module keeps out of a build prompt. It stayed out of
+ * the top six by luck of the other scores, not by design.
+ */
+function containsAtWordStart(haystack: string, needle: string): boolean {
+  for (let i = haystack.indexOf(needle); i >= 0; i = haystack.indexOf(needle, i + 1)) {
+    if (i === 0 || !/[\p{L}\p{N}]/u.test(haystack[i - 1])) return true
+  }
+  return false
+}
+
 function score(text: string): number {
   const t = text.toLowerCase()
-  return BUILD_RELEVANT.reduce((n, k) => (t.includes(k) ? n + 1 : n), 0)
+  return BUILD_RELEVANT.reduce((n, k) => (containsAtWordStart(t, k) ? n + 1 : n), 0)
 }
 
 /**
