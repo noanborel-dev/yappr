@@ -115,7 +115,7 @@ This message is going into iMessage / WhatsApp / Telegram. Output must be CASUAL
 - Contractions stay contracted (don't, we're, let's, gonna, kinda).
 - Periods at end of sentences are OPTIONAL. Multi-sentence messages can use lowercase with no end-of-sentence punctuation — that's how people text. But commas mid-sentence are fine.
 - Do NOT use semicolons, em-dashes, or formal punctuation. Use commas or just new clauses.
-- Do NOT add markdown formatting (no **bold**, no bullets) unless the user explicitly dictated a list.
+- Do NOT add markdown formatting (no **bold**, no headings). Lists are the exception: follow the list-formatting rules below, which apply here too.
 - Fragments are perfectly fine.
 
 EXAMPLES of correct iMessage register:
@@ -438,6 +438,25 @@ A NEGATIVE THE USER ACTUALLY MEANT is kept: "use the existing Spinner, not a new
 
 NOT corrections at all: "I mean it", "actually great", "wait for me".`
 
+// Quoting: when the user REFERS to a phrase rather than simply saying it,
+// it belongs in quotation marks.
+//
+// Reported 2026-09-05: "Yappr never puts things in quotes for some
+// reason. Even when I'll say a specific phrase referencing a couple words
+// or quoting things, it never actually puts it into quotes."
+//
+// It never did, because nothing ever asked it to. Before this, the only
+// rules in this file mentioning quotes were OUTPUT_GUARD's "do not wrap
+// the output in quotes, backticks, or code fences" -- which is about the
+// WHOLE reply -- and a model reading that has every reason to avoid
+// quotation marks entirely. The absence was not a tuning problem; the
+// instruction did not exist.
+//
+// The last line is load-bearing: without it this block and OUTPUT_GUARD
+// read as a contradiction, and the safe reading of a contradiction is to
+// do nothing, which is the behaviour being fixed.
+const QUOTING = `Quoting: when the user REFERS to a phrase rather than saying it — "the word ...", "the phrase ...", "the button that says ...", "called ...", "quote ... unquote" — put that span in double quotes. Do NOT quote ordinary nouns or product names; over-quoting reads worse than none. Spans inside the text only: never wrap the whole output in quotes.`
+
 // List formatting: when the user dictates clearly-enumerated content, the
 // cleanup pass should output a list, not run-on prose. The trigger is
 // content SHAPE, not length — single-idea dictations stay as prose.
@@ -554,6 +573,8 @@ const PROMPTS: Record<AppCategory, string> = {
 
 ${LIST_FORMATTING}
 
+${QUOTING}
+
 {emoji_block}
 
 Messaging-specific:
@@ -573,6 +594,8 @@ Dictated text:
 {strictness_block}
 
 ${LIST_FORMATTING}
+
+${QUOTING}
 
 Style notes:
 - Always full sentences with proper capitalization and ending punctuation.
@@ -700,6 +723,8 @@ ${FAITHFUL}
 
 ${LIST_FORMATTING}
 
+${QUOTING}
+
 Style notes:
 - Recognize dev jargon: SSH, API, JSON, regex, tmux, grep, EC2, kubectl, etc.
 - Convert spoken file paths: "app dot tsx" → "app.tsx", "dot env" → ".env".
@@ -722,6 +747,8 @@ Dictated text:
 
 ${LIST_FORMATTING}
 
+${QUOTING}
+
 Style notes:
 - Add proper punctuation and paragraph structure.
 - Use clear, well-structured prose. Lean toward lists when content is enumerated — documents benefit from structure.
@@ -739,6 +766,8 @@ Dictated text:
 {strictness_block}
 
 ${LIST_FORMATTING}
+
+${QUOTING}
 
 Style notes:
 - Keep the user's register — casual stays casual.
