@@ -44,6 +44,7 @@ import {
   buildGlobalPrefsPrompt,
   parseProjectFacts,
   PROJECT_FACTS_SYSTEM,
+  COMPACTION_SYSTEM,
   GLOBAL_PREFS_SYSTEM,
 } from './project-facts'
 import { readProjectProfiles } from './project-roots'
@@ -298,19 +299,6 @@ async function runCompaction(
   return { ok: true, overview: cleaned.slice(0, OVERVIEW_MAX_CHARS) }
 }
 
-const COMPACTION_SYSTEM = `You write a single short user-overview paragraph that summarizes who the user is and what they've been working on, based on their recent dictations.
-
-OUTPUT FORMAT (MANDATORY — VIOLATING THIS IS A FATAL ERROR):
-- Output ONLY the overview paragraph. Nothing else.
-- One single paragraph. Approximately 120 words, hard maximum 1000 characters.
-- Third person. Factual and casual. No marketing language.
-- DO NOT add any preamble, suffix, explanation, or commentary.
-  Forbidden: "Here is the overview:", "Based on the dictations,", "I noticed that...", "Let me know if..."
-- DO NOT use bullets, numbered lists, headings, or markdown.
-- DO NOT wrap the output in quotes, backticks, or code fences.
-- DO NOT echo the dictations verbatim — summarize the user's role, focus areas, ongoing projects, and recurring people or tools.
-- If the input is ambiguous, do your best with what you have. Never ask clarifying questions.
-- Your entire response must be the overview paragraph and nothing else.`
 
 // Targeted strip of the artifacts the 8B model leaks despite the
 // OUTPUT_GUARD-style system prompt. Smaller than the cleanup stripper
