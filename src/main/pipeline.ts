@@ -14,7 +14,11 @@ import {
 import { buildContextBlock } from './context/prompt-injector'
 import { getFactsFor } from './context/facts'
 import { appendConstraints } from '../shared/constraints-block'
-import { composedEmailBodyChars } from '../shared/rewrite-prompt'
+import {
+  COMPOSED_EMAIL_MIN_BODY_CHARS,
+  composedEmailBodyChars,
+  isHollowEmail,
+} from '../shared/rewrite-prompt'
 import { getUserOverview } from './context/store'
 import { extractProjectKey, canonicalProjectKey } from './context/project-key'
 import { extractStandingPreferences } from './context/fact-scope'
@@ -212,12 +216,11 @@ async function withCleanupRetry<T>(fn: () => Promise<T>): Promise<T> {
 // length, treat that as a summarization failure." Catches the 4%
 // and 1% production cases without false-positiving on normal
 // filler removal (~85-95% retention is typical).
-// Below this many characters of BODY, a composed email is a shell rather
-// than a terse email. The two live successes on the same day ran to ~880
-// characters of body; the failure had zero. Forty is about one short
-// sentence -- low enough that a genuinely brief reply survives, high
-// enough that a greeting and a sign-off alone do not.
-const COMPOSED_EMAIL_MIN_BODY_CHARS = 40
+// COMPOSED_EMAIL_MIN_BODY_CHARS now lives in shared/rewrite-prompt.ts,
+// beside the function it governs, so the select-and-rewrite path can hold
+// itself to the same definition of "hollow" — it did not, until
+// 2026-09-05, and a rewrite pasted a subject line and a bare "Hi," over a
+// user's selection with nothing to catch it.
 
 const LENGTH_GUARD_MIN_INPUT_CHARS = 300
 const LENGTH_GUARD_MIN_RATIO = 0.4
@@ -1418,8 +1421,24 @@ export async function runCommandPipeline(
   // there. The user may have moved between apps mid-recording.
   const refreshFocusedApp = focusOverride ? null : captureFocusedApp()
 
-  const command = await withRetry('Transcription', () =>
-    transcription.transcribe(audioBuffer, { dictionary }))
+  // This path used to write one line to the log — 'Command pipeline', at
+  // the start — and nothing at all afterwards: no result, no timing, no
+  // error. It was the only path in the app that could not be diagnosed
+  // from yappr.log, which is where every other diagnosis in this codebase
+  // started. The three timers and the log lines below mirror the
+  // dictation path deliberately, so the two read the same way.
+  const start = Date.now()
+  const tStart = Date.now()
+  // Trimmed, unlike before: command.length feeds the staleness guard, and
+  // leading whitespace from the transcriber was inflating it.
+  const command = (await withRetry('Transcription', () =>
+    transcription.transcribe(audioBuffer, { dictionary }))).trim()
+
+  logInfo('Transcribed (rewrite)', {
+    ms: Date.now() - tStart,
+    chars: command.length,
+    preview: command.slice(0, 60),
+  })
 
   if (refreshFocusedApp) await refreshFocusedApp
   const focusedApp = focusOverride ?? getFocusedApp()
@@ -1446,19 +1465,26 @@ export async function runCommandPipeline(
         ? Number((command.length / selectedText.length).toFixed(1))
         : null,
     })
-    return {
-      text: await cleanupAsDictation(
-        command, focusedApp, dictationProjectKey(focusedApp), settings, cleanup,
-      ),
-      command,
-      guarded: true,
-    }
+    const text = await cleanupAsDictation(
+      command, focusedApp, dictationProjectKey(focusedApp), settings, cleanup,
+    )
+    logInfo('Rewrite complete (guarded as dictation)', {
+      totalMs: Date.now() - start,
+      chars: text.length,
+      app: focusedApp.name,
+    })
+    return { text, command, guarded: true }
   }
 
-  return {
-    text: await rewriteSelection(command, selectedText, focusedApp, settings, cleanup),
-    command,
-  }
+  const text = await rewriteSelection(command, selectedText, focusedApp, settings, cleanup)
+  logInfo('Rewrite complete', {
+    totalMs: Date.now() - start,
+    chars: text.length,
+    selectionChars: selectedText.length,
+    unchanged: text === selectedText,
+    app: focusedApp.name,
+  })
+  return { text, command }
 }
 
 /**
@@ -1529,16 +1555,28 @@ The selected text is plain prose. Output as plain prose. Do not introduce markdo
     command: command.slice(0, 60),
   })
 
-  const result = await withCleanupRetry(() =>
-    cleanup.cleanup(userMessage, {
-      appName: focusedApp.name,
-      appCategory: focusedApp.category,
-      systemPrompt,
-      mode: 'rewrite',
-      // Anything unusable comes back as the user's own selection —
-      // never the dictated command, and never the delimited scaffold.
-      fallbackText: selectedText,
-    }))
+  const cStart = Date.now()
+  // Unlike the dictation path there is no try/catch here, and that is
+  // deliberate: a failed rewrite has no safe local fallback — pasting the
+  // raw spoken command over the selection would be destructive — so the
+  // error propagates to index.ts and the selection is left alone. Log it
+  // on the way past, because until 2026-09-05 nothing did.
+  let result: string
+  try {
+    result = await withCleanupRetry(() =>
+      cleanup.cleanup(userMessage, {
+        appName: focusedApp.name,
+        appCategory: focusedApp.category,
+        systemPrompt,
+        mode: 'rewrite',
+        // Anything unusable comes back as the user's own selection —
+        // never the dictated command, and never the delimited scaffold.
+        fallbackText: selectedText,
+      }))
+  } catch (err) {
+    logError('Rewrite failed — leaving the selection alone', err)
+    throw err
+  }
 
   // The model sometimes answers ABOUT the selection rather than rewriting
   // it — one user got the single word "identical" pasted over a sentence.
@@ -1553,7 +1591,32 @@ The selected text is plain prose. Output as plain prose. Do not introduce markdo
     return selectedText
   }
 
-  return emailMode ? normalizeEmailRewrite(result) : result
+  const out = emailMode ? normalizeEmailRewrite(result) : result
+
+  // The hollow-email guard, which the dictation path has had since
+  // 2026-09-04 and this one did not. A live rewrite returned
+  // "Subject: Shipping address for mouse delivery\n\nHi," and replaced the
+  // user's selection with it. Keeping their own text is always the better
+  // outcome, for the same reason the meta-reply guard above keeps it.
+  if (emailMode && isHollowEmail(out)) {
+    logError('Rewrite produced a hollow email — keeping the selection', {
+      bodyChars: composedEmailBodyChars(out),
+      outputChars: out.length,
+      selectionChars: selectedText.length,
+      outputPreview: out.slice(0, 100),
+    })
+    return selectedText
+  }
+
+  logInfo('Rewritten', {
+    ms: Date.now() - cStart,
+    chars: out.length,
+    selectionChars: selectedText.length,
+    emailMode,
+    markdown: isMarkdown,
+    contextChars: contextBlock.length,
+  })
+  return out
 }
 
 /**

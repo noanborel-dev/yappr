@@ -393,12 +393,28 @@ export function completeEmailSignoff(text: string, name: string | null | undefin
   return `${trimmed}\n\nBest,\n${who}`
 }
 
+/**
+ * The floor a composed email's body must clear. Shared by the dictation
+ * path and the select-and-rewrite path so both agree on what "hollow"
+ * means — they disagreed until 2026-09-05, and only one of them checked.
+ */
+export const COMPOSED_EMAIL_MIN_BODY_CHARS = 40
+
 export function composedEmailBodyChars(text: string): number {
   const lines = (text ?? '').replace(/\r\n/g, '\n').split('\n')
   let start = 0
   let end = lines.length
 
   while (start < end && lines[start].trim() === '') start++
+  // A subject line is metadata, never body. Skipping it matters twice
+  // over: it was being counted toward the body (44 of the 49 characters
+  // in the rewrite that shipped "Subject: …\n\nHi," to a live selection),
+  // and while it sat first it also shielded the greeting below it from
+  // the test on the next line, which only ever looks at one line.
+  if (start < end && SUBJECT_LINE_RE.test(lines[start])) {
+    start++
+    while (start < end && lines[start].trim() === '') start++
+  }
   if (start < end && GREETING_RE.test(lines[start])) start++
 
   while (end > start && lines[end - 1].trim() === '') end--
@@ -413,6 +429,25 @@ export function composedEmailBodyChars(text: string): number {
   while (end > start && lines[end - 1].trim() === '') end--
 
   return lines.slice(start, end).join('\n').trim().length
+}
+
+/**
+ * Did an email come back as pure scaffolding — a subject line, a greeting,
+ * a sign-off, and no message between them?
+ *
+ * Deliberately stricter than COMPOSED_EMAIL_MIN_BODY_CHARS, and used on
+ * the select-and-rewrite path rather than the compose path. The 40-char
+ * floor is right when the model was asked to WRITE an email: a body under
+ * 40 characters means it did not. It is wrong when the model was asked to
+ * SHORTEN one, where "Thursday works. See you then." is the correct
+ * answer and discarding it would undo what the user asked for.
+ *
+ * A body of exactly zero has no such ambiguity. Nothing the user can ask
+ * for is legitimately satisfied by a greeting and a sign-off with nothing
+ * in between, so this fires on the failure and never on a terse success.
+ */
+export function isHollowEmail(text: string): boolean {
+  return text.trim().length > 0 && composedEmailBodyChars(text) === 0
 }
 
 // Words a model reaches for when it decides to REPORT on the text instead
