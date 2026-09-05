@@ -7,6 +7,7 @@ import {
   normalizeComposedEmail,
   senderNameFromOverview,
   asksForEmailComposition,
+  instructsMessageComposition,
   looksLikeMetaReply,
 } from '../shared/rewrite-prompt'
 import { buildContextBlock } from './context/prompt-injector'
@@ -1048,8 +1049,13 @@ export async function runDictationPipeline(
     // Hoisted because it drives two things that must agree: which prompt
     // is built, and how many tokens the reply is allowed — budgeting a
     // composed email like a cleaned one truncates it mid-sentence.
+    // Length alone is NOT evidence of a brief. See
+    // instructsMessageComposition — dictating the email you want to send
+    // is the common case, and an email is usually over twelve words.
     const composingEmail = asksForEmailComposition(transcript)
-      || (effectiveCategory === 'email' && countWords(transcript) >= EMAIL_COMPOSE_MIN_WORDS)
+      || (effectiveCategory === 'email'
+        && countWords(transcript) >= EMAIL_COMPOSE_MIN_WORDS
+        && instructsMessageComposition(transcript))
     const editor = IDE_EDITORS[focusedApp.bundleId]
     const strictness = strictnessFor(focusedApp, settings)
     const register = registerFor(focusedApp, effectiveCategory)
