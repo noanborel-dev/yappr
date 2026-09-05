@@ -18,7 +18,7 @@ describe('quoting rules reach every category', () => {
       // Before this, NOTHING in the file asked for quotation marks. The
       // only mentions were OUTPUT_GUARD's "do not wrap the output in
       // quotes", so the model had every reason to avoid them entirely.
-      expect(build(c)).toContain('Quoting:')
+      expect(build(c)).toContain('Quoting and parentheses:')
     })
 
   it('names the spoken cue and the referring case', () => {
@@ -26,10 +26,21 @@ describe('quoting rules reach every category', () => {
     expect(build('email')).toMatch(/the button that says/)
   })
 
-  it('guards against over-quoting', () => {
+  it('guards against over-punctuating', () => {
     // A rule that only says "add quotes" produces quotes around every
-    // noun, which is worse than none.
-    expect(build('email')).toMatch(/over-quoting reads worse than none/)
+    // noun, and one that only says "use parentheses" brackets half the
+    // sentence. Both are worse than leaving it alone.
+    expect(build('email')).toMatch(/Over-punctuating reads worse than none/)
+  })
+
+  it('asks for parentheses around a clarifying aside', () => {
+    expect(build('email')).toMatch(/parentheses read better than commas/)
+  })
+
+  it('does not bracket something the sentence needs', () => {
+    // Parentheses demote what is inside them. Applied to the subject or
+    // the object, that changes the meaning rather than clarifying it.
+    expect(build('email')).toMatch(/do not bracket something the sentence needs/)
   })
 
   it('reconciles with the whole-output rule instead of contradicting it', () => {
@@ -44,10 +55,10 @@ describe('quoting rules reach every category', () => {
   it('stays small, because every character is charged per call', () => {
     // prompt-size.test.ts holds the real ceiling; this keeps the block
     // itself from drifting back up.
-    const withBlock = build('other').length
-    const q = withBlock - build('ai_prompt').length
-    expect(build('other')).toContain('Quoting:')
-    expect(Math.abs(q)).toBeGreaterThan(0)
+    // ai_prompt has ~73 characters of headroom against the ceiling in
+    // prompt-size.test.ts, so this block is deliberately absent there.
+    expect(build('other')).toContain('Quoting and parentheses:')
+    expect(build('ai_prompt')).not.toContain('Quoting and parentheses:')
   })
 })
 
