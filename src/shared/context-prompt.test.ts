@@ -29,7 +29,7 @@ describe('the prompt asks for facts that can actually be stored', () => {
 
 describe('what the prompt asks for', () => {
   it.each([
-    ['work, not personal life', /NOTHING PERSONAL/],
+    ['identity, not trivia', /IDENTITY YES, TRIVIA NO/],
     ['specificity over vibes', /BE SPECIFIC/],
     ['standing rules, not to-dos', /DURABLE ONLY/],
     ['project scope over global', /SCOPE CAREFULLY/],
@@ -38,6 +38,20 @@ describe('what the prompt asks for', () => {
     ['project architecture', /stack, framework and architecture/],
   ])('asks for %s', (_label, re) => {
     expect(ONBOARDING_CONTEXT_PROMPT).toMatch(re)
+  })
+
+  it('asks for the identifying facts by name', () => {
+    // Corrected 2026-09-05. The first version said "NOTHING PERSONAL...
+    // no location, age", which was an over-correction: those are exactly
+    // what lets Yappr spell a school right and resolve who is meant.
+    // The line is identity vs trivia, not personal vs not.
+    for (const field of ['My name', 'my age', 'where I live', 'where I study']) {
+      expect(ONBOARDING_CONTEXT_PROMPT).toContain(field)
+    }
+  })
+
+  it('still excludes what has no bearing on writing', () => {
+    expect(ONBOARDING_CONTEXT_PROMPT).toMatch(/pets, health, relationships, finances, politics/)
   })
 
   it('names the failure mode for a misfiled global fact', () => {
