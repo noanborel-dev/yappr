@@ -490,7 +490,11 @@ NOT corrections at all: "I mean it", "actually great", "wait for me".`
 // The last line is load-bearing: without it this block and OUTPUT_GUARD
 // read as a contradiction, and the safe reading of a contradiction is to
 // do nothing, which is the behaviour being fixed.
-const QUOTING = `Quoting: when the user REFERS to a phrase rather than saying it — "the word ...", "the phrase ...", "the button that says ...", "called ...", "quote ... unquote" — put that span in double quotes. Do NOT quote ordinary nouns or product names; over-quoting reads worse than none. Spans inside the text only: never wrap the whole output in quotes.`
+const QUOTING = `Quoting and parentheses:
+- When the user REFERS to a phrase rather than saying it — "the word ...", "the phrase ...", "the button that says ...", "called ...", "quote ... unquote" — put that span in double quotes.
+- When a clarifying aside interrupts the sentence ("the sidebar, the one on the landing page, should collapse"), parentheses read better than commas: "the sidebar (the one on the landing page) should collapse".
+- Do NOT quote ordinary nouns or product names, and do not bracket something the sentence needs. Over-punctuating reads worse than none.
+- Spans inside the text only: never wrap the whole output in quotes.`
 
 // List formatting: when the user dictates clearly-enumerated content, the
 // cleanup pass should output a list, not run-on prose. The trigger is
