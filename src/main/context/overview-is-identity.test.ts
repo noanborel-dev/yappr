@@ -41,8 +41,17 @@ describe('the overview describes a person, not a sprint', () => {
     expect(COMPACTION_SYSTEM).toMatch(/stored separately as remembered rules/)
   })
 
-  it('excludes personal details, matching the onboarding prompt', () => {
-    expect(COMPACTION_SYSTEM).toMatch(/age, location, family, health, finances/)
+  it('excludes trivia, not identity — matching the onboarding prompt', () => {
+    // Corrected 2026-09-05. Age and location ARE wanted: they are how
+    // Yappr resolves who and what the user refers to. What is not wanted
+    // is anything with no bearing on their writing.
+    expect(COMPACTION_SYSTEM).toMatch(/pets, health, relationships, finances, politics/)
+    expect(COMPACTION_SYSTEM).toMatch(/a dog's name is not/)
+  })
+
+  it('asks for the identifying facts', () => {
+    expect(COMPACTION_SYSTEM).toMatch(/their name, age, where they live/)
+    expect(COMPACTION_SYSTEM).toMatch(/identity paragraph/)
   })
 
   it('names the failure mode directly', () => {
@@ -55,7 +64,7 @@ describe('the overview describes a person, not a sprint', () => {
 describe('what it still asks for', () => {
   it.each([
     ['the people they work with', /people they work with/],
-    ['the tools they use', /tools and languages they use/],
+    ['the tools they use', /the tools they use/],
     ['how they write', /how formally they write/],
   ])('%s', (_l, re) => expect(COMPACTION_SYSTEM).toMatch(re))
 

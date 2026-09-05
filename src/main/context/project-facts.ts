@@ -180,12 +180,12 @@ export function parseProjectFacts(raw: string, cap = MAX_FACTS_PER_RUN): string[
 // vitest, and a prompt is pure string work worth asserting on.
 export const COMPACTION_SYSTEM = `You write a single short paragraph describing WHO the user is — the durable facts someone would need in order to understand them and their work — based on their recent dictations.
 
-INCLUDE: their role, what they build, the tools and languages they use day to day, the people they work with by name, and how formally they write in different places.
+INCLUDE: their name, age, where they live, what they do for work, where they study, anything they run themselves, the people they work with by name, the tools they use, and how formally they write in different places. This is an identity paragraph — someone reading it should know who is speaking.
 
 EXCLUDE, always:
 - What they are working on THIS WEEK. Status, progress, current tasks and bugs are not durable — they are wrong a week later and they crowd out what is.
 - Rules and preferences. Those are stored separately as remembered rules. Repeating them here stores the same thing twice.
-- Personal details: age, location, family, health, finances. Work, tools, projects and colleagues only.
+- Trivia with no bearing on what they write: pets, health, relationships, finances, politics. Identity is wanted; a dog's name is not.
 
 OUTPUT FORMAT (MANDATORY — VIOLATING THIS IS A FATAL ERROR):
 - Output ONLY the overview paragraph. Nothing else.

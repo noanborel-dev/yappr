@@ -31,7 +31,7 @@ export const ONBOARDING_CONTEXT_PROMPT = `I'm setting up Yappr, a voice-dictatio
 
 Write that profile. Use what you already know about me from our previous conversations. Where you don't know something, leave it out rather than guessing.
 
-First, ONE paragraph, max 150 words: what I do for work, what I'm building right now, the tools and languages I use daily, who I work with, and how formally I write in different places (e.g. casual in iMessage, professional in email).
+First, ONE paragraph, max 150 words — WHO I AM. My name, my email if you know it, my age, where I live, what I do for work, where I study, whether I run anything of my own, the people I work with and how, and how formally I write in different places (e.g. casual in iMessage, professional in email).
 
 Then these headings, exactly as written. Skip any heading you have nothing real for.
 
@@ -61,7 +61,7 @@ DURABLE ONLY. A standing rule, not a task. "Always uses TypeScript" belongs here
 
 SCOPE CAREFULLY. If a preference is about ONE product, put it under that PROJECT, not GLOBAL. Global facts are injected into every other project's prompts, so a misfiled one is actively misleading.
 
-NOTHING PERSONAL. No health, relationships, family, finances, location, age, politics, or anything I would not put in a work bio. Work, tools, projects and colleagues only.
+IDENTITY YES, TRIVIA NO. Name, age, city, school, job, company and colleagues all belong in the paragraph — they are how Yappr spells things right and works out who and what I am referring to. Skip anything with no bearing on what I write: pets, health, relationships, finances, politics.
 
 DO NOT INVENT. If you do not know my stack, omit the line. A missing fact costs nothing. A wrong one silently steers every sentence I dictate from now on.
 
