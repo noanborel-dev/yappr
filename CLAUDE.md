@@ -105,9 +105,27 @@ Checking category *before* length was a real bug: a six-word phrase came back
 `code-verbatim`, which the pipeline lets `faithful_ai` override, so short
 dictations went to the LLM anyway, hit Groq's 6000 TPM limit, and took 6.5s.
 
-**Skipping cleanup never skips correctness.** The deterministic passes in
-`text-passes.ts` always run afterwards: brand names, user dictionary,
-self-correction, spelled-name collapse, question marks.
+**Skipping cleanup never skips correctness.** A chain of deterministic
+passes always runs afterwards, in this order, at the end of
+`runDictationPipeline`: brand names, dictionary aliases, user dictionary,
+near-miss dictionary, self-correction, spoken numbers, spoken email
+addresses, then — on non-`code` surfaces only — spelled-name collapse and
+question marks.
+
+**There is no `text-passes.ts`.** This file and `docs/ARCHITECTURE.md`
+both claimed there was until 2026-09-05. Five of those passes are private
+functions inside `pipeline.ts` and therefore untested; the other four
+(`near-miss`, `correction-pass`, `spoken-numbers`, `spoken-email`) are
+pure modules in `src/shared/` and are tested. An extraction exists on the
+unmerged branch `worktree-phase0a-correctness-bugs` (`1c91c29`), written
+2026-07-29 against a pipeline that has moved a long way since; treat it
+as a starting point, not a patch to apply.
+
+**The chain runs on the dictation path only.** `runCommandPipeline`
+(select-and-rewrite) and `repolishEntry` (re-polish from history) run
+none of it, so re-polishing an entry drops the brand-name, dictionary,
+self-correction and question-mark fixes the original dictation had. That
+is a known gap, not a design.
 
 ### Cleanup registers
 
@@ -190,9 +208,13 @@ retry** — the gate is correct, asking only once is not.
 
 - **Pure logic goes in its own module.** `pipeline.ts`, `local.ts` and the
   worker all import Electron or native bindings and cannot load under vitest.
-  Anything worth testing (`text-passes`, `routing`, `cleanup-policy`,
-  `ai-intent`, `model-cache-policy`, `compaction-gate`, `media-apps`) is
-  extracted and tested. Tests must cover *shipped* code, not a parallel copy.
+  Anything worth testing (`cleanup-policy`, `ai-intent`, `near-miss`,
+  `correction-pass`, `spoken-numbers`, `spoken-email`, `constraints-block`,
+  `rewrite-prompt`, `rewrite-guard`, `model-cache-policy`,
+  `compaction-gate`, `media-apps`) is extracted and tested. Tests must
+  cover *shipped* code, not a parallel copy — `prompt-size.test.ts` spent
+  a while failing that rule by measuring the prompt with an empty context
+  block, a shape the reformat path never sends.
 - **Comments explain why, and cite the measurement.** Most non-obvious
   constants here came from a real log or benchmark; say which.
 - **Regression tests use the real failing input**, verbatim, with a comment

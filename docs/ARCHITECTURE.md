@@ -167,8 +167,9 @@ upgrading is the obvious move.
 
 **Over the cap is a downgrade, not a wall.** Dictation continues;
 cleanup falls back to `createLocalCleanupProvider()` plus the
-deterministic passes in `text-passes.ts`, which still fix brand names,
-the dictionary, self-corrections and question marks. `pricing-and-
+deterministic passes at the end of `runDictationPipeline`, which still fix
+brand names, the dictionary, self-corrections, spoken numbers, spoken
+email addresses and question marks. `pricing-and-
 economics.md` already described this shape — "over-cap Free users degrade
 gracefully to local-transcript + regex (still usable), that gap is the
 upgrade incentive". A blocked hotkey would just read as a broken app.
@@ -216,8 +217,12 @@ because the Groq cloud provider uses Whisper.
 
 **Cleanup is a cloud LLM call**, and is skipped more often than people
 expect — `cleanup-policy.ts` decides, and the order of its rules is
-load-bearing. Deterministic passes in `text-passes.ts` always run
-afterwards, so skipping cleanup never skips correctness.
+load-bearing. Deterministic passes always run afterwards, so skipping
+cleanup never skips correctness — on the dictation path. They live at the
+end of `runDictationPipeline`, not in a `text-passes.ts`; that file has
+never existed, and this document said otherwise until 2026-09-05. See
+`CLAUDE.md` for the ordered list and for the two paths that skip the
+chain entirely.
 
 **Context memory** is an LLM-written overview injected into every cleanup
 prompt, rebuilt by `context/compactor.ts` when the machine is idle. Facts

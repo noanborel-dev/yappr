@@ -53,8 +53,10 @@ export interface Entitlements {
 //
 // Over-cap is a DOWNGRADE, not a wall. The user keeps dictating; cleanup
 // falls back to createLocalCleanupProvider() and the deterministic passes
-// in text-passes.ts, which still fix brand names, the dictionary,
-// self-corrections and question marks. That gap is the upgrade incentive
+// at the end of runDictationPipeline, which still fix brand names, the
+// dictionary, self-corrections, spoken numbers, spoken email addresses
+// and question marks. (There is no text-passes.ts; this comment claimed
+// there was until 2026-09-05.) That gap is the upgrade incentive
 // — a blocked hotkey would just be a broken app.
 //
 // Unlike the fact cap, this one IS server-enforceable: the proxy already
