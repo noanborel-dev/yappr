@@ -8,6 +8,7 @@ import {
   senderNameFromOverview,
   asksForEmailComposition,
   instructsMessageComposition,
+  completeEmailSignoff,
   looksLikeMetaReply,
 } from '../shared/rewrite-prompt'
 import { buildContextBlock } from './context/prompt-injector'
@@ -1106,6 +1107,11 @@ export async function runDictationPipeline(
       // window the user is about to send from.
       if (composingEmail) {
         cleaned = normalizeComposedEmail(cleaned, senderFirstName())
+      } else if (effectiveCategory === 'email') {
+        // The user dictated the email themselves, so cleanup kept their
+        // words and — correctly — added nothing, which left it with no
+        // sign-off. Finish the shape without touching the words.
+        cleaned = completeEmailSignoff(cleaned, senderFirstName())
       }
       // A composed email with a greeting, a sign-off, and nothing between.
       //
