@@ -53,5 +53,18 @@ export function cleanupMaxTokens(input: BudgetInput): number {
     return Math.max(500, Math.min(1536, inputTokens * 6 + 300)) + headroom
   }
   // Cleanup: output is about input length, minus fillers, plus punctuation.
-  return Math.max(80, Math.min(1024, Math.ceil(inputTokens * 1.5) + 80)) + headroom
+  //
+  // The ceiling is 4096, not 1024. Because output tracks input here, a
+  // FIXED ceiling is the wrong shape: it starts binding at ~630 input
+  // tokens (~2,500 characters), and past that the reply is cut off rather
+  // than shortened — the model is not summarising, it is running out of
+  // room mid-sentence. The longest dictation on record is 2,265
+  // characters, which sits just under, so this has not bitten yet; a
+  // four-minute dictation would lose its tail.
+  //
+  // 4096 covers roughly 16,000 characters of output, which is longer than
+  // anyone dictates in one press, and it stays as a runaway guard rather
+  // than a working limit. Worst case costs $0.0012 at gpt-oss-20b output
+  // pricing, which is not a number worth truncating someone's words over.
+  return Math.max(80, Math.min(4096, Math.ceil(inputTokens * 1.5) + 80)) + headroom
 }

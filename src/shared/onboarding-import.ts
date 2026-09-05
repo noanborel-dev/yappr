@@ -27,28 +27,45 @@
  * component, where nothing stopped someone renaming a heading and
  * silently breaking the import for everyone.
  */
-export const ONBOARDING_CONTEXT_PROMPT = `I'm setting up a voice-dictation app called Yappr. It cleans up what I say using an LLM, and it can keep background context so the result sounds like me and knows what I'm working on.
+export const ONBOARDING_CONTEXT_PROMPT = `I'm setting up Yappr, a voice-dictation app for my Mac. It cleans up what I say with an LLM, and it keeps a small profile of me so the result sounds like me and knows what I'm working on.
 
-Write the following about me. If we've talked before, use what you already know; otherwise use what I tell you here and don't invent the rest.
+Write that profile. Use what you already know about me from our previous conversations. Where you don't know something, leave it out rather than guessing.
 
-First, ONE short paragraph (max 150 words): what I work on, names I say often, tools I use day to day, and how formal I am in different places (e.g. casual in iMessage, professional in email).
+First, ONE paragraph, max 150 words: what I do for work, what I'm building right now, the tools and languages I use daily, who I work with, and how formally I write in different places (e.g. casual in iMessage, professional in email).
 
-Then, using EXACTLY these headings:
+Then these headings, exactly as written. Skip any heading you have nothing real for.
 
 GLOBAL
-- one bullet per preference that's true of me everywhere, whatever I'm working on (e.g. "I always use TypeScript for new projects")
+- Preferences that hold across EVERYTHING I work on, not just one product.
+- e.g. "Uses TypeScript for every new project." / "Writes tests before implementation."
 
 PROJECT: <name>
-- one bullet per fact about that specific project — its stack, its conventions, what it does. Repeat this heading for each project you can identify.
+- What it is, in one line.
+- Its stack, framework and architecture.
+- Its conventions, and the rules I have set for it.
+- Repeat this heading for each project you know by name.
+
+PEOPLE
+- One line per person I work with: who they are and what we do together.
 
 UNSORTED
-- anything you can't confidently attach to a project. Put it here rather than guessing.
+- Anything true and useful that fits nowhere above.
 
-Rules:
-- One fact per bullet, one sentence, under 25 words.
-- Only add a PROJECT section if you actually know the project's name. Don't invent one.
-- Skip any heading you have nothing for.
-- Output only the paragraph and these sections — no preamble, no commentary after.`
+RULES — these matter more than completeness.
+
+LENGTH. One fact per bullet, one sentence, UNDER 20 WORDS. Anything longer is discarded on import, so a long bullet is a lost bullet.
+
+BE SPECIFIC. Name the actual tool, language, framework, or person. "Likes clean UI" is worthless. "Uses Tailwind and removes visible component outlines" is useful.
+
+DURABLE ONLY. A standing rule, not a task. "Always uses TypeScript" belongs here. "Wants the sidebar text bigger" does not — that is a to-do, and it will be wrong next week.
+
+SCOPE CAREFULLY. If a preference is about ONE product, put it under that PROJECT, not GLOBAL. Global facts are injected into every other project's prompts, so a misfiled one is actively misleading.
+
+NOTHING PERSONAL. No health, relationships, family, finances, location, age, politics, or anything I would not put in a work bio. Work, tools, projects and colleagues only.
+
+DO NOT INVENT. If you do not know my stack, omit the line. A missing fact costs nothing. A wrong one silently steers every sentence I dictate from now on.
+
+Output only the paragraph and the headings above. No preamble, no commentary, nothing after.`
 
 export interface OnboardingImport {
   /** The "who you are" paragraph. Empty when the paste had none. */
@@ -65,6 +82,7 @@ export interface OnboardingImport {
 // punctuation, bold markers and colons unprompted, and a heading that
 // fails to match silently drops the whole section.
 const GLOBAL_HEADING_RE = /^[#*\s]*(?:global|everywhere|about me|preferences)\b[:\s]*[*#]*$/i
+const PEOPLE_HEADING_RE = /^#*\s*PEOPLE\s*:?\s*$/i
 const UNSORTED_HEADING_RE = /^[#*\s]*(?:unsorted|other|misc(?:ellaneous)?|unclear)\b[:\s]*[*#]*$/i
 const PROJECT_HEADING_RE = /^[#*\s]*project\s*[:\-—]\s*(.+?)[\s*#]*$/i
 
@@ -113,6 +131,10 @@ export function parseOnboardingImport(raw: string): OnboardingImport {
 
     if (GLOBAL_HEADING_RE.test(trimmed)) { section = 'global'; sawHeading = true; continue }
     if (UNSORTED_HEADING_RE.test(trimmed)) { section = 'unsorted'; sawHeading = true; continue }
+    // PEOPLE folds into GLOBAL. Who someone works with is true wherever
+    // they are working, and a separate tier would be a third scope for
+    // getFactsFor to load and for the project cards to explain.
+    if (PEOPLE_HEADING_RE.test(trimmed)) { section = 'global'; sawHeading = true; continue }
     const projectMatch = PROJECT_HEADING_RE.exec(trimmed)
     if (projectMatch) {
       const key = normalizeKey(projectMatch[1])
